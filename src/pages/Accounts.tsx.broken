@@ -1,0 +1,483 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useFinanceStore } from '../store/useFinanceStore';
+import { type Account, type AccountType } from '../types';
+import { CreditCard, Plus, X, Wallet, Building, Banknote, Landmark, Trash2, AlertTriangle, Pencil } from 'lucide-react';
+import { cn, generateId } from '../lib/utils';
+// Removed unused format import
+
+export function Accounts() {
+    const navigate = useNavigate();
+    const { accounts, addAccount, updateAccount, deleteAccount } = useFinanceStore();
+    const [isAdding, setIsAdding] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+
+    // Form State
+    const [name, setName] = useState('');
+    const [type, setType] = useState<AccountType>('fixed-deposit');
+    const [balance, setBalance] = useState('');
+
+    // Additional Fields
+    const [accountNumber, setAccountNumber] = useState('');
+    const [customerId, setCustomerId] = useState('');
+    const [dmatId, setDmatId] = useState('');
+
+    const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
+    const [filterType, setFilterType] = useState<AccountType | 'all'>('all');
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+        }).format(amount);
+    };
+
+    const handleSave = () => {
+        if (!name.trim()) return;
+
+        // Check for duplicate account name, excluding current account if editing
+        const isDuplicate = accounts.some(
+            acc => acc.name.toLowerCase() === name.trim().toLowerCase() && acc.id !== editingId
+        );
+
+        if (isDuplicate) {
+            alert('An account with this name already exists.');
+            return;
+        }
+
+        const accountData: Partial<Account> = {
+            name,
+            type,
+            balance: parseFloat(balance) || 0,
+            color: 'blue',
+        };
+
+        if (type === 'savings') {
+            accountData.accountNumber = accountNumber;
+            accountData.customerId = customerId;
+        } else if (type === 'stock' || type === 'mutual-fund' || type === 'other') {
+            accountData.dmatId = dmatId;
+            accountData.customerId = customerId;
+        }
+
+        if (editingId) {
+            updateAccount(editingId, accountData);
+        } else {
+            addAccount({
+                ...accountData,
+                id: generateId(),
+            } as Account);
+        }
+
+        setIsAdding(false);
+        resetForm();
+    };
+
+    const handleEdit = (account: Account) => {
+        setEditingId(account.id);
+        setName(account.name);
+        setType(account.type);
+        setBalance(account.balance.toString());
+
+        // Populate specific fields if they exist
+        if (account.accountNumber) setAccountNumber(account.accountNumber);
+        if (account.customerId) setCustomerId(account.customerId);
+        if (account.dmatId) setDmatId(account.dmatId);
+
+        setIsAdding(true);
+    };
+
+
+
+    const resetForm = () => {
+        setEditingId(null);
+        setName('');
+        setBalance('');
+        setType('fixed-deposit');
+        setAccountNumber('');
+        setCustomerId('');
+        setDmatId('');
+    };
+
+    const handleDeleteConfirm = () => {
+        if (accountToDelete) {
+            deleteAccount(accountToDelete.id);
+            setAccountToDelete(null);
+        }
+    };
+
+    const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'other';
+
+    const filteredAccounts = accounts.filter(acc => {
+        const matchesTab = activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
+        const matchesFilter = filterType === 'all' || acc.type === filterType;
+        return matchesTab && matchesFilter;
+    });
+
+    // Group accounts by type
+    const groupedAccounts = filteredAccounts.reduce((groups, account) => {
+        const type = account.type;
+        if (!groups[type]) {
+            groups[type] = [];
+        }
+        groups[type].push(account);
+        return groups;
+    }, {} as Record<string, Account[]>);
+
+    // Get type display name
+    const getTypeDisplayName = (type: AccountType): string => {
+        const typeNames: Record<AccountType, string> = {
+            'fixed-deposit': 'Fixed Deposit',
+            'savings': 'Savings',
+            'credit': 'Credit Card',
+            'cash': 'Cash',
+            'loan': 'Loan',
+            'stock': 'Stock',
+            'mutual-fund': 'Mutual Fund',
+            'other': 'Other'
+        };
+        return typeNames[type] || type;
+    };
+
+    // Get investment type display name
+    const getInvestmentTypeDisplayName = (invType: AccountType): string => {
+        const invTypeNames: Record<string, string> = {
+            'stock': 'Stock',
+            'mutual-fund': 'Mutual Fund',
+            'other': 'Other'
+        };
+        return invTypeNames[invType] || invType;
+    };
+
+    const openAddModal = () => {
+        resetForm(); // Ensure clear state
+        setIsAdding(true);
+        // Default type based on tab
+        setType(activeTab === 'banking' ? 'fixed-deposit' : 'stock');
+    };
+
+    // Grouping isn't strictly necessary if filtering a single type, but useful for 'all'
+    // or just list them all out if that's preferred for the list view.
+    // The user requirement "Based on selection the accounts should list" implies a flat list of that type might be fine,
+    // but preserving the type headers for 'all' is nice.
+    // However, "display account in list instead of cards" suggests a row layout.
+
+    return (
+        <div className="space-y-6 pb-20">
+            <header className="flex flex-col gap-4">
+                <div className="flex justify-between items-center w-full">
+                    <h1 className="text-2xl font-bold text-gray-900">Accounts</h1>
+                    <button
+                        onClick={openAddModal}
+                        className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors sm:hidden"
+                    >
+                        <Plus size={24} />
+                    </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex p-1 bg-gray-100 rounded-xl">
+                    <button
+                        onClick={() => { setActiveTab('banking'); setFilterType('all'); }}
+                        className={cn(
+                            "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
+                            activeTab === 'banking' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+                        )}
+                    >
+                        Banking
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('investments'); setFilterType('all'); }}
+                        className={cn(
+                            "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
+                            activeTab === 'investments' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+                        )}
+                    >
+                        Investments
+                    </button>
+                </div>
+
+                <div className="flex gap-3 w-full sm:w-auto">
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value as AccountType | 'all')}
+                        className="flex-1 sm:w-48 p-2.5 bg-white border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+                    >
+                        <option value="all">All Types</option>
+                        {activeTab === 'banking' ? (
+                            <>
+                                <option value="fixed-deposit">Fixed Deposit</option>
+                                <option value="savings">Savings</option>
+                                <option value="credit">Credit Card</option>
+                                <option value="loan">Loan</option>
+                                <option value="cash">Cash</option>
+                            </>
+                        ) : (
+                            <option value="investment">Investment</option>
+                        )}
+                    </select>
+
+                    <button
+                        onClick={openAddModal}
+                        className="hidden sm:block p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors"
+                    >
+                        <Plus size={24} />
+                    </button>
+                </div>
+            </header>
+
+            {/* Add Account Modal/Sheet Overlay */}
+            {isAdding && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold">{editingId ? 'Edit Account' : 'New Account'}</h2>
+                            <button onClick={() => { setIsAdding(false); resetForm(); }} className="text-gray-400 hover:text-gray-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="e.g. Chase Checking"
+                                    className="w-full text-lg p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {activeTab === 'banking' ? (
+                                        ['fixed-deposit', 'savings', 'credit', 'cash', 'loan'].map((t) => (
+                                            <button
+                                                key={t}
+                                                onClick={() => setType(t as AccountType)}
+                                                className={cn(
+                                                    "p-2 rounded-lg text-sm font-medium capitalize border transition-all",
+                                                    type === t
+                                                        ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                                                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                                                )}
+                                            >
+                                                {t === 'fixed-deposit' ? 'FD' : t}
+                                            </button>
+                                        ))
+                                    ) : (
+                                        ['stock', 'mutual-fund', 'other'].map((t) => (
+                                            <button
+                                                key={t}
+                                                onClick={() => setType(t as AccountType)}
+                                                className={cn(
+                                                    "p-2 rounded-lg text-sm font-medium capitalize border transition-all",
+                                                    type === t
+                                                        ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                                                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                                                )}
+                                            >
+                                                {t === 'mutual-fund' ? 'Mutual Fund' : t}
+                                            </button>
+                                        ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {type === 'savings' && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                                    <input
+                                        type="text"
+                                        value={accountNumber}
+                                        onChange={(e) => setAccountNumber(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer ID</label>
+                                    <input
+                                        type="text"
+                                        value={customerId}
+                                        onChange={(e) => setCustomerId(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {(type === 'stock' || type === 'mutual-fund' || type === 'other') && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">DMAT ID</label>
+                                    <input
+                                        type="text"
+                                        value={dmatId}
+                                        onChange={(e) => setDmatId(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer ID</label>
+                                    <input
+                                        type="text"
+                                        value={customerId}
+                                        onChange={(e) => setCustomerId(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Initial Balance</label>
+                            <input
+                                type="number"
+                                inputMode="decimal"
+                                value={balance}
+                                onChange={(e) => setBalance(e.target.value)}
+                                placeholder="0.00"
+                                className="w-full text-2xl font-bold p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500 text-right"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleSave}
+                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl mt-4 shadow-lg active:scale-[0.98] transition-transform"
+                        >
+                            {editingId ? 'Save Changes' : 'Create Account'}
+                        </button>
+                    </div>
+                </div>
+                </div>
+    )
+}
+
+{/* Delete Confirmation Modal */ }
+{
+    accountToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-in compile-in zoom-in-95 duration-200">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <AlertTriangle className="text-red-600" size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-center text-gray-900 mb-2">Delete Account?</h3>
+                <p className="text-gray-500 text-center mb-6">
+                    Are you sure you want to delete <span className="font-semibold text-gray-900">{accountToDelete.name}</span>? This action cannot be undone.
+                </p>
+
+                <div className="flex space-x-3">
+                    <button
+                        onClick={() => setAccountToDelete(null)}
+                        className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleDeleteConfirm}
+                        className="flex-1 py-3 px-4 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+{/* Accounts List */ }
+<div className="space-y-4">
+    {filteredAccounts.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+            <div className="bg-gray-100 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wallet size={32} className="text-gray-400" />
+            </div>
+            <h3 className="text-gray-900 font-medium">No accounts found</h3>
+            <p className="text-gray-500 text-sm mt-1">
+                {accounts.length === 0 ? "Tap + to add your first account" : "Try selecting a different filter"}
+            </p>
+        </div>
+    ) : (
+        <div className="space-y-6">
+            {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => (
+                <div key={type}>
+                    {/* Type Header */}
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1">
+                        {getTypeDisplayName(type as AccountType)}
+                    </h3>
+
+                    {/* Accounts in this type */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        {accountsInGroup.map((acc, index) => (
+                            <div
+                                key={acc.id}
+                                onClick={() => navigate(`/accounts/${acc.id}`)}
+                                className={cn(
+                                    "flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100",
+                                    index !== accountsInGroup.length - 1 && "border-b border-gray-100"
+                                )}
+                            >
+                                <div className="flex items-center space-x-4">
+                                    <div className={cn(
+                                        "p-3 rounded-xl",
+                                        acc.type === 'credit' ? "bg-purple-100 text-purple-600" :
+                                            acc.type === 'cash' ? "bg-green-100 text-green-600" :
+                                                acc.type === 'loan' ? "bg-orange-100 text-orange-600" :
+                                                    "bg-blue-100 text-blue-600"
+                                    )}>
+                                        {acc.type === 'credit' ? <CreditCard size={20} /> :
+                                            acc.type === 'cash' ? <Banknote size={20} /> :
+                                                acc.type === 'loan' ? <Landmark size={20} /> :
+                                                    <Building size={20} />}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900">{acc.name}</h3>
+                                        <p className="text-xs text-gray-500 capitalize">{acc.type}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-4">
+                                    <div className="text-right">
+                                        <p className={cn("font-bold", acc.balance < 0 ? "text-red-600" : "text-gray-900")}>
+                                            {formatCurrency(acc.balance)}
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            handleEdit(acc);
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors hover:bg-blue-50 rounded-lg"
+                                    >
+                                        <Pencil size={18} />
+                                    </button>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            setAccountToDelete(acc);
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-lg"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                                )}
+                </div>
+            ))}
+        </div>
+    )}
+</div>
+        </div >
+    );
+}
