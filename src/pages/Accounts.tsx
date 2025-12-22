@@ -126,17 +126,17 @@ export function Accounts() {
 
     // Get type display name
     const getTypeDisplayName = (type: AccountType): string => {
-        const typeNames: Record<AccountType, string> = {
-            'fixed-deposit': 'Fixed Deposit',
-            'savings': 'Savings',
-            'credit': 'Credit Card',
-            'cash': 'Cash',
-            'loan': 'Loan',
-            'stock': 'Stock',
-            'mutual-fund': 'Mutual Fund',
-            'other': 'Other'
-        };
-        return typeNames[type] || type;
+        switch (type) {
+            case 'savings': return 'Savings';
+            case 'fixed-deposit': return 'Fixed Deposit';
+            case 'credit': return 'Credit Card';
+            case 'cash': return 'Cash';
+            case 'loan': return 'Loans';
+            case 'stock': return 'Stock';
+            case 'mutual-fund': return 'Mutual Fund';
+            case 'other': return 'Other';
+            default: return type;
+        }
     };
 
     // Get icon for account type
@@ -268,7 +268,7 @@ export function Accounts() {
                             <option value="savings">Savings</option>
                             <option value="credit">Credit Card</option>
                             <option value="cash">Cash</option>
-                            <option value="loan">Loan</option>
+                            <option value="loan">Loans</option>
                         </>
                     ) : (
                         <>

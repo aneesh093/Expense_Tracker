@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, List } from 'lucide-react';
 import { cn, generateId } from '../lib/utils';
 import { type TransactionType } from '../types';
 
@@ -12,6 +12,9 @@ export function Categories() {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryType, setNewCategoryType] = useState<TransactionType>('expense');
     const [showAddForm, setShowAddForm] = useState(false);
+    const [showBulkAdd, setShowBulkAdd] = useState(false);
+    const [bulkInput, setBulkInput] = useState('');
+    const [bulkType, setBulkType] = useState<TransactionType>('expense');
 
     const openAddModal = (type: TransactionType) => {
         setNewCategoryType(type);
@@ -36,6 +39,43 @@ export function Categories() {
         setShowAddForm(false);
     };
 
+    const handleBulkAdd = () => {
+        if (!bulkInput.trim()) return;
+
+        // Parse input: one category per line
+        const lines = bulkInput.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+
+        if (lines.length === 0) return;
+
+        // Get existing category names to prevent duplicates
+        const existingNames = categories
+            .filter(c => c.type === bulkType)
+            .map(c => c.name.toLowerCase());
+
+        // Add each category
+        const colors = bulkType === 'income'
+            ? ['#22c55e', '#10b981', '#059669', '#047857', '#065f46']
+            : ['#ef4444', '#dc2626', '#b91c1c', '#991b1b', '#7f1d1d'];
+
+        lines.forEach((name, index) => {
+            // Skip if duplicate
+            if (existingNames.includes(name.toLowerCase())) return;
+
+            addCategory({
+                id: generateId(),
+                name: name,
+                type: bulkType,
+                icon: bulkType === 'income' ? 'banknote' : 'shopping-bag',
+                color: colors[index % colors.length]
+            });
+        });
+
+        setBulkInput('');
+        setShowBulkAdd(false);
+    };
+
     return (
         <div className="flex flex-col h-screen bg-gray-50">
             {/* Header */}
@@ -53,73 +93,103 @@ export function Categories() {
 
                 {/* Income Categories */}
                 <section>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Income Categories</h2>
-                    <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
-                        {incomeCategories.map(category => (
-                            <div key={category.id} className="p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <div
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: category.color }}
-                                    />
-                                    <span className="font-medium text-gray-900">{category.name}</span>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Income Categories</h2>
+                            <span className="text-xs text-gray-400">{incomeCategories.length}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => openAddModal('income')}
+                                className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Add Income Category"
+                            >
+                                <Plus size={18} />
+                            </button>
+                            <button
+                                onClick={() => { setBulkType('income'); setShowBulkAdd(true); }}
+                                className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                                title="Bulk Add Income Categories"
+                            >
+                                <List size={18} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        {/* Scrollable category list */}
+                        <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                            {incomeCategories.map(category => (
+                                <div key={category.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-center space-x-3">
+                                        <div
+                                            className="w-3 h-3 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: category.color }}
+                                        />
+                                        <span className="font-medium text-gray-900">{category.name}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => deleteCategory(category.id)}
+                                        className="text-gray-400 hover:text-red-500 transition-colors p-2 flex-shrink-0"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => deleteCategory(category.id)}
-                                    className="text-gray-400 hover:text-red-500 transition-colors p-2"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </div>
-                        ))}
-                        {incomeCategories.length === 0 && (
-                            <div className="p-4 text-gray-400 text-sm italic text-center">No income categories</div>
-                        )}
-                        <button
-                            onClick={() => openAddModal('income')}
-                            className="w-full p-4 flex items-center space-x-3 text-blue-600 hover:bg-blue-50 transition-colors"
-                        >
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                <Plus size={16} />
-                            </div>
-                            <span className="font-medium">Add Income Category</span>
-                        </button>
+                            ))}
+                            {incomeCategories.length === 0 && (
+                                <div className="p-8 text-gray-400 text-sm italic text-center">No income categories</div>
+                            )}
+                        </div>
                     </div>
                 </section>
 
                 {/* Expense Categories */}
                 <section>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Expense Categories</h2>
-                    <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
-                        {expenseCategories.map(category => (
-                            <div key={category.id} className="p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <div
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: category.color }}
-                                    />
-                                    <span className="font-medium text-gray-900">{category.name}</span>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Expense Categories</h2>
+                            <span className="text-xs text-gray-400">{expenseCategories.length}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => openAddModal('expense')}
+                                className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Add Expense Category"
+                            >
+                                <Plus size={18} />
+                            </button>
+                            <button
+                                onClick={() => { setBulkType('expense'); setShowBulkAdd(true); }}
+                                className="p-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors"
+                                title="Bulk Add Expense Categories"
+                            >
+                                <List size={18} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        {/* Scrollable category list */}
+                        <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                            {expenseCategories.map(category => (
+                                <div key={category.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-center space-x-3">
+                                        <div
+                                            className="w-3 h-3 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: category.color }}
+                                        />
+                                        <span className="font-medium text-gray-900">{category.name}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => deleteCategory(category.id)}
+                                        className="text-gray-400 hover:text-red-500 transition-colors p-2 flex-shrink-0"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => deleteCategory(category.id)}
-                                    className="text-gray-400 hover:text-red-500 transition-colors p-2"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </div>
-                        ))}
-                        {expenseCategories.length === 0 && (
-                            <div className="p-4 text-gray-400 text-sm italic text-center">No expense categories</div>
-                        )}
-                        <button
-                            onClick={() => openAddModal('expense')}
-                            className="w-full p-4 flex items-center space-x-3 text-blue-600 hover:bg-blue-50 transition-colors"
-                        >
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                <Plus size={16} />
-                            </div>
-                            <span className="font-medium">Add Expense Category</span>
-                        </button>
+                            ))}
+                            {expenseCategories.length === 0 && (
+                                <div className="p-8 text-gray-400 text-sm italic text-center">No expense categories</div>
+                            )}
+                        </div>
                     </div>
                 </section>
 
@@ -176,6 +246,49 @@ export function Categories() {
                                 className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Add Modal */}
+            {showBulkAdd && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Bulk Add {bulkType === 'income' ? 'Income' : 'Expense'} Categories</h3>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Category Names</label>
+                                <p className="text-xs text-gray-500 mb-2">Enter one category per line</p>
+                                <textarea
+                                    value={bulkInput}
+                                    onChange={(e) => setBulkInput(e.target.value)}
+                                    placeholder={`Groceries\nRent\nUtilities\nTransportation`}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono text-sm"
+                                    rows={8}
+                                    autoFocus
+                                />
+                                <p className="text-xs text-gray-500 mt-2">
+                                    {bulkInput.split('\n').filter(l => l.trim()).length} categories will be added
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex space-x-3 mt-6">
+                            <button
+                                onClick={() => { setShowBulkAdd(false); setBulkInput(''); }}
+                                className="flex-1 px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkAdd}
+                                disabled={!bulkInput.trim()}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Add All
                             </button>
                         </div>
                     </div>

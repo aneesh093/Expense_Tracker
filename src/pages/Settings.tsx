@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, Download, Upload, FileSpreadsheet, Layers, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Download, Upload, FileSpreadsheet, Layers, ChevronRight, Clock } from 'lucide-react';
 
 export function Settings() {
     const navigate = useNavigate();
@@ -121,6 +121,52 @@ export function Settings() {
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
+                    </div>
+                </section>
+
+                {/* Auto Backup Section */}
+                <section>
+                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Auto Backup</h2>
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div className="p-4">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-start space-x-3">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                                        <Clock size={20} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-medium text-gray-900">Daily Backup</h3>
+                                        <p className="text-sm text-gray-500 mt-1">Automatic backup at 9:00 PM IST</p>
+                                        {(() => {
+                                            const lastBackup = localStorage.getItem('last-auto-backup');
+                                            if (lastBackup) {
+                                                return (
+                                                    <p className="text-xs text-gray-400 mt-2">
+                                                        Last backup: {lastBackup}
+                                                    </p>
+                                                );
+                                            }
+                                            return (
+                                                <p className="text-xs text-gray-400 mt-2">
+                                                    No backups yet
+                                                </p>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        defaultChecked={localStorage.getItem('auto-backup-enabled') !== 'false'}
+                                        onChange={(e) => {
+                                            localStorage.setItem('auto-backup-enabled', e.target.checked.toString());
+                                        }}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

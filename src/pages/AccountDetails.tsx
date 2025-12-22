@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, X, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, generateId } from '../lib/utils';
 import { useMemo, useState } from 'react';
@@ -15,6 +15,7 @@ export function AccountDetails() {
 
     // Holding Form State
     const [isAddingHolding, setIsAddingHolding] = useState(false);
+    const [editingHoldingId, setEditingHoldingId] = useState<string | null>(null);
     const [holdingName, setHoldingName] = useState('');
     const [holdingQty, setHoldingQty] = useState('');
     const [holdingRate, setHoldingRate] = useState('');
@@ -37,13 +38,6 @@ export function AccountDetails() {
         const currentHoldings = account.holdings || [];
         const updatedHoldings = [...currentHoldings, newHolding];
 
-        // Recalculate balance based on holdings
-        // Note: For investment accounts, we might want the balance to purely reflect holdings value
-        // plus any uninvested cash (if we tracked that separately). For now, assuming balance = total holdings value.
-        // Or should we just ADD to the existing balance?
-        // The previous implementation in Accounts.tsx set balance = totalValue.
-        // So we should stick to that consistency: Investment Account Balance = Sum of Holdings Value.
-
         const newBalance = updatedHoldings.reduce((sum, h) => sum + h.purchasePrice, 0);
 
         updateAccount(account.id, {
@@ -52,6 +46,48 @@ export function AccountDetails() {
         });
 
         setIsAddingHolding(false);
+        setHoldingName('');
+        setHoldingQty('');
+        setHoldingRate('');
+    };
+
+    const handleEditHolding = (holding: Holding) => {
+        setEditingHoldingId(holding.id);
+        setHoldingName(holding.name);
+        setHoldingQty(holding.quantity.toString());
+        setHoldingRate(holding.purchaseRate.toString());
+        setIsAddingHolding(true);
+    };
+
+    const handleSaveHolding = () => {
+        if (!account || !holdingName || !holdingQty || !holdingRate) return;
+
+        const qty = parseFloat(holdingQty);
+        const rate = parseFloat(holdingRate);
+        const price = qty * rate;
+
+        if (editingHoldingId) {
+            // Edit existing holding
+            const updatedHoldings = (account.holdings || []).map(h =>
+                h.id === editingHoldingId
+                    ? { ...h, name: holdingName, quantity: qty, purchaseRate: rate, purchasePrice: price }
+                    : h
+            );
+
+            const newBalance = updatedHoldings.reduce((sum, h) => sum + h.purchasePrice, 0);
+
+            updateAccount(account.id, {
+                holdings: updatedHoldings,
+                balance: newBalance
+            });
+        } else {
+            // Add new holding
+            handleAddHolding();
+            return;
+        }
+
+        setIsAddingHolding(false);
+        setEditingHoldingId(null);
         setHoldingName('');
         setHoldingQty('');
         setHoldingRate('');
@@ -140,64 +176,79 @@ export function AccountDetails() {
                     </div>
 
                     {isAddingHolding && (
-                        <div className="bg-white p-3 rounded-xl border border-blue-100 shadow-sm mb-3 space-y-3 animate-in slide-in-from-top-2">
-                            <input
-                                type="text"
-                                placeholder="Stock/Fund Name"
-                                value={holdingName}
-                                onChange={(e) => setHoldingName(e.target.value)}
-                                className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                autoFocus
-                            />
-                            <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">{editingHoldingId ? 'Edit Stock' : 'Add Stock'}</h3>
+                            <div className="space-y-3">
                                 <input
-                                    type="number"
-                                    placeholder="Rate"
-                                    value={holdingRate}
-                                    onChange={(e) => setHoldingRate(e.target.value)}
+                                    type="text"
+                                    placeholder="Stock/Fund Name"
+                                    value={holdingName}
+                                    onChange={(e) => setHoldingName(e.target.value)}
                                     className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    autoFocus
                                 />
-                                <input
-                                    type="number"
-                                    placeholder="Qty"
-                                    value={holdingQty}
-                                    onChange={(e) => setHoldingQty(e.target.value)}
-                                    className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                            <div className="flex items-center justify-between pt-1">
-                                <button
-                                    onClick={() => setIsAddingHolding(false)}
-                                    className="text-gray-500 text-sm font-medium hover:text-gray-700"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleAddHolding}
-                                    className="px-4 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 shadow-sm"
-                                >
-                                    Save
-                                </button>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        type="number"
+                                        placeholder="Rate"
+                                        value={holdingRate}
+                                        onChange={(e) => setHoldingRate(e.target.value)}
+                                        className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                    <input
+                                        type="number"
+                                        placeholder="Qty"
+                                        value={holdingQty}
+                                        onChange={(e) => setHoldingQty(e.target.value)}
+                                        className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between pt-1">
+                                    <button
+                                        onClick={() => { setIsAddingHolding(false); setEditingHoldingId(null); setHoldingName(''); setHoldingQty(''); setHoldingRate(''); }}
+                                        className="text-gray-500 text-sm font-medium hover:text-gray-700"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSaveHolding}
+                                        disabled={!holdingName || !holdingQty || !holdingRate}
+                                        className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {editingHoldingId ? 'Save Changes' : 'Add Stock'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
 
                     <div className="space-y-2">
                         {account.holdings && account.holdings.length > 0 ? (
-                            account.holdings.map((h, i) => (
-                                <div key={i} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 group">
-                                    <div>
-                                        <p className="font-semibold text-gray-900">{h.name}</p>
-                                        <p className="text-xs text-gray-500">{h.quantity} units @ {formatCurrency(h.purchaseRate)}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <p className="font-bold text-gray-900">{formatCurrency(h.purchasePrice)}</p>
-                                        <button
-                                            onClick={() => handleRemoveHolding(h.id)}
-                                            className="text-gray-300 hover:text-red-500 transition-colors p-1"
-                                        >
-                                            <X size={16} />
-                                        </button>
+                            account.holdings.map((holding) => (
+                                <div key={holding.id} className="p-4 border-b border-gray-100 last:border-0">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                            <h4 className="font-medium text-gray-900">{holding.name}</h4>
+                                            <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
+                                                <span>Qty: {holding.quantity}</span>
+                                                <span>Rate: {formatCurrency(holding.purchaseRate)}</span>
+                                                <span className="font-medium text-gray-900">Total: {formatCurrency(holding.purchasePrice)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <button
+                                                onClick={() => handleEditHolding(holding)}
+                                                className="p-2 text-gray-400 hover:text-blue-500 transition-colors hover:bg-blue-50 rounded-lg"
+                                            >
+                                                <Pencil size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleRemoveHolding(holding.id)}
+                                                className="p-2 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-lg"
+                                            >
+                                                <X size={18} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))

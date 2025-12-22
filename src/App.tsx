@@ -11,11 +11,15 @@ import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { Categories } from './pages/Categories';
 import { useFinanceStore } from './store/useFinanceStore';
+import { useBackupScheduler } from './hooks/useBackupScheduler';
 
 // Placeholder pages to be implemented later
 
 function App() {
   const initialize = useFinanceStore((state) => state.initialize);
+
+  // Enable automatic daily backups
+  useBackupScheduler();
 
   useEffect(() => {
     // Initialize store from IndexedDB on app startup
