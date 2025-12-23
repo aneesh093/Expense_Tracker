@@ -1,6 +1,6 @@
 
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PlusCircle, PieChart, Settings } from 'lucide-react';
+import { LayoutDashboard, Wallet, PlusCircle, Settings, PieChart } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export function MobileLayout() {

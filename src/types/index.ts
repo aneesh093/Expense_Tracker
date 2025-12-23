@@ -32,6 +32,7 @@ export interface Transaction {
     category: string;
     date: string;
     note?: string;
+    eventId?: string; // For event-based tracking
 }
 
 export interface Category {
@@ -40,4 +41,14 @@ export interface Category {
     type: TransactionType;
     icon: string;
     color: string;
+}
+
+export interface Event {
+    id: string;
+    name: string;
+    description?: string;
+    startDate: string;
+    endDate?: string;
+    color: string;
+    icon: string;
 }

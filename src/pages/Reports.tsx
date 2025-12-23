@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories } = useFinanceStore();
+    const { transactions, categories, events } = useFinanceStore();
 
     // current month state
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -155,7 +155,12 @@ export function Reports() {
                                         {t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-gray-900 text-sm">{t.note || t.category}</p>
+                                        <p className="font-semibold text-gray-900 text-sm">
+                                            {t.eventId
+                                                ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
+                                                : (t.note || t.category)
+                                            }
+                                        </p>
                                         <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd')}</p>
                                     </div>
                                 </div>

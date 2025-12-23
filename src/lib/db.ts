@@ -1,18 +1,28 @@
 import Dexie, { type Table } from 'dexie';
-import { type Account, type Transaction, type Category } from '../types';
+import { type Account, type Transaction, type Category, type Event } from '../types';
 
 export class FinanceDatabase extends Dexie {
     accounts!: Table<Account, string>;
     transactions!: Table<Transaction, string>;
     categories!: Table<Category, string>;
+    events!: Table<Event, string>;
 
     constructor() {
         super('FinanceDB');
 
+        // Version 1: Initial schema
         this.version(1).stores({
             accounts: 'id, name, type, balance',
             transactions: 'id, date, accountId, toAccountId, type, category',
             categories: 'id, name, type'
+        });
+
+        // Version 2: Add events table and eventId index to transactions
+        this.version(2).stores({
+            accounts: 'id, name, type, balance',
+            transactions: 'id, date, accountId, toAccountId, type, category, eventId',
+            categories: 'id, name, type',
+            events: 'id, name, startDate, endDate'
         });
     }
 }
@@ -152,5 +162,26 @@ export const dbHelpers = {
 
     async deleteCategory(id: string): Promise<void> {
         await db.categories.delete(id);
+    },
+
+    // Events
+    async getAllEvents(): Promise<Event[]> {
+        return await db.events.orderBy('startDate').reverse().toArray();
+    },
+
+    async getEventById(id: string): Promise<Event | undefined> {
+        return await db.events.get(id);
+    },
+
+    async addEvent(event: Event): Promise<string> {
+        return await db.events.add(event);
+    },
+
+    async updateEvent(id: string, updates: Partial<Event>): Promise<number> {
+        return await db.events.update(id, updates);
+    },
+
+    async deleteEvent(id: string): Promise<void> {
+        await db.events.delete(id);
     }
 };

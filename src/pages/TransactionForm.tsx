@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type Transaction, type TransactionType } from '../types';
 import { ArrowLeft, ChevronDown, Check, Trash2 } from 'lucide-react';
@@ -8,17 +8,25 @@ import { cn, generateId } from '../lib/utils';
 export function TransactionForm() {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { accounts, categories, addTransaction, editTransaction, transactions, deleteTransaction } = useFinanceStore();
+    const [searchParams] = useSearchParams();
+    const { accounts, categories, events, addTransaction, editTransaction, transactions, deleteTransaction } = useFinanceStore();
 
     const [amount, setAmount] = useState('0');
     const [type, setType] = useState<TransactionType>('expense');
     const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
     const [toAccountId, setToAccountId] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id || '');
+    const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [note, setNote] = useState('');
     const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
+        // Pre-fill eventId from URL parameter (when navigating from event details)
+        const eventIdParam = searchParams.get('eventId');
+        if (eventIdParam) {
+            setSelectedEventId(eventIdParam);
+        }
+
         if (id) {
             const transaction = transactions.find(t => t.id === id);
             if (transaction) {
@@ -33,11 +41,12 @@ export function TransactionForm() {
                 // Let's try to find category by name, else default
                 const category = categories.find(c => c.name === transaction.category);
                 setSelectedCategory(category ? category.id : (categories[0]?.id || ''));
+                setSelectedEventId(transaction.eventId || '');
                 setNote(transaction.note || '');
                 setIsEditing(true);
             }
         }
-    }, [id, transactions, categories]);
+    }, [id, transactions, categories, searchParams]);
 
     // Update selected category when type changes
     useEffect(() => {
@@ -109,7 +118,8 @@ export function TransactionForm() {
             type,
             category: categoryName,
             date: isEditing && id ? (transactions.find(t => t.id === id)?.date || new Date().toISOString()) : new Date().toISOString(),
-            note
+            note,
+            eventId: selectedEventId || undefined
         };
 
         if (isEditing && id) {
@@ -242,6 +252,24 @@ export function TransactionForm() {
                         onChange={(e) => setNote(e.target.value)}
                         className="bg-transparent text-right font-medium text-gray-900 placeholder-gray-400 focus:outline-none w-1/2"
                     />
+                </div>
+
+                {/* Event Select */}
+                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                    <span className="text-gray-500 text-sm font-medium">Event</span>
+                    <div className="relative">
+                        <select
+                            value={selectedEventId}
+                            onChange={(e) => setSelectedEventId(e.target.value)}
+                            className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
+                        >
+                            <option value="">None</option>
+                            {events.map(event => (
+                                <option key={event.id} value={event.id}>{event.name}</option>
+                            ))}
+                        </select>
+                        <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                 </div>
             </div>
 

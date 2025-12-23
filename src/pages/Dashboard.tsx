@@ -7,10 +7,22 @@ import { cn } from '../lib/utils';
 
 export function Dashboard() {
     const navigate = useNavigate();
-    const { accounts, transactions } = useFinanceStore();
+    const { accounts, transactions, events } = useFinanceStore();
 
     const totalBalance = useMemo(() => {
-        return accounts.reduce((sum, acc) => sum + acc.balance, 0);
+        return accounts.reduce((sum, acc) => {
+            if (acc.type === 'loan') {
+                return sum - acc.balance;
+            }
+            return sum + acc.balance;
+        }, 0);
+    }, [accounts]);
+
+    const displayedAccounts = useMemo(() => {
+        const allowedBanks = ['ICICI', 'HDFC', 'BOB'];
+        return accounts.filter(acc =>
+            allowedBanks.some(bank => acc.name.toUpperCase().includes(bank))
+        );
     }, [accounts]);
 
     // Calculate monthly totals
@@ -97,7 +109,12 @@ export function Dashboard() {
                                         {t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-gray-900 text-sm">{t.note || t.category}</p>
+                                        <p className="font-semibold text-gray-900 text-sm">
+                                            {t.eventId
+                                                ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
+                                                : (t.note || t.category)
+                                            }
+                                        </p>
                                         <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
                                     </div>
                                 </div>
@@ -114,12 +131,12 @@ export function Dashboard() {
             <section>
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Your Accounts</h3>
                 <div className="space-y-3">
-                    {accounts.length === 0 ? (
+                    {displayedAccounts.length === 0 ? (
                         <div className="text-center py-8 bg-white rounded-xl border border-dashed border-gray-300">
-                            <p className="text-gray-500 text-sm">No accounts added.</p>
+                            <p className="text-gray-500 text-sm">No matching accounts found.</p>
                         </div>
                     ) : (
-                        accounts.slice(0, 3).map(acc => (
+                        displayedAccounts.slice(0, 3).map(acc => (
                             <div key={acc.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100">
                                 <div className="flex items-center space-x-3">
                                     <div className="p-2 bg-gray-100 rounded-lg text-gray-600">

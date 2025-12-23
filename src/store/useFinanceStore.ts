@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { type Account, type Transaction, type Category } from '../types';
+import { type Account, type Transaction, type Category, type Event } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
     accounts: Account[];
     transactions: Transaction[];
     categories: Category[];
+    events: Event[];
     isInitialized: boolean;
 
     // Initialize store from IndexedDB
@@ -24,13 +25,18 @@ interface FinanceState {
     addCategory: (category: Category) => void;
     deleteCategory: (id: string) => void;
 
-    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[] }) => void;
+    addEvent: (event: Event) => void;
+    updateEvent: (id: string, updates: Partial<Event>) => void;
+    deleteEvent: (id: string) => void;
+
+    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[] }) => void;
 }
 
 export const useFinanceStore = create<FinanceState>()((set, get) => ({
     accounts: [],
     transactions: [],
     categories: [],
+    events: [],
     isInitialized: false,
 
     // Initialize: Load data from IndexedDB and migrate from localStorage if needed
@@ -40,16 +46,18 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await migrateFromLocalStorage();
 
             // Load all data from IndexedDB
-            const [accounts, transactions, categories] = await Promise.all([
+            const [accounts, transactions, categories, events] = await Promise.all([
                 dbHelpers.getAllAccounts(),
                 dbHelpers.getAllTransactions(),
-                dbHelpers.getAllCategories()
+                dbHelpers.getAllCategories(),
+                dbHelpers.getAllEvents()
             ]);
 
             set({
                 accounts,
                 transactions,
                 categories,
+                events,
                 isInitialized: true
             });
 
@@ -218,6 +226,35 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         dbHelpers.deleteCategory(id).catch(console.error);
     },
 
+    addEvent: (event) => {
+        set((state) => ({ events: [...state.events, event] }));
+        dbHelpers.addEvent(event).catch(console.error);
+    },
+
+    updateEvent: (id, updates) => {
+        set((state) => ({
+            events: state.events.map((evt) => (evt.id === id ? { ...evt, ...updates } : evt)),
+        }));
+        dbHelpers.updateEvent(id, updates).catch(console.error);
+    },
+
+    deleteEvent: (id) => {
+        set((state) => ({
+            events: state.events.filter((evt) => evt.id !== id),
+            // Remove eventId from transactions when event is deleted
+            transactions: state.transactions.map((t) =>
+                t.eventId === id ? { ...t, eventId: undefined } : t
+            ),
+        }));
+        dbHelpers.deleteEvent(id).catch(console.error);
+        // Update transactions in DB to remove eventId
+        get().transactions
+            .filter((t) => t.eventId === id)
+            .forEach((t) => {
+                dbHelpers.updateTransaction(t.id, { eventId: undefined }).catch(console.error);
+            });
+    },
+
     importData: async (data) => {
         try {
             // Clear existing data
@@ -229,12 +266,14 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             if (data.accounts?.length) await db.accounts.bulkPut(data.accounts);
             if (data.transactions?.length) await db.transactions.bulkPut(data.transactions);
             if (data.categories?.length) await db.categories.bulkPut(data.categories);
+            if (data.events?.length) await db.events.bulkPut(data.events);
 
             // Update state
             set({
                 accounts: data.accounts || [],
                 transactions: data.transactions || [],
-                categories: data.categories || []
+                categories: data.categories || [],
+                events: data.events || []
             });
 
             console.log('Data imported successfully');
