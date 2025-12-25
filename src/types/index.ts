@@ -19,6 +19,8 @@ export interface Account {
     customerId?: string;
     dmatId?: string;
     holdings?: Holding[];
+    subName?: string;
+    isPrimary?: boolean;
 }
 
 export type TransactionType = 'income' | 'expense' | 'transfer';

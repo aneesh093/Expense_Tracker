@@ -8,9 +8,13 @@ interface FinanceState {
     categories: Category[];
     events: Event[];
     isInitialized: boolean;
+    isBalanceHidden: boolean;
 
     // Initialize store from IndexedDB
     initialize: () => Promise<void>;
+
+    toggleBalanceHidden: () => void;
+    setBalanceHidden: (hidden: boolean) => void;
 
     addAccount: (account: Account) => void;
     updateAccount: (id: string, updates: Partial<Account>) => void;
@@ -38,6 +42,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     categories: [],
     events: [],
     isInitialized: false,
+    isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
 
     // Initialize: Load data from IndexedDB and migrate from localStorage if needed
     initialize: async () => {
@@ -58,7 +63,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 transactions,
                 categories,
                 events,
-                isInitialized: true
+                isInitialized: true,
+                isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false'
             });
 
             console.log('Store initialized from IndexedDB');
@@ -66,6 +72,19 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             console.error('Error initializing store:', error);
             set({ isInitialized: true }); // Mark as initialized even on error
         }
+    },
+
+    toggleBalanceHidden: () => {
+        set((state) => {
+            const newState = !state.isBalanceHidden;
+            localStorage.setItem('finance-privacy-mode', newState.toString());
+            return { isBalanceHidden: newState };
+        });
+    },
+
+    setBalanceHidden: (hidden: boolean) => {
+        localStorage.setItem('finance-privacy-mode', hidden.toString());
+        set({ isBalanceHidden: hidden });
     },
 
     addAccount: (account) => {

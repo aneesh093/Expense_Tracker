@@ -7,7 +7,7 @@ import { cn, generateId } from '../lib/utils';
 
 export function Accounts() {
     const navigate = useNavigate();
-    const { accounts, addAccount, updateAccount, deleteAccount } = useFinanceStore();
+    const { accounts, addAccount, updateAccount, deleteAccount, isBalanceHidden } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -16,8 +16,10 @@ export function Accounts() {
 
     // Form State
     const [name, setName] = useState('');
+    const [subName, setSubName] = useState('');
     const [type, setType] = useState<AccountType>('fixed-deposit');
     const [balance, setBalance] = useState('');
+    const [isPrimary, setIsPrimary] = useState(false);
 
     // Additional Fields
     const [accountNumber, setAccountNumber] = useState('');
@@ -49,9 +51,11 @@ export function Accounts() {
 
         const accountData: Partial<Account> = {
             name,
+            subName,
             type,
             balance: parseFloat(balance) || 0,
             color: 'blue',
+            isPrimary
         };
 
         if (type === 'savings') {
@@ -78,8 +82,10 @@ export function Accounts() {
     const handleEdit = (account: Account) => {
         setEditingId(account.id);
         setName(account.name);
+        setSubName(account.subName || '');
         setType(account.type);
         setBalance(account.balance.toString());
+        setIsPrimary(account.isPrimary || false);
 
         // Populate specific fields if they exist
         if (account.accountNumber) setAccountNumber(account.accountNumber);
@@ -92,7 +98,9 @@ export function Accounts() {
     const resetForm = () => {
         setEditingId(null);
         setName('');
+        setSubName('');
         setBalance('');
+        setIsPrimary(false);
         setType('fixed-deposit');
         setAccountNumber('');
         setCustomerId('');
@@ -305,6 +313,17 @@ export function Accounts() {
                             </div>
 
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Subname (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={subName}
+                                    onChange={(e) => setSubName(e.target.value)}
+                                    placeholder="e.g., Salary Account"
+                                    className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {activeTab === 'banking' ? (
@@ -397,6 +416,19 @@ export function Accounts() {
                                     </div>
                                 </div>
                             )}
+
+                            <div className="flex items-center space-x-2 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="isPrimary"
+                                    checked={isPrimary}
+                                    onChange={(e) => setIsPrimary(e.target.checked)}
+                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="isPrimary" className="text-gray-900 font-medium">
+                                    Set as Primary Account
+                                </label>
+                            </div>
 
                             <button
                                 onClick={handleSave}
@@ -498,7 +530,17 @@ export function Accounts() {
                                                         {getAccountIcon(acc.type)}
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-bold text-gray-900">{acc.name}</h3>
+                                                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                                            {acc.name}
+                                                            {acc.isPrimary && (
+                                                                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider">
+                                                                    Primary
+                                                                </span>
+                                                            )}
+                                                        </h3>
+                                                        {acc.subName && (
+                                                            <p className="text-sm text-gray-600">{acc.subName}</p>
+                                                        )}
                                                         <p className="text-xs text-gray-500 capitalize">{acc.type.replace('-', ' ')}</p>
                                                     </div>
                                                 </div>
@@ -506,7 +548,7 @@ export function Accounts() {
                                                 <div className="flex items-center space-x-4">
                                                     <div className="text-right">
                                                         <p className={cn("font-bold", acc.balance < 0 ? "text-red-600" : "text-gray-900")}>
-                                                            {formatCurrency(acc.balance)}
+                                                            {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(acc.balance)}
                                                         </p>
                                                     </div>
 

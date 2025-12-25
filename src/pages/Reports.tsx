@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, events } = useFinanceStore();
+    const { transactions, categories, events, accounts } = useFinanceStore();
 
     // current month state
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -17,10 +17,23 @@ export function Reports() {
 
     // Filter transactions for current month
     const monthTransactions = useMemo(() => {
-        return transactions
+        const primaryAccountIds = new Set(accounts.filter(a => a.isPrimary).map(a => a.id));
+
+        // Similar to Dashboard, if no primary accounts are explicitly set, assume all are visible.
+        // Or if strict, show none. Sticking to "if no primary, show all" as a safe fallback?
+        // Actually, user said "only display transactions from primary bank accounts".
+        // If user hasn't set any primary, showing everything is a better UX than showing empty.
+
+        const relevantTransactions = transactions.filter(t =>
+            primaryAccountIds.size === 0 ||
+            primaryAccountIds.has(t.accountId) ||
+            (t.toAccountId && primaryAccountIds.has(t.toAccountId))
+        );
+
+        return relevantTransactions
             .filter(t => isWithinInterval(new Date(t.date), { start: monthStart, end: monthEnd }))
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, currentDate]);
+    }, [transactions, currentDate, accounts]);
 
     const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev, 1));
     const handleNextMonth = () => setCurrentDate(prev => addMonths(prev, 1));

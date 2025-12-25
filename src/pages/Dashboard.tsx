@@ -2,12 +2,12 @@ import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { format, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, CreditCard } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
     const navigate = useNavigate();
-    const { accounts, transactions, events } = useFinanceStore();
+    const { accounts, transactions, events, isBalanceHidden, toggleBalanceHidden } = useFinanceStore();
 
     const totalBalance = useMemo(() => {
         return accounts.reduce((sum, acc) => {
@@ -19,10 +19,11 @@ export function Dashboard() {
     }, [accounts]);
 
     const displayedAccounts = useMemo(() => {
-        const allowedBanks = ['ICICI', 'HDFC', 'BOB'];
-        return accounts.filter(acc =>
-            allowedBanks.some(bank => acc.name.toUpperCase().includes(bank))
-        );
+        const primaryAccounts = accounts.filter(acc => acc.isPrimary);
+        // If there are primary accounts, show only them. 
+        // Otherwise show all (or maybe top 3 by balance if you want to limit?).
+        // Let's mirror the transaction logic: if NO primary, show all.
+        return primaryAccounts.length > 0 ? primaryAccounts : accounts;
     }, [accounts]);
 
     // Calculate monthly totals
@@ -40,7 +41,23 @@ export function Dashboard() {
             }, { totalIncome: 0, totalExpense: 0 });
     }, [transactions]);
 
-    const recentTransactions = transactions.slice(0, 5);
+
+    const filteredTransactions = useMemo(() => {
+        const primaryAccountIds = new Set(accounts.filter(a => a.isPrimary).map(a => a.id));
+
+        // If no primary accounts are set, maybe show all? Or show none? 
+        // User said "only display transactions from primary bank accounts".
+        // Let's assume strict filtering. If no primary, show nothing? Or show all as fallback?
+        // Let's show all if NO primary accounts exist, otherwise filter.
+        if (primaryAccountIds.size === 0) return transactions;
+
+        return transactions.filter(t =>
+            primaryAccountIds.has(t.accountId) ||
+            (t.toAccountId && primaryAccountIds.has(t.toAccountId))
+        );
+    }, [transactions, accounts]);
+
+    const recentTransactions = filteredTransactions.slice(0, 5);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -67,20 +84,37 @@ export function Dashboard() {
 
             {/* Net Worth Card */}
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-xl">
-                <p className="text-blue-100 text-sm font-medium mb-1">Total Net Worth</p>
-                <h2 className="text-4xl font-bold tracking-tight">{formatCurrency(totalBalance)}</h2>
-                <div className="mt-6 flex space-x-4">
-                    <div className="flex items-center space-x-2 bg-white/10 rounded-lg px-3 py-2 text-sm backdrop-blur-sm">
-                        <div className="bg-green-400/20 p-1 rounded-full">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <p className="text-blue-100 text-sm font-medium mb-1">Total Net Worth</p>
+                        <h2 className="text-4xl font-bold tracking-tight">
+                            {isBalanceHidden ? '₹ •••••' : formatCurrency(totalBalance)}
+                        </h2>
+                    </div>
+                    <button
+                        onClick={toggleBalanceHidden}
+                        className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+                    >
+                        {isBalanceHidden ? <EyeOff className="text-blue-100" size={24} /> : <Eye className="text-blue-100" size={24} />}
+                    </button>
+                    {/* <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <IndianRupee size={24} />
+                    </div> */}
+                </div>
+                <div className="flex space-x-4">
+                    <div className="flex-1 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                        <div className="flex items-center space-x-2 bg-green-400/20 w-fit p-1 rounded-full mb-2">
                             <ArrowUpRight size={16} className="text-green-300" />
                         </div>
-                        <span>+ {formatCurrency(totalIncome)}</span>
+                        <span className="text-xs text-green-100 block mb-1">Income</span>
+                        <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(totalIncome)}</p>
                     </div>
-                    <div className="flex items-center space-x-2 bg-white/10 rounded-lg px-3 py-2 text-sm backdrop-blur-sm">
-                        <div className="bg-red-400/20 p-1 rounded-full">
+                    <div className="flex-1 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                        <div className="flex items-center space-x-2 bg-red-400/20 w-fit p-1 rounded-full mb-2">
                             <ArrowDownRight size={16} className="text-red-300" />
                         </div>
-                        <span>- {formatCurrency(totalExpense)}</span>
+                        <span className="text-xs text-red-100 block mb-1">Expense</span>
+                        <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(totalExpense)}</p>
                     </div>
                 </div>
             </div>
@@ -147,7 +181,9 @@ export function Dashboard() {
                                         <p className="text-xs text-gray-500 capitalize">{acc.type}</p>
                                     </div>
                                 </div>
-                                <span className="font-bold text-sm text-gray-900">{formatCurrency(acc.balance)}</span>
+                                <span className="font-bold text-sm text-gray-900">
+                                    {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(acc.balance)}
+                                </span>
                             </div>
                         ))
                     )}

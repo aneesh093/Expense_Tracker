@@ -24,6 +24,14 @@ export class FinanceDatabase extends Dexie {
             categories: 'id, name, type',
             events: 'id, name, startDate, endDate'
         });
+
+        // Version 3: Add primary account flag and subname
+        this.version(3).stores({
+            accounts: 'id, name, type, balance, isPrimary',
+            transactions: 'id, date, accountId, toAccountId, type, category, eventId',
+            categories: 'id, name, type',
+            events: 'id, name, startDate, endDate'
+        });
     }
 }
 
