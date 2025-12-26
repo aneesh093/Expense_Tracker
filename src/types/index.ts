@@ -8,6 +8,13 @@ export interface Holding {
     purchasePrice: number; // calculated as quantity * purchaseRate
 }
 
+export interface LoanDetails {
+    principalAmount: number;
+    interestRate: number; // Annual interest rate in %
+    monthlyEmi: number;
+    emisLeft: number;
+}
+
 export interface Account {
     id: string;
     name: string;
@@ -19,6 +26,7 @@ export interface Account {
     customerId?: string;
     dmatId?: string;
     holdings?: Holding[];
+    loanDetails?: LoanDetails;
     subName?: string;
     isPrimary?: boolean;
 }
@@ -53,4 +61,15 @@ export interface Event {
     endDate?: string;
     color: string;
     icon: string;
+}
+
+export interface Mandate {
+    id: string;
+    sourceAccountId: string;
+    destinationAccountId: string;
+    amount: number;
+    dayOfMonth: number; // 1-31
+    description: string;
+    isEnabled: boolean;
+    lastRunDate?: string; // YYYY-MM-DD
 }

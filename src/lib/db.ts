@@ -1,11 +1,12 @@
 import Dexie, { type Table } from 'dexie';
-import { type Account, type Transaction, type Category, type Event } from '../types';
+import { type Account, type Transaction, type Category, type Event, type Mandate } from '../types';
 
 export class FinanceDatabase extends Dexie {
     accounts!: Table<Account, string>;
     transactions!: Table<Transaction, string>;
     categories!: Table<Category, string>;
     events!: Table<Event, string>;
+    mandates!: Table<Mandate, string>;
 
     constructor() {
         super('FinanceDB');
@@ -31,6 +32,15 @@ export class FinanceDatabase extends Dexie {
             transactions: 'id, date, accountId, toAccountId, type, category, eventId',
             categories: 'id, name, type',
             events: 'id, name, startDate, endDate'
+        });
+
+        // Version 4: Add mandates
+        this.version(4).stores({
+            accounts: 'id, name, type, balance, isPrimary',
+            transactions: 'id, date, accountId, toAccountId, type, category, eventId',
+            categories: 'id, name, type',
+            events: 'id, name, startDate, endDate',
+            mandates: 'id, sourceAccountId, destinationAccountId, isEnabled'
         });
     }
 }
@@ -191,5 +201,22 @@ export const dbHelpers = {
 
     async deleteEvent(id: string): Promise<void> {
         await db.events.delete(id);
+    },
+
+    // Mandates
+    async getAllMandates(): Promise<Mandate[]> {
+        return await db.mandates.toArray();
+    },
+
+    async addMandate(mandate: Mandate): Promise<string> {
+        return await db.mandates.add(mandate);
+    },
+
+    async updateMandate(id: string, updates: Partial<Mandate>): Promise<number> {
+        return await db.mandates.update(id, updates);
+    },
+
+    async deleteMandate(id: string): Promise<void> {
+        await db.mandates.delete(id);
     }
 };

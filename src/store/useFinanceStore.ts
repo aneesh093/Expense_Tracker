@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Account, type Transaction, type Category, type Event } from '../types';
+import { type Account, type Transaction, type Category, type Event, type Mandate } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
@@ -34,6 +34,13 @@ interface FinanceState {
     deleteEvent: (id: string) => void;
 
     importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[] }) => void;
+
+    // Mandates
+    mandates: Mandate[];
+    addMandate: (mandate: Mandate) => void;
+    updateMandate: (id: string, updates: Partial<Mandate>) => void;
+    deleteMandate: (id: string) => void;
+    checkAndRunMandates: () => Promise<void>;
 }
 
 export const useFinanceStore = create<FinanceState>()((set, get) => ({
@@ -41,6 +48,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     transactions: [],
     categories: [],
     events: [],
+    mandates: [],
     isInitialized: false,
     isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
 
@@ -51,11 +59,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await migrateFromLocalStorage();
 
             // Load all data from IndexedDB
-            const [accounts, transactions, categories, events] = await Promise.all([
+            const [accounts, transactions, categories, events, mandates] = await Promise.all([
                 dbHelpers.getAllAccounts(),
                 dbHelpers.getAllTransactions(),
                 dbHelpers.getAllCategories(),
-                dbHelpers.getAllEvents()
+                dbHelpers.getAllEvents(),
+                dbHelpers.getAllMandates()
             ]);
 
             set({
@@ -63,6 +72,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 transactions,
                 categories,
                 events,
+                mandates,
                 isInitialized: true,
                 isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false'
             });
@@ -115,16 +125,22 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             const newTransactions = [...state.transactions, transaction];
             const updatedAccounts = state.accounts.map((acc) => {
                 if (acc.id === transaction.accountId) {
+                    // Logic for the SOURCE account
+                    const isLoan = acc.type === 'loan';
+
                     const newBalance =
                         transaction.type === 'income'
-                            ? acc.balance + transaction.amount
+                            ? acc.balance + transaction.amount // Income always increases balance (reduces debt for loan? No, income to loan is weird. Let's assume income adds to balance)
                             : transaction.type === 'expense'
-                                ? acc.balance - transaction.amount
-                                : acc.balance - transaction.amount;
+                                ? acc.balance + (isLoan ? transaction.amount : -transaction.amount) // Expense: Loan increases (more debt), Savings decreases
+                                : acc.balance + (isLoan ? transaction.amount : -transaction.amount); // Transfer Out: Same as expense
                     return { ...acc, balance: newBalance };
                 }
                 if (transaction.type === 'transfer' && acc.id === transaction.toAccountId) {
-                    return { ...acc, balance: acc.balance + transaction.amount };
+                    // Logic for the DESTINATION account
+                    const isLoan = acc.type === 'loan';
+                    // Transfer IN: Savings increases, Loan decreases (Repayment)
+                    return { ...acc, balance: acc.balance + (isLoan ? -transaction.amount : transaction.amount) };
                 }
                 return acc;
             });
@@ -149,16 +165,20 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         // Revert old transaction effects
         let updatedAccounts = state.accounts.map((acc) => {
             if (acc.id === oldTransaction.accountId) {
+                const isLoan = acc.type === 'loan';
+                // Revert Source
                 const revertedBalance =
                     oldTransaction.type === 'income'
                         ? acc.balance - oldTransaction.amount
                         : oldTransaction.type === 'expense'
-                            ? acc.balance + oldTransaction.amount
-                            : acc.balance + oldTransaction.amount;
+                            ? acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount)
+                            : acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount);
                 return { ...acc, balance: revertedBalance };
             }
             if (oldTransaction.type === 'transfer' && acc.id === oldTransaction.toAccountId) {
-                return { ...acc, balance: acc.balance - oldTransaction.amount };
+                const isLoan = acc.type === 'loan';
+                // Revert Destination
+                return { ...acc, balance: acc.balance - (isLoan ? -oldTransaction.amount : oldTransaction.amount) };
             }
             return acc;
         });
@@ -166,16 +186,20 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         // Apply new transaction effects
         updatedAccounts = updatedAccounts.map((acc) => {
             if (acc.id === updatedTransaction.accountId) {
+                const isLoan = acc.type === 'loan';
+                // Apply Source
                 const newBalance =
                     updatedTransaction.type === 'income'
                         ? acc.balance + updatedTransaction.amount
                         : updatedTransaction.type === 'expense'
-                            ? acc.balance - updatedTransaction.amount
-                            : acc.balance - updatedTransaction.amount;
+                            ? acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount)
+                            : acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount);
                 return { ...acc, balance: newBalance };
             }
             if (updatedTransaction.type === 'transfer' && acc.id === updatedTransaction.toAccountId) {
-                return { ...acc, balance: acc.balance + updatedTransaction.amount };
+                const isLoan = acc.type === 'loan';
+                // Apply Destination
+                return { ...acc, balance: acc.balance + (isLoan ? -updatedTransaction.amount : updatedTransaction.amount) };
             }
             return acc;
         });
@@ -202,16 +226,21 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
         const updatedAccounts = state.accounts.map((acc) => {
             if (acc.id === transaction.accountId) {
+                const isLoan = acc.type === 'loan';
+                // Revert Source (Same as Revert in edit)
                 const newBalance =
                     transaction.type === 'income'
                         ? acc.balance - transaction.amount
                         : transaction.type === 'expense'
-                            ? acc.balance + transaction.amount
-                            : acc.balance + transaction.amount;
+                            ? acc.balance - (isLoan ? transaction.amount : -transaction.amount) // Undo expense: Loan decreases, Savings increases
+                            : acc.balance - (isLoan ? transaction.amount : -transaction.amount);
                 return { ...acc, balance: newBalance };
             }
             if (transaction.type === 'transfer' && acc.id === transaction.toAccountId) {
-                return { ...acc, balance: acc.balance - transaction.amount };
+                const isLoan = acc.type === 'loan';
+                // Revert Destination (Same as Revert in edit)
+                // Undo transfer in: Savings decreases, Loan increases (Debt returns)
+                return { ...acc, balance: acc.balance - (isLoan ? -transaction.amount : transaction.amount) };
             }
             return acc;
         });
@@ -280,6 +309,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await db.accounts.clear();
             await db.transactions.clear();
             await db.categories.clear();
+            await db.events.clear();
+            await db.mandates.clear();
 
             // Import new data
             if (data.accounts?.length) await db.accounts.bulkPut(data.accounts);
@@ -292,7 +323,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 accounts: data.accounts || [],
                 transactions: data.transactions || [],
                 categories: data.categories || [],
-                events: data.events || []
+                events: data.events || [],
+                // mandates: [] // Unless imported
             });
 
             console.log('Data imported successfully');
@@ -300,4 +332,58 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             console.error('Error importing data:', error);
         }
     },
+
+    addMandate: (mandate) => {
+        set((state) => ({ mandates: [...state.mandates, mandate] }));
+        dbHelpers.addMandate(mandate).catch(console.error);
+    },
+
+    updateMandate: (id, updates) => {
+        set((state) => ({
+            mandates: state.mandates.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+        }));
+        dbHelpers.updateMandate(id, updates).catch(console.error);
+    },
+
+    deleteMandate: (id) => {
+        set((state) => ({ mandates: state.mandates.filter((m) => m.id !== id) }));
+        dbHelpers.deleteMandate(id).catch(console.error);
+    },
+
+    checkAndRunMandates: async () => {
+        const state = get();
+        const today = new Date();
+        const currentDay = today.getDate();
+        const dateString = today.toISOString().split('T')[0];
+
+        const mandatesToRun = state.mandates.filter(m =>
+            m.isEnabled &&
+            m.dayOfMonth === currentDay &&
+            m.lastRunDate !== dateString
+        );
+
+        if (mandatesToRun.length === 0) return;
+
+        console.log(`Running ${mandatesToRun.length} mandates...`);
+
+        for (const mandate of mandatesToRun) {
+            // Create transaction
+            const transaction: Transaction = {
+                id: crypto.randomUUID(),
+                accountId: mandate.sourceAccountId,
+                toAccountId: mandate.destinationAccountId,
+                amount: mandate.amount,
+                type: 'transfer',
+                category: 'Transfer',
+                date: new Date().toISOString(),
+                note: `Mandate: ${mandate.description}`,
+            };
+
+            // Add transaction (this handles balances)
+            get().addTransaction(transaction);
+
+            // Update mandate lastRunDate
+            get().updateMandate(mandate.id, { lastRunDate: dateString });
+        }
+    }
 }));

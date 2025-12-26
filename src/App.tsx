@@ -13,21 +13,32 @@ import { EventDetails } from './pages/EventDetails';
 import { EventForm } from './pages/EventForm';
 import { Settings } from './pages/Settings';
 import { Categories } from './pages/Categories';
+import { Mandates } from './pages/Mandates';
 import { useFinanceStore } from './store/useFinanceStore';
 import { useBackupScheduler } from './hooks/useBackupScheduler';
+
+import { useAutoReport } from './hooks/useAutoReport';
 
 // Placeholder pages to be implemented later
 
 function App() {
   const initialize = useFinanceStore((state) => state.initialize);
+  const checkAndRunMandates = useFinanceStore((state) => state.checkAndRunMandates);
 
   // Enable automatic daily backups
   useBackupScheduler();
 
+  // Enable automatic monthly PDF reports
+  useAutoReport();
+
   useEffect(() => {
     // Initialize store from IndexedDB on app startup
-    initialize();
-  }, [initialize]);
+    const init = async () => {
+      await initialize();
+      await checkAndRunMandates();
+    };
+    init();
+  }, [initialize, checkAndRunMandates]);
   return (
     <BrowserRouter>
       <Routes>
@@ -43,6 +54,7 @@ function App() {
           <Route path="/events/:id" element={<EventDetails />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/mandates" element={<Mandates />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

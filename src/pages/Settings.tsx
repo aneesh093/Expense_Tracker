@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, Download, Upload, FileSpreadsheet, Layers, ChevronRight, Clock, EyeOff } from 'lucide-react';
+import { ArrowLeft, Download, Upload, Layers, ChevronRight, Clock, EyeOff } from 'lucide-react';
 
 export function Settings() {
     const navigate = useNavigate();
@@ -33,38 +33,7 @@ export function Settings() {
         URL.revokeObjectURL(url);
     };
 
-    const handleExportCSV = () => {
-        // Headers
-        const headers = ['Date', 'Type', 'Amount', 'Category', 'Account', 'Note', 'To Account'];
 
-        // Data rows
-        const rows = transactions.map(t => {
-            const account = accounts.find(a => a.id === t.accountId);
-            const toAccount = t.toAccountId ? accounts.find(a => a.id === t.toAccountId) : null;
-
-            return [
-                new Date(t.date).toLocaleDateString(),
-                t.type,
-                t.amount.toString(),
-                t.category || 'Uncategorized',
-                account?.name || 'Unknown Account',
-                `"${(t.note || '').replace(/"/g, '""')}"`, // Escape quotes
-                toAccount?.name || ''
-            ].join(',');
-        });
-
-        const csvContent = [headers.join(','), ...rows].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `finance_export_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
 
     const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -134,6 +103,18 @@ export function Settings() {
                                     <Layers size={20} />
                                 </div>
                                 <span className="font-medium text-gray-900">Manage Categories</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                        </button>
+                        <button
+                            onClick={() => navigate('/mandates')}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                                    <Clock size={20} />
+                                </div>
+                                <span className="font-medium text-gray-900">Manage Mandates</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
@@ -230,21 +211,6 @@ export function Settings() {
                                 <div>
                                     <h3 className="font-medium text-gray-900">Backup Data</h3>
                                     <p className="text-sm text-gray-500">Download a JSON backup of your data</p>
-                                </div>
-                            </div>
-                        </button>
-
-                        <button
-                            onClick={handleExportCSV}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                                    <FileSpreadsheet size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-gray-900">Export to Excel</h3>
-                                    <p className="text-sm text-gray-500">Download transactions as CSV</p>
                                 </div>
                             </div>
                         </button>

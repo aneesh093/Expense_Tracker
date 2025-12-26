@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { format, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
@@ -123,7 +123,7 @@ export function Dashboard() {
             <section>
                 <div className="flex justify-between items-end mb-4">
                     <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
-                    <button className="text-sm text-blue-600 font-medium">See all</button>
+                    <button onClick={() => navigate('/transactions')} className="text-sm text-blue-600 font-medium">See all</button>
                 </div>
 
                 <div className="space-y-3">
@@ -132,31 +132,46 @@ export function Dashboard() {
                             <p className="text-gray-500 text-sm">No transactions yet.</p>
                         </div>
                     ) : (
-                        recentTransactions.map((t) => (
-                            <div
-                                key={t.id}
-                                onClick={() => navigate(`/edit/${t.id}`)}
-                                className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100 cursor-pointer active:bg-gray-50 transition-colors"
-                            >
-                                <div className="flex items-center space-x-3">
-                                    <div className={cn("p-2 rounded-full", t.type === 'expense' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500")}>
-                                        {t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
+                        recentTransactions.map((t) => {
+                            const isTransfer = t.type === 'transfer';
+                            const fromAccount = isTransfer ? accounts.find(a => a.id === t.accountId) : null;
+                            const toAccount = isTransfer ? accounts.find(a => a.id === t.toAccountId) : null;
+
+                            return (
+                                <div
+                                    key={t.id}
+                                    className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100 transition-colors"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className={cn("p-2 rounded-full",
+                                            isTransfer ? "bg-blue-50 text-blue-500" :
+                                                t.type === 'expense' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500"
+                                        )}>
+                                            {isTransfer ? <ArrowRightLeft size={20} /> :
+                                                t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 text-sm">
+                                                {isTransfer
+                                                    ? `Transfer: ${fromAccount?.name || 'Unknown'} -> ${toAccount?.name || 'Unknown'}`
+                                                    : (t.eventId
+                                                        ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
+                                                        : (t.note || t.category)
+                                                    )
+                                                }
+                                            </p>
+                                            <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-semibold text-gray-900 text-sm">
-                                            {t.eventId
-                                                ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
-                                                : (t.note || t.category)
-                                            }
-                                        </p>
-                                        <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
-                                    </div>
+                                    <span className={cn("font-bold text-sm",
+                                        isTransfer ? "text-blue-600" :
+                                            t.type === 'expense' ? "text-gray-900" : "text-green-600"
+                                    )}>
+                                        {isTransfer ? '' : (t.type === 'expense' ? '-' : '+')}{formatCurrency(t.amount)}
+                                    </span>
                                 </div>
-                                <span className={cn("font-bold text-sm", t.type === 'expense' ? "text-gray-900" : "text-green-600")}>
-                                    {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                                </span>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </section>

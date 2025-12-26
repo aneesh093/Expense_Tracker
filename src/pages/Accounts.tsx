@@ -26,6 +26,12 @@ export function Accounts() {
     const [customerId, setCustomerId] = useState('');
     const [dmatId, setDmatId] = useState('');
 
+    // Loan Fields
+    const [principalAmount, setPrincipalAmount] = useState('');
+    const [interestRate, setInterestRate] = useState('');
+    const [monthlyEmi, setMonthlyEmi] = useState('');
+    const [emisLeft, setEmisLeft] = useState('');
+
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
     const [filterType, setFilterType] = useState<AccountType | 'all'>('all');
 
@@ -64,6 +70,13 @@ export function Accounts() {
         } else if (type === 'stock' || type === 'mutual-fund' || type === 'other') {
             accountData.dmatId = dmatId;
             accountData.customerId = customerId;
+        } else if (type === 'loan') {
+            accountData.loanDetails = {
+                principalAmount: parseFloat(principalAmount) || 0,
+                interestRate: parseFloat(interestRate) || 0,
+                monthlyEmi: parseFloat(monthlyEmi) || 0,
+                emisLeft: parseFloat(emisLeft) || 0,
+            };
         }
 
         if (editingId) {
@@ -92,6 +105,13 @@ export function Accounts() {
         if (account.customerId) setCustomerId(account.customerId);
         if (account.dmatId) setDmatId(account.dmatId);
 
+        if (account.type === 'loan' && account.loanDetails) {
+            setPrincipalAmount(account.loanDetails.principalAmount.toString());
+            setInterestRate(account.loanDetails.interestRate.toString());
+            setMonthlyEmi(account.loanDetails.monthlyEmi.toString());
+            setEmisLeft(account.loanDetails.emisLeft.toString());
+        }
+
         setIsAdding(true);
     };
 
@@ -105,6 +125,11 @@ export function Accounts() {
         setAccountNumber('');
         setCustomerId('');
         setDmatId('');
+
+        setPrincipalAmount('');
+        setInterestRate('');
+        setMonthlyEmi('');
+        setEmisLeft('');
     };
 
     const handleDeleteConfirm = () => {
@@ -291,7 +316,7 @@ export function Accounts() {
             {/* Add Account Modal */}
             {isAdding && (
                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold">{editingId ? 'Edit Account' : 'New Account'}</h2>
                             <button onClick={() => { setIsAdding(false); resetForm(); }} className="text-gray-400 hover:text-gray-600">
@@ -360,8 +385,60 @@ export function Accounts() {
                                 </div>
                             </div>
 
+                            {/* Loan Specific Fields */}
+                            {type === 'loan' && (
+                                <div className="space-y-4 bg-orange-50 p-4 rounded-xl border border-orange-100">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Principal Amount</label>
+                                            <input
+                                                type="number"
+                                                value={principalAmount}
+                                                onChange={(e) => setPrincipalAmount(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-orange-200 focus:ring-2 focus:ring-orange-500"
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Interest Rate (%)</label>
+                                            <input
+                                                type="number"
+                                                value={interestRate}
+                                                onChange={(e) => setInterestRate(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-orange-200 focus:ring-2 focus:ring-orange-500"
+                                                placeholder="e.g. 10.5"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Monthly EMI</label>
+                                            <input
+                                                type="number"
+                                                value={monthlyEmi}
+                                                onChange={(e) => setMonthlyEmi(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-orange-200 focus:ring-2 focus:ring-orange-500"
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">EMIs Left</label>
+                                            <input
+                                                type="number"
+                                                value={emisLeft}
+                                                onChange={(e) => setEmisLeft(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-orange-200 focus:ring-2 focus:ring-orange-500"
+                                                placeholder="e.g. 24"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {type === 'loan' ? 'Outstanding Balance' : 'Balance'}
+                                </label>
                                 <input
                                     type="number"
                                     value={balance}
