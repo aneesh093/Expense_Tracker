@@ -607,23 +607,27 @@ export function Accounts() {
                                                         {getAccountIcon(acc.type)}
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                                        <h3 className="font-bold text-gray-900 leading-tight">
                                                             {acc.name}
-                                                            {acc.isPrimary && (
-                                                                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider">
-                                                                    Primary
-                                                                </span>
-                                                            )}
                                                         </h3>
                                                         {acc.subName && (
-                                                            <p className="text-sm text-gray-600">{acc.subName}</p>
+                                                            <p className="text-sm text-gray-600 mt-0.5">{acc.subName}</p>
                                                         )}
-                                                        <p className="text-xs text-gray-500 capitalize">{acc.type.replace('-', ' ')}</p>
                                                     </div>
                                                 </div>
 
                                                 <div className="flex items-center space-x-4">
-                                                    <div className="text-right">
+                                                    <div className="text-right flex flex-col items-end min-h-[44px] justify-center">
+                                                        {acc.isPrimary && (
+                                                            <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider mb-1">
+                                                                Primary
+                                                            </span>
+                                                        )}
+                                                        {acc.type === 'loan' && acc.loanDetails && (
+                                                            <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold tracking-wide mb-1">
+                                                                {acc.loanDetails.emisLeft} EMIs Left
+                                                            </span>
+                                                        )}
                                                         <p className={cn("font-bold", acc.balance < 0 ? "text-red-600" : "text-gray-900")}>
                                                             {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(acc.balance)}
                                                         </p>

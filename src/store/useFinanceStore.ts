@@ -33,7 +33,7 @@ interface FinanceState {
     updateEvent: (id: string, updates: Partial<Event>) => void;
     deleteEvent: (id: string) => void;
 
-    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[] }) => void;
+    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[] }) => void;
 
     // Mandates
     mandates: Mandate[];
@@ -317,6 +317,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             if (data.transactions?.length) await db.transactions.bulkPut(data.transactions);
             if (data.categories?.length) await db.categories.bulkPut(data.categories);
             if (data.events?.length) await db.events.bulkPut(data.events);
+            if (data.mandates?.length) await db.mandates.bulkPut(data.mandates);
 
             // Update state
             set({
@@ -324,7 +325,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 transactions: data.transactions || [],
                 categories: data.categories || [],
                 events: data.events || [],
-                // mandates: [] // Unless imported
+                mandates: data.mandates || []
             });
 
             console.log('Data imported successfully');
@@ -384,6 +385,20 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
             // Update mandate lastRunDate
             get().updateMandate(mandate.id, { lastRunDate: dateString });
+
+            // If destination is a Loan account, reduce EMIs left
+            const destAccount = get().accounts.find(a => a.id === mandate.destinationAccountId);
+            if (destAccount?.type === 'loan' && destAccount.loanDetails) {
+                const currentEmis = destAccount.loanDetails.emisLeft;
+                if (currentEmis > 0) {
+                    get().updateAccount(destAccount.id, {
+                        loanDetails: {
+                            ...destAccount.loanDetails,
+                            emisLeft: currentEmis - 1
+                        }
+                    });
+                }
+            }
         }
     }
 }));

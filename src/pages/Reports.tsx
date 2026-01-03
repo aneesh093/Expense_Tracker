@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, FileDown, ArrowRightLeft } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, FileDown, ArrowRightLeft, TrendingUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { generateMonthlyReportPDF } from '../lib/pdfGenerator';
@@ -34,6 +34,12 @@ export function Reports() {
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transactions, currentDate, accounts]);
 
+    const isInvestment = (t: any) => {
+        if (t.type !== 'transfer' || !t.toAccountId) return false;
+        const toAccount = accounts.find(a => a.id === t.toAccountId);
+        return toAccount?.type === 'stock' || toAccount?.type === 'mutual-fund';
+    };
+
     const handlePrevMonth = () => {
         setCurrentDate(prev => subMonths(prev, 1));
         setDisplayLimit(20); // Reset pagination
@@ -45,23 +51,28 @@ export function Reports() {
     };
 
     // Calculate totals
-    const { totalIncome, totalExpense } = useMemo(() => {
+    const { totalIncome, totalExpense, totalInvestment } = useMemo(() => {
         return monthTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
             else if (t.type === 'expense') acc.totalExpense += t.amount;
+            else if (isInvestment(t)) acc.totalInvestment += t.amount;
             return acc;
-        }, { totalIncome: 0, totalExpense: 0 });
-    }, [monthTransactions]);
+        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0 });
+    }, [monthTransactions, accounts]);
 
     // Prepare chart data (Expense by Category)
     const chartData = useMemo(() => {
         const expenseMap = new Map<string, number>();
 
         monthTransactions
-            .filter(t => t.type === 'expense')
             .forEach(t => {
-                const current = expenseMap.get(t.category) || 0;
-                expenseMap.set(t.category, current + t.amount);
+                if (t.type === 'expense') {
+                    const current = expenseMap.get(t.category) || 0;
+                    expenseMap.set(t.category, current + t.amount);
+                } else if (isInvestment(t)) {
+                    const current = expenseMap.get('Investment') || 0;
+                    expenseMap.set('Investment', current + t.amount);
+                }
             });
 
         return Array.from(expenseMap.entries())
@@ -70,7 +81,7 @@ export function Reports() {
                 return {
                     name,
                     value,
-                    color: category?.color || '#9ca3af'
+                    color: name === 'Investment' ? '#8b5cf6' : (category?.color || '#9ca3af') // Purple for Investment
                 };
             })
             .sort((a, b) => b.value - a.value);
@@ -126,7 +137,7 @@ export function Reports() {
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {/* Summary Cards */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
                         <p className="text-xs font-medium text-gray-500 mb-1">Income</p>
                         <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
@@ -134,6 +145,13 @@ export function Reports() {
                     <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
                         <p className="text-xs font-medium text-gray-500 mb-1">Expense</p>
                         <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
+                        <div className="flex items-center space-x-1 mb-1">
+                            <TrendingUp size={12} className="text-purple-500" />
+                            <p className="text-xs font-medium text-gray-500">Invested</p>
+                        </div>
+                        <p className="text-lg font-bold text-purple-600">{formatCurrency(totalInvestment)}</p>
                     </div>
                 </div>
 

@@ -11,6 +11,9 @@ export function Dashboard() {
 
     const totalBalance = useMemo(() => {
         return accounts.reduce((sum, acc) => {
+            if (acc.type === 'credit') {
+                return sum;
+            }
             if (acc.type === 'loan') {
                 return sum - acc.balance;
             }
@@ -49,15 +52,25 @@ export function Dashboard() {
         // User said "only display transactions from primary bank accounts".
         // Let's assume strict filtering. If no primary, show nothing? Or show all as fallback?
         // Let's show all if NO primary accounts exist, otherwise filter.
-        if (primaryAccountIds.size === 0) return transactions;
+        if (primaryAccountIds.size === 0) return [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        return transactions.filter(t =>
-            primaryAccountIds.has(t.accountId) ||
-            (t.toAccountId && primaryAccountIds.has(t.toAccountId))
-        );
+        return transactions
+            .filter(t =>
+                primaryAccountIds.has(t.accountId) ||
+                (t.toAccountId && primaryAccountIds.has(t.toAccountId))
+            )
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transactions, accounts]);
 
     const recentTransactions = filteredTransactions.slice(0, 5);
+
+    const lastUpdated = useMemo(() => {
+        if (transactions.length === 0) return null;
+        // Sort all transactions to find absolute latest, regardless of filter?
+        // Usually "Last Updated" refers to the latest activity in the system.
+        const sorted = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return sorted[0].date;
+    }, [transactions]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -122,8 +135,15 @@ export function Dashboard() {
             {/* Recent Activity */}
             <section>
                 <div className="flex justify-between items-end mb-4">
-                    <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
-                    <button onClick={() => navigate('/transactions')} className="text-sm text-blue-600 font-medium">See all</button>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
+                        {lastUpdated && (
+                            <p className="text-xs text-gray-500 mt-1">
+                                Last updated: {format(new Date(lastUpdated), 'MMM dd, h:mm a')}
+                            </p>
+                        )}
+                    </div>
+                    <button onClick={() => navigate('/transactions')} className="text-sm text-blue-600 font-medium pb-1">See all</button>
                 </div>
 
                 <div className="space-y-3">

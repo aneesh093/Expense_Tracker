@@ -9,6 +9,7 @@ export function Settings() {
         accounts,
         transactions,
         events,
+        mandates,
         importData,
         isBalanceHidden,
         setBalanceHidden
@@ -19,7 +20,8 @@ export function Settings() {
             accounts,
             transactions,
             categories,
-            events
+            events,
+            mandates
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
