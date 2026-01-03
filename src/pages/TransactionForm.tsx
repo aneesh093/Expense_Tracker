@@ -19,6 +19,7 @@ export function TransactionForm() {
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [note, setNote] = useState('');
     const [isEditing, setIsEditing] = useState(false);
+    const [showKeypad, setShowKeypad] = useState(false);
 
     useEffect(() => {
         // Pre-fill eventId from URL parameter (when navigating from event details)
@@ -48,12 +49,29 @@ export function TransactionForm() {
         }
     }, [id, transactions, categories, searchParams]);
 
-    // Update selected category when type changes
-    useEffect(() => {
-        // If we are editing and just loaded, don't override. 
-        // But if user manually switches type, we should likely switch category?
-        // Let's simplest approach: always ensure selected category matches type.
+    // Keypad logic
 
+    const visibleAccounts = type === 'transfer'
+        ? accounts
+        : accounts.filter(acc => ['fixed-deposit', 'savings', 'credit', 'cash', 'loan'].includes(acc.type));
+
+    // Update selected category and account validation when type changes
+    useEffect(() => {
+        // Validation for Account
+        // If current selected account is not in visible list, pick the first one
+        if (selectedAccountId && !visibleAccounts.find(a => a.id === selectedAccountId)) {
+            if (visibleAccounts.length > 0) {
+                setSelectedAccountId(visibleAccounts[0].id);
+            } else {
+                setSelectedAccountId('');
+            }
+        }
+        // If no account selected but we have visible ones, pick first
+        else if (!selectedAccountId && visibleAccounts.length > 0) {
+            setSelectedAccountId(visibleAccounts[0].id);
+        }
+
+        // Validation for Category
         const currentCategory = categories.find(c => c.id === selectedCategory);
         if (currentCategory && currentCategory.type !== type) {
             const firstValidCategory = categories.find(c => c.type === type);
@@ -68,7 +86,7 @@ export function TransactionForm() {
                 setSelectedCategory(firstValidCategory.id);
             }
         }
-    }, [type, categories, selectedCategory]);
+    }, [type, categories, selectedCategory, visibleAccounts, selectedAccountId]);
 
     // Keypad logic
     const handleNumberClick = (num: string) => {
@@ -176,7 +194,10 @@ export function TransactionForm() {
             {/* Amount Display */}
             <div className="flex-1 flex flex-col justify-center items-center p-6">
                 <p className="text-gray-400 font-medium mb-2">Amount</p>
-                <div className="text-5xl font-bold tracking-tight text-gray-900 flex items-center">
+                <div
+                    onClick={() => setShowKeypad(true)}
+                    className="text-5xl font-bold tracking-tight text-gray-900 flex items-center cursor-pointer hover:opacity-80 transition-opacity decoration-blue-500 underline decoration-2 underline-offset-8 decoration-dashed"
+                >
                     <span className="text-3xl mr-1 text-gray-400">₹</span>
                     {amount}
                 </div>
@@ -193,7 +214,7 @@ export function TransactionForm() {
                             onChange={(e) => setSelectedAccountId(e.target.value)}
                             className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
                         >
-                            {accounts.map(acc => (
+                            {visibleAccounts.map(acc => (
                                 <option key={acc.id} value={acc.id}>{acc.name}</option>
                             ))}
                         </select>
@@ -273,24 +294,39 @@ export function TransactionForm() {
                 </div>
             </div>
 
-            {/* Number Pad */}
-            <div className="grid grid-cols-3 gap-1 px-2 pb-4">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0].map((num) => (
-                    <button
-                        key={num}
-                        onClick={() => handleNumberClick(num.toString())}
-                        className="h-16 rounded-xl text-2xl font-semibold text-gray-900 active:bg-gray-100 transition-colors"
-                    >
-                        {num}
-                    </button>
-                ))}
-                <button
-                    onClick={handleDelete}
-                    className="h-16 rounded-xl flex items-center justify-center text-gray-900 active:bg-gray-100 transition-colors"
-                >
-                    <ArrowLeft size={24} />
-                </button>
-            </div>
+            {/* Number Pad Popup */}
+            {showKeypad && (
+                <>
+                    <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setShowKeypad(false)} />
+                    <div className="fixed bottom-0 left-0 right-0 bg-white z-50 rounded-t-3xl p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom duration-200">
+                        <div className="flex justify-end mb-2">
+                            <button
+                                onClick={() => setShowKeypad(false)}
+                                className="px-4 py-2 bg-blue-100 text-blue-600 rounded-full font-bold text-sm"
+                            >
+                                Done
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0].map((num) => (
+                                <button
+                                    key={num}
+                                    onClick={() => handleNumberClick(num.toString())}
+                                    className="h-16 rounded-xl text-2xl font-semibold text-gray-900 bg-gray-50 active:bg-gray-200 transition-colors"
+                                >
+                                    {num}
+                                </button>
+                            ))}
+                            <button
+                                onClick={handleDelete}
+                                className="h-16 rounded-xl flex items-center justify-center text-gray-900 bg-gray-50 active:bg-gray-200 transition-colors"
+                            >
+                                <ArrowLeft size={24} />
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
 
             <div className="px-4 pb-2">
                 <button
