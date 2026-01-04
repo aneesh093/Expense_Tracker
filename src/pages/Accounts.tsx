@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type Account, type AccountType } from '../types';
-import { CreditCard, Plus, X, Wallet, Building, Banknote, Landmark, Trash2, AlertTriangle, Pencil, PiggyBank, TrendingUp, PieChart, Briefcase, Check } from 'lucide-react';
+import { CreditCard, Plus, X, Wallet, Building, Banknote, Landmark, Trash2, AlertTriangle, Pencil, PiggyBank, TrendingUp, PieChart, Briefcase, Check, MapPin } from 'lucide-react';
 import { cn, generateId } from '../lib/utils';
 
 export function Accounts() {
@@ -67,7 +67,7 @@ export function Accounts() {
         if (type === 'savings') {
             accountData.accountNumber = accountNumber;
             accountData.customerId = customerId;
-        } else if (type === 'stock' || type === 'mutual-fund' || type === 'other') {
+        } else if (type === 'stock' || type === 'mutual-fund' || type === 'other' || type === 'land') {
             accountData.dmatId = dmatId;
             accountData.customerId = customerId;
         } else if (type === 'loan') {
@@ -139,7 +139,7 @@ export function Accounts() {
         }
     };
 
-    const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'other';
+    const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'other' || type === 'land';
 
     const filteredAccounts = accounts.filter(acc => {
         const matchesTab = activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
@@ -168,6 +168,7 @@ export function Accounts() {
             case 'stock': return 'Stock';
             case 'mutual-fund': return 'Mutual Fund';
             case 'other': return 'Other';
+            case 'land': return 'Land';
             default: return type;
         }
     };
@@ -192,6 +193,8 @@ export function Accounts() {
                 return <PieChart {...iconProps} />;
             case 'other':
                 return <Briefcase {...iconProps} />;
+            case 'land':
+                return <MapPin {...iconProps} />;
             default:
                 return <Building {...iconProps} />;
         }
@@ -307,6 +310,7 @@ export function Accounts() {
                         <>
                             <option value="stock">Stock</option>
                             <option value="mutual-fund">Mutual Fund</option>
+                            <option value="land">Land</option>
                             <option value="other">Other</option>
                         </>
                     )}
@@ -367,7 +371,7 @@ export function Accounts() {
                                             </button>
                                         ))
                                     ) : (
-                                        ['stock', 'mutual-fund', 'other'].map((t) => (
+                                        ['stock', 'mutual-fund', 'land', 'other'].map((t) => (
                                             <button
                                                 key={t}
                                                 onClick={() => setType(t as AccountType)}
@@ -471,7 +475,7 @@ export function Accounts() {
                                 </div>
                             )}
 
-                            {(type === 'stock' || type === 'mutual-fund' || type === 'other') && (
+                            {(type === 'stock' || type === 'mutual-fund' || type === 'other' || type === 'land') && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">DMAT ID</label>
@@ -563,110 +567,119 @@ export function Accounts() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => (
-                            <div key={type}>
-                                {/* Type Header */}
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1">
-                                    {getTypeDisplayName(type as AccountType)}
-                                </h3>
+                        {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => {
+                            const groupTotal = accountsInGroup.reduce((sum, acc) => sum + acc.balance, 0);
+                            return (
+                                <div key={type}>
+                                    {/* Type Header */}
+                                    <div className="flex justify-between items-center mb-3 ml-1">
+                                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+                                            {getTypeDisplayName(type as AccountType)}
+                                        </h3>
+                                        <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
+                                            {isBalanceHidden ? '•••••' : formatCurrency(groupTotal)}
+                                        </span>
+                                    </div>
 
-                                {/* Accounts in this type */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                                    {accountsInGroup.map((acc, index) => {
-                                        const isSelected = selectedAccounts.has(acc.id);
-                                        return (
-                                            <div
-                                                key={acc.id}
-                                                onClick={() => isSelectMode ? toggleSelectAccount(acc.id) : navigate(`/accounts/${acc.id}`)}
-                                                className={cn(
-                                                    "flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100",
-                                                    index !== accountsInGroup.length - 1 && "border-b border-gray-100",
-                                                    isSelected && "bg-blue-50"
-                                                )}
-                                            >
-                                                <div className="flex items-center space-x-4">
-                                                    {isSelectMode && (
-                                                        <div
-                                                            className={cn(
-                                                                "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
-                                                                isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300"
-                                                            )}
-                                                        >
-                                                            {isSelected && <Check size={14} className="text-white" />}
+                                    {/* Accounts in this type */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                        {accountsInGroup.map((acc, index) => {
+                                            const isSelected = selectedAccounts.has(acc.id);
+                                            return (
+                                                <div
+                                                    key={acc.id}
+                                                    onClick={() => isSelectMode ? toggleSelectAccount(acc.id) : navigate(`/accounts/${acc.id}`)}
+                                                    className={cn(
+                                                        "flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100",
+                                                        index !== accountsInGroup.length - 1 && "border-b border-gray-100",
+                                                        isSelected && "bg-blue-50"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center space-x-4">
+                                                        {isSelectMode && (
+                                                            <div
+                                                                className={cn(
+                                                                    "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                                                                    isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300"
+                                                                )}
+                                                            >
+                                                                {isSelected && <Check size={14} className="text-white" />}
+                                                            </div>
+                                                        )}
+                                                        <div className={cn(
+                                                            "p-3 rounded-xl",
+                                                            acc.type === 'credit' ? "bg-purple-100 text-purple-600" :
+                                                                acc.type === 'cash' ? "bg-green-100 text-green-600" :
+                                                                    acc.type === 'loan' ? "bg-orange-100 text-orange-600" :
+                                                                        acc.type === 'stock' || acc.type === 'mutual-fund' || acc.type === 'land' ? "bg-blue-100 text-blue-600" :
+                                                                            acc.type === 'savings' ? "bg-teal-100 text-teal-600" :
+                                                                                "bg-gray-100 text-gray-600"
+                                                        )}>
+                                                            {getAccountIcon(acc.type)}
                                                         </div>
-                                                    )}
-                                                    <div className={cn(
-                                                        "p-3 rounded-xl",
-                                                        acc.type === 'credit' ? "bg-purple-100 text-purple-600" :
-                                                            acc.type === 'cash' ? "bg-green-100 text-green-600" :
-                                                                acc.type === 'loan' ? "bg-orange-100 text-orange-600" :
-                                                                    acc.type === 'stock' || acc.type === 'mutual-fund' ? "bg-blue-100 text-blue-600" :
-                                                                        acc.type === 'savings' ? "bg-teal-100 text-teal-600" :
-                                                                            "bg-gray-100 text-gray-600"
-                                                    )}>
-                                                        {getAccountIcon(acc.type)}
+                                                        <div>
+                                                            <h3 className="font-bold text-gray-900 leading-tight">
+                                                                {acc.name}
+                                                            </h3>
+                                                            {acc.subName && (
+                                                                <p className="text-sm text-gray-600 mt-0.5">{acc.subName}</p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-gray-900 leading-tight">
-                                                            {acc.name}
-                                                        </h3>
-                                                        {acc.subName && (
-                                                            <p className="text-sm text-gray-600 mt-0.5">{acc.subName}</p>
+
+                                                    <div className="flex items-center space-x-4">
+                                                        <div className="text-right flex flex-col items-end min-h-[44px] justify-center">
+                                                            {acc.isPrimary && (
+                                                                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider mb-1">
+                                                                    Primary
+                                                                </span>
+                                                            )}
+                                                            {acc.type === 'loan' && acc.loanDetails && (
+                                                                <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold tracking-wide mb-1">
+                                                                    {acc.loanDetails.emisLeft} EMIs Left
+                                                                </span>
+                                                            )}
+                                                            <p className={cn("font-bold", acc.balance < 0 ? "text-red-600" : "text-gray-900")}>
+                                                                {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(acc.balance)}
+                                                            </p>
+                                                        </div>
+
+                                                        {!isSelectMode && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        e.preventDefault();
+                                                                        handleEdit(acc);
+                                                                    }}
+                                                                    className="p-2 text-gray-400 hover:text-blue-500 transition-colors hover:bg-blue-50 rounded-lg"
+                                                                >
+                                                                    <Pencil size={18} />
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        e.preventDefault();
+                                                                        setAccountToDelete(acc);
+                                                                    }}
+                                                                    className="p-2 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-lg"
+                                                                >
+                                                                    <Trash2 size={18} />
+                                                                </button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
-
-                                                <div className="flex items-center space-x-4">
-                                                    <div className="text-right flex flex-col items-end min-h-[44px] justify-center">
-                                                        {acc.isPrimary && (
-                                                            <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider mb-1">
-                                                                Primary
-                                                            </span>
-                                                        )}
-                                                        {acc.type === 'loan' && acc.loanDetails && (
-                                                            <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold tracking-wide mb-1">
-                                                                {acc.loanDetails.emisLeft} EMIs Left
-                                                            </span>
-                                                        )}
-                                                        <p className={cn("font-bold", acc.balance < 0 ? "text-red-600" : "text-gray-900")}>
-                                                            {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(acc.balance)}
-                                                        </p>
-                                                    </div>
-
-                                                    {!isSelectMode && (
-                                                        <>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    e.preventDefault();
-                                                                    handleEdit(acc);
-                                                                }}
-                                                                className="p-2 text-gray-400 hover:text-blue-500 transition-colors hover:bg-blue-50 rounded-lg"
-                                                            >
-                                                                <Pencil size={18} />
-                                                            </button>
-
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    e.preventDefault();
-                                                                    setAccountToDelete(acc);
-                                                                }}
-                                                                className="p-2 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-lg"
-                                                            >
-                                                                <Trash2 size={18} />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
-                )}
+                )
+                }
             </div>
 
             {/* Bulk Action Bar */}
