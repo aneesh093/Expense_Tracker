@@ -11,7 +11,7 @@ export function Dashboard() {
 
     const totalBalance = useMemo(() => {
         return accounts.reduce((sum, acc) => {
-            if (acc.type === 'credit') {
+            if (acc.type === 'credit' || acc.type === 'land') {
                 return sum;
             }
             if (acc.type === 'loan') {
@@ -103,6 +103,7 @@ export function Dashboard() {
                         <h2 className="text-4xl font-bold tracking-tight">
                             {isBalanceHidden ? '₹ •••••' : formatCurrency(totalBalance)}
                         </h2>
+                        <p className="text-blue-200 text-xs mt-1">* Land assets are not included in Net Worth</p>
                     </div>
                     <button
                         onClick={toggleBalanceHidden}

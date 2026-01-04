@@ -51,42 +51,53 @@ export function TransactionForm() {
 
     // Keypad logic
 
-    const visibleAccounts = type === 'transfer'
-        ? accounts
-        : accounts.filter(acc => ['fixed-deposit', 'savings', 'credit', 'cash', 'loan'].includes(acc.type));
+    const getVisibleAccounts = (currentType: TransactionType) => {
+        return currentType === 'transfer'
+            ? accounts
+            : accounts.filter(acc => ['fixed-deposit', 'savings', 'credit', 'cash', 'loan'].includes(acc.type));
+    };
 
-    // Update selected category and account validation when type changes
-    useEffect(() => {
-        // Validation for Account
-        // If current selected account is not in visible list, pick the first one
-        if (selectedAccountId && !visibleAccounts.find(a => a.id === selectedAccountId)) {
-            if (visibleAccounts.length > 0) {
-                setSelectedAccountId(visibleAccounts[0].id);
+    const visibleAccounts = getVisibleAccounts(type);
+
+    // Ensure selected account is visible in dropdown (for editing historical data)
+    const accountsToList = (selectedAccountId && !visibleAccounts.find(a => a.id === selectedAccountId))
+        ? [accounts.find(a => a.id === selectedAccountId)!].concat(visibleAccounts).filter(Boolean)
+        : visibleAccounts;
+
+    const handleTypeChange = (newType: TransactionType) => {
+        setType(newType);
+
+        // Validate Account
+        const newVisible = getVisibleAccounts(newType);
+        // If current selected account is not valid for new type, switch it.
+        if (selectedAccountId && !newVisible.find(a => a.id === selectedAccountId)) {
+            if (newVisible.length > 0) {
+                setSelectedAccountId(newVisible[0].id);
             } else {
                 setSelectedAccountId('');
             }
-        }
-        // If no account selected but we have visible ones, pick first
-        else if (!selectedAccountId && visibleAccounts.length > 0) {
-            setSelectedAccountId(visibleAccounts[0].id);
+        } else if (!selectedAccountId && newVisible.length > 0) {
+            setSelectedAccountId(newVisible[0].id);
         }
 
-        // Validation for Category
+        // Validate Category
+        // Always reset category to valid one for new type unless it matches
+        // (Logic from previous effect)
         const currentCategory = categories.find(c => c.id === selectedCategory);
-        if (currentCategory && currentCategory.type !== type) {
-            const firstValidCategory = categories.find(c => c.type === type);
+        if (currentCategory && currentCategory.type !== newType) {
+            const firstValidCategory = categories.find(c => c.type === newType);
             if (firstValidCategory) {
                 setSelectedCategory(firstValidCategory.id);
             } else {
                 setSelectedCategory('');
             }
         } else if (!selectedCategory) {
-            const firstValidCategory = categories.find(c => c.type === type);
+            const firstValidCategory = categories.find(c => c.type === newType);
             if (firstValidCategory) {
                 setSelectedCategory(firstValidCategory.id);
             }
         }
-    }, [type, categories, selectedCategory, visibleAccounts, selectedAccountId]);
+    };
 
     // Keypad logic
     const handleNumberClick = (num: string) => {
@@ -164,19 +175,19 @@ export function TransactionForm() {
                 </button>
                 <div className="flex bg-gray-100 rounded-lg p-1">
                     <button
-                        onClick={() => setType('expense')}
+                        onClick={() => handleTypeChange('expense')}
                         className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors", type === 'expense' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500")}
                     >
                         Expense
                     </button>
                     <button
-                        onClick={() => setType('income')}
+                        onClick={() => handleTypeChange('income')}
                         className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors", type === 'income' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500")}
                     >
                         Income
                     </button>
                     <button
-                        onClick={() => setType('transfer')}
+                        onClick={() => handleTypeChange('transfer')}
                         className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors", type === 'transfer' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500")}
                     >
                         Transfer
@@ -214,7 +225,7 @@ export function TransactionForm() {
                             onChange={(e) => setSelectedAccountId(e.target.value)}
                             className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
                         >
-                            {visibleAccounts.map(acc => (
+                            {accountsToList.map(acc => (
                                 <option key={acc.id} value={acc.id}>{acc.name}</option>
                             ))}
                         </select>
