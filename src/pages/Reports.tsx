@@ -30,6 +30,7 @@ export function Reports() {
         const reportAccountIds = new Set(accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id));
 
         const relevantTransactions = transactions.filter(t =>
+            t.excludeFromBalance || // Always include manual transactions
             reportAccountIds.size === 0 ||
             reportAccountIds.has(t.accountId) ||
             (t.toAccountId && reportAccountIds.has(t.toAccountId))
@@ -57,21 +58,26 @@ export function Reports() {
     };
 
     // Calculate totals
-    const { totalIncome, totalExpense, totalInvestment } = useMemo(() => {
+    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense } = useMemo(() => {
         return periodTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
-            else if (t.type === 'expense') acc.totalExpense += t.amount;
+            else if (t.type === 'expense') {
+                if (t.excludeFromBalance) acc.manualTotalExpense += t.amount;
+                else acc.totalExpense += t.amount;
+            }
             else if (isInvestment(t)) acc.totalInvestment += t.amount;
             return acc;
-        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0 });
+        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0 });
     }, [periodTransactions, accounts]);
 
-    // Prepare chart data (Expense by Category)
+    // Prepare chart data (Expense by Category) - Excluding manual
     const chartData = useMemo(() => {
         const expenseMap = new Map<string, number>();
 
         periodTransactions
             .forEach(t => {
+                if (t.excludeFromBalance) return; // Skip manual transactions
+
                 if (t.type === 'expense') {
                     const current = expenseMap.get(t.category) || 0;
                     expenseMap.set(t.category, current + t.amount);
@@ -93,6 +99,30 @@ export function Reports() {
             .sort((a, b) => b.value - a.value);
     }, [periodTransactions, categories]);
 
+    // Prepare manual chart data
+    const manualChartData = useMemo(() => {
+        const manualMap = new Map<string, number>();
+
+        periodTransactions
+            .forEach(t => {
+                if (!t.excludeFromBalance) return;
+
+                const current = manualMap.get(t.category) || 0;
+                manualMap.set(t.category, current + t.amount);
+            });
+
+        return Array.from(manualMap.entries())
+            .map(([name, value]) => {
+                const category = categories.find(c => c.name === name);
+                return {
+                    name,
+                    value,
+                    color: category?.color || '#9ca3af'
+                };
+            })
+            .sort((a, b) => b.value - a.value);
+    }, [periodTransactions, categories]);
+
     const handleExportPDF = () => {
         const reportTitle = viewMode === 'monthly' ? 'Monthly Financial Report' : 'Yearly Financial Report';
         generateReportPDF({
@@ -100,10 +130,13 @@ export function Reports() {
             period: format(currentDate, viewMode === 'monthly' ? 'MMMM yyyy' : 'yyyy'),
             totalIncome,
             totalExpense,
+            totalInvestment,
+            manualTotalExpense,
             transactions: periodTransactions,
             accounts,
             categories,
-            chartData
+            chartData,
+            manualChartData // Pass manual chart data
         });
     };
 
@@ -117,8 +150,8 @@ export function Reports() {
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#387908'];
 
     return (
-        <div className="flex flex-col bg-gray-50 min-h-full -m-4">
-            <header className="flex flex-col gap-3 p-4 bg-white shadow-sm sticky top-0 z-10">
+        <div className="flex flex-col bg-gray-50 -mx-4 -mt-4 min-h-full">
+            <header className="flex flex-col gap-3 p-4 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20">
                 <div className="flex justify-between items-center">
                     <h1 className="text-xl font-bold text-gray-900">Reports</h1>
                     <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -168,31 +201,37 @@ export function Reports() {
                 </div>
             </header>
 
-            <div className="flex-1 p-4 space-y-4">
+            <div className="flex-1 p-4 space-y-4 pb-24">
                 {/* Summary Cards */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
                         <p className="text-xs font-medium text-gray-500 mb-1">Income</p>
-                        <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
+                        <p className="text-lg font-bold text-green-600 truncate">{formatCurrency(totalIncome)}</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
                         <p className="text-xs font-medium text-gray-500 mb-1">Expense</p>
-                        <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+                        <p className="text-lg font-bold text-red-600 truncate">{formatCurrency(totalExpense)}</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
                         <div className="flex items-center space-x-1 mb-1">
                             <TrendingUp size={12} className="text-purple-500" />
                             <p className="text-xs font-medium text-gray-500">Invested</p>
                         </div>
-                        <p className="text-lg font-bold text-purple-600">{formatCurrency(totalInvestment)}</p>
+                        <p className="text-lg font-bold text-purple-600 truncate">{formatCurrency(totalInvestment)}</p>
                     </div>
+                    {manualTotalExpense > 0 && (
+                        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-gray-400">
+                            <p className="text-xs font-medium text-gray-500 mb-1 overflow-hidden">Manual Exp</p>
+                            <p className="text-lg font-bold text-gray-600 truncate">{formatCurrency(manualTotalExpense)}</p>
+                        </div>
+                    )}
                 </div>
 
-                {/* Chart Section */}
+                {/* Main Chart Section */}
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                     <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">Expense Breakdown</h3>
                     {chartData.length > 0 ? (
-                        <div className="h-64 w-full">
+                        <div className="h-80 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
@@ -212,7 +251,13 @@ export function Reports() {
                                         formatter={(value: number) => formatCurrency(value)}
                                         contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                     />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                                    <Legend
+                                        iconType="circle"
+                                        layout="horizontal"
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -222,6 +267,43 @@ export function Reports() {
                         </div>
                     )}
                 </div>
+
+                {/* Manual Expenses Breakdown (if any) */}
+                {manualChartData.length > 0 && (
+                    <div className="bg-white p-4 rounded-xl shadow-sm">
+                        <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">Manual Expenses (Non-Impacting)</h3>
+                        <div className="h-64 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={manualChartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={50}
+                                        outerRadius={70}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                    >
+                                        {manualChartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={(value: number) => formatCurrency(value)}
+                                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    />
+                                    <Legend
+                                        iconType="circle"
+                                        layout="horizontal"
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
 
                 {/* Transactions List */}
                 <div>
@@ -261,7 +343,11 @@ export function Reports() {
                                                     <div className="flex items-center text-xs text-gray-500 space-x-1">
                                                         <span>{format(new Date(t.date), 'MMM dd')}</span>
                                                         <span>•</span>
-                                                        <span className="truncate max-w-[100px]">{t.category}</span>
+                                                        <span className="truncate max-w-[80px]">{t.category}</span>
+                                                        <span>•</span>
+                                                        <span className="truncate max-w-[80px] font-medium opacity-80">
+                                                            {accounts.find(a => a.id === t.accountId)?.name || 'Unknown'}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>

@@ -50,6 +50,7 @@ export interface Transaction {
     date: string;
     note?: string;
     eventId?: string; // For event-based tracking
+    excludeFromBalance?: boolean;
 }
 
 export interface Category {

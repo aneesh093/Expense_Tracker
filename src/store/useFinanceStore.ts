@@ -123,6 +123,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     addTransaction: (transaction) => {
         set((state) => {
             const newTransactions = [...state.transactions, transaction];
+
+            // If transaction is excluded from balance, don't update accounts
+            if (transaction.excludeFromBalance) {
+                return { transactions: newTransactions };
+            }
+
             const updatedAccounts = state.accounts.map((acc) => {
                 if (acc.id === transaction.accountId) {
                     // Logic for the SOURCE account
@@ -162,47 +168,52 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         const oldTransaction = state.transactions.find((t) => t.id === id);
         if (!oldTransaction) return;
 
-        // Revert old transaction effects
-        let updatedAccounts = state.accounts.map((acc) => {
-            if (acc.id === oldTransaction.accountId) {
-                const isLoan = acc.type === 'loan';
-                // Revert Source
-                const revertedBalance =
-                    oldTransaction.type === 'income'
-                        ? acc.balance - oldTransaction.amount
-                        : oldTransaction.type === 'expense'
-                            ? acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount)
-                            : acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount);
-                return { ...acc, balance: revertedBalance };
-            }
-            if (oldTransaction.type === 'transfer' && acc.id === oldTransaction.toAccountId) {
-                const isLoan = acc.type === 'loan';
-                // Revert Destination
-                return { ...acc, balance: acc.balance - (isLoan ? -oldTransaction.amount : oldTransaction.amount) };
-            }
-            return acc;
-        });
+        // Revert old transaction effects if it was impacting balance
+        let updatedAccounts = state.accounts;
+        if (!oldTransaction.excludeFromBalance) {
+            updatedAccounts = state.accounts.map((acc) => {
+                if (acc.id === oldTransaction.accountId) {
+                    const isLoan = acc.type === 'loan';
+                    // Revert Source
+                    const revertedBalance =
+                        oldTransaction.type === 'income'
+                            ? acc.balance - oldTransaction.amount
+                            : oldTransaction.type === 'expense'
+                                ? acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount)
+                                : acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount);
+                    return { ...acc, balance: revertedBalance };
+                }
+                if (oldTransaction.type === 'transfer' && acc.id === oldTransaction.toAccountId) {
+                    const isLoan = acc.type === 'loan';
+                    // Revert Destination
+                    return { ...acc, balance: acc.balance - (isLoan ? -oldTransaction.amount : oldTransaction.amount) };
+                }
+                return acc;
+            });
+        }
 
-        // Apply new transaction effects
-        updatedAccounts = updatedAccounts.map((acc) => {
-            if (acc.id === updatedTransaction.accountId) {
-                const isLoan = acc.type === 'loan';
-                // Apply Source
-                const newBalance =
-                    updatedTransaction.type === 'income'
-                        ? acc.balance + updatedTransaction.amount
-                        : updatedTransaction.type === 'expense'
-                            ? acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount)
-                            : acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount);
-                return { ...acc, balance: newBalance };
-            }
-            if (updatedTransaction.type === 'transfer' && acc.id === updatedTransaction.toAccountId) {
-                const isLoan = acc.type === 'loan';
-                // Apply Destination
-                return { ...acc, balance: acc.balance + (isLoan ? -updatedTransaction.amount : updatedTransaction.amount) };
-            }
-            return acc;
-        });
+        // Apply new transaction effects if it's impacting balance
+        if (!updatedTransaction.excludeFromBalance) {
+            updatedAccounts = updatedAccounts.map((acc) => {
+                if (acc.id === updatedTransaction.accountId) {
+                    const isLoan = acc.type === 'loan';
+                    // Apply Source
+                    const newBalance =
+                        updatedTransaction.type === 'income'
+                            ? acc.balance + updatedTransaction.amount
+                            : updatedTransaction.type === 'expense'
+                                ? acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount)
+                                : acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount);
+                    return { ...acc, balance: newBalance };
+                }
+                if (updatedTransaction.type === 'transfer' && acc.id === updatedTransaction.toAccountId) {
+                    const isLoan = acc.type === 'loan';
+                    // Apply Destination
+                    return { ...acc, balance: acc.balance + (isLoan ? -updatedTransaction.amount : updatedTransaction.amount) };
+                }
+                return acc;
+            });
+        }
 
         set({
             transactions: state.transactions.map((t) => (t.id === id ? updatedTransaction : t)),
@@ -225,6 +236,9 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         if (!transaction) return;
 
         const updatedAccounts = state.accounts.map((acc) => {
+            // Only revert if transaction was impacting balance
+            if (transaction.excludeFromBalance) return acc;
+
             if (acc.id === transaction.accountId) {
                 const isLoan = acc.type === 'loan';
                 // Revert Source (Same as Revert in edit)

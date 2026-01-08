@@ -18,6 +18,7 @@ export function TransactionForm() {
     const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id || '');
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [note, setNote] = useState('');
+    const [excludeFromBalance, setExcludeFromBalance] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showKeypad, setShowKeypad] = useState(false);
 
@@ -44,6 +45,7 @@ export function TransactionForm() {
                 setSelectedCategory(category ? category.id : (categories[0]?.id || ''));
                 setSelectedEventId(transaction.eventId || '');
                 setNote(transaction.note || '');
+                setExcludeFromBalance(!!transaction.excludeFromBalance);
                 setIsEditing(true);
             }
         }
@@ -148,7 +150,8 @@ export function TransactionForm() {
             category: categoryName,
             date: isEditing && id ? (transactions.find(t => t.id === id)?.date || new Date().toISOString()) : new Date().toISOString(),
             note,
-            eventId: selectedEventId || undefined
+            eventId: selectedEventId || undefined,
+            excludeFromBalance
         };
 
         if (isEditing && id) {
@@ -167,9 +170,9 @@ export function TransactionForm() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-white pb-20">
+        <div className="flex flex-col h-screen bg-white pb-20 overflow-y-auto no-scrollbar">
             {/* Header */}
-            <header className="flex items-center justify-between p-4">
+            <header className="flex items-center justify-between p-4 sticky top-0 bg-white z-10">
                 <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-600">
                     <ArrowLeft size={24} />
                 </button>
@@ -203,7 +206,7 @@ export function TransactionForm() {
             </header>
 
             {/* Amount Display */}
-            <div className="flex-1 flex flex-col justify-center items-center p-6">
+            <div className="flex-shrink-0 flex flex-col justify-center items-center p-6">
                 <p className="text-gray-400 font-medium mb-2">Amount</p>
                 <div
                     onClick={() => setShowKeypad(true)}
@@ -215,9 +218,9 @@ export function TransactionForm() {
             </div>
 
             {/* Form Fields */}
-            <div className="px-4 space-y-3 mb-4">
+            <div className="px-4 space-y-3 mb-6">
                 {/* Account Select */}
-                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
                     <span className="text-gray-500 text-sm font-medium">Account</span>
                     <div className="relative">
                         <select
@@ -235,7 +238,7 @@ export function TransactionForm() {
 
                 {/* Category Select OR To Account Select */}
                 {type === 'transfer' ? (
-                    <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                    <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
                         <span className="text-gray-500 text-sm font-medium">To Account</span>
                         <div className="relative">
                             <select
@@ -254,7 +257,7 @@ export function TransactionForm() {
                         </div>
                     </div>
                 ) : (
-                    <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                    <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
                         <span className="text-gray-500 text-sm font-medium">Category</span>
                         <div className="relative">
                             <select
@@ -275,7 +278,7 @@ export function TransactionForm() {
                 )}
 
                 {/* Note Input */}
-                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
                     <span className="text-gray-500 text-sm font-medium">Note</span>
                     <input
                         type="text"
@@ -287,7 +290,7 @@ export function TransactionForm() {
                 </div>
 
                 {/* Event Select */}
-                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
+                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
                     <span className="text-gray-500 text-sm font-medium">Event</span>
                     <div className="relative">
                         <select
@@ -302,6 +305,35 @@ export function TransactionForm() {
                         </select>
                         <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
+                </div>
+
+                {/* Balance Exclusion Toggle */}
+                <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col">
+                            <span className="text-blue-900 text-sm font-bold">Manual Transaction</span>
+                            <span className="text-blue-600 text-[11px] font-medium leading-tight">Does not affect account balance</span>
+                        </div>
+                        <button
+                            onClick={() => setExcludeFromBalance(!excludeFromBalance)}
+                            className={cn(
+                                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                                excludeFromBalance ? "bg-blue-600" : "bg-gray-200"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                                    excludeFromBalance ? "translate-x-6" : "translate-x-1"
+                                )}
+                            />
+                        </button>
+                    </div>
+                    {excludeFromBalance && (
+                        <p className="text-[10px] text-blue-500 italic mt-1 leading-tight">
+                            * Useful for past transactions, cash expenses already paid, or tracking costs in events without affecting your digital balances.
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -339,7 +371,7 @@ export function TransactionForm() {
                 </>
             )}
 
-            <div className="px-4 pb-2">
+            <div className="px-4 pb-4 mt-auto">
                 <button
                     onClick={handleSubmit}
                     className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform flex items-center justify-center space-x-2"
