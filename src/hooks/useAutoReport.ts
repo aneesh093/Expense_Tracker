@@ -47,12 +47,18 @@ export function useAutoReport() {
                         // Let's print it anyway so they know it worked.
                     }
 
-                    const { totalIncome, totalExpense } = relevantTransactions.reduce((acc, t) => {
+                    const isInvestment = (t: any) => {
+                        if (t.type !== 'transfer' || !t.toAccountId) return false;
+                        const toAccount = accounts.find(a => a.id === t.toAccountId);
+                        return toAccount?.type === 'stock' || toAccount?.type === 'mutual-fund';
+                    };
+
+                    const { totalIncome, totalExpense, totalInvestment } = relevantTransactions.reduce((acc, t) => {
                         if (t.type === 'income') acc.totalIncome += t.amount;
                         else if (t.type === 'expense') acc.totalExpense += t.amount;
+                        else if (isInvestment(t)) acc.totalInvestment += t.amount;
                         return acc;
-                        return acc;
-                    }, { totalIncome: 0, totalExpense: 0 });
+                    }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0 });
 
                     // Calculate Chart Data
                     const expenseMap = new Map<string, number>();
@@ -79,6 +85,7 @@ export function useAutoReport() {
                         period: currentPeriod,
                         totalIncome,
                         totalExpense,
+                        totalInvestment,
                         transactions: relevantTransactions,
                         accounts,
                         categories,
