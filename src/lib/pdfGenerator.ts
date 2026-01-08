@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import type { Transaction, Account, Category } from '../types';
 
 interface ReportData {
+    title: string;
     period: string;
     totalIncome: number;
     totalExpense: number;
@@ -46,14 +47,14 @@ const drawBarChart = (doc: jsPDF, data: { name: string; value: number; color: st
     return currentY + 10; // Return new Y position
 };
 
-export const generateMonthlyReportPDF = (data: ReportData) => {
+export const generateReportPDF = (data: ReportData) => {
     const doc = new jsPDF();
 
 
     // Title
     doc.setFontSize(20);
     doc.setTextColor(40);
-    doc.text(`Monthly Financial Report - ${data.period}`, 14, 22);
+    doc.text(`${data.title} - ${data.period}`, 14, 22);
 
     // Summary Section
     doc.setFontSize(12);
@@ -125,5 +126,5 @@ export const generateMonthlyReportPDF = (data: ReportData) => {
     });
 
     // Save
-    doc.save(`Finance_Report_${data.period}.pdf`);
+    doc.save(`${data.title.replace(/\s+/g, '_')}_${data.period}.pdf`);
 };

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { generateMonthlyReportPDF } from '../lib/pdfGenerator';
+import { generateReportPDF } from '../lib/pdfGenerator';
 import { endOfMonth, format, isSameDay, startOfMonth } from 'date-fns';
 
 export function useAutoReport() {
@@ -74,7 +74,8 @@ export function useAutoReport() {
                         })
                         .sort((a, b) => b.value - a.value);
 
-                    generateMonthlyReportPDF({
+                    generateReportPDF({
+                        title: 'Monthly Financial Report',
                         period: currentPeriod,
                         totalIncome,
                         totalExpense,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type Account, type AccountType } from '../types';
-import { CreditCard, Plus, X, Wallet, Building, Banknote, Landmark, Trash2, AlertTriangle, Pencil, PiggyBank, TrendingUp, PieChart, Briefcase, Check, MapPin } from 'lucide-react';
+import { CreditCard, Plus, X, Wallet, Building, Banknote, Landmark, Trash2, AlertTriangle, Pencil, PiggyBank, TrendingUp, PieChart, Briefcase, Check, MapPin, Shield } from 'lucide-react';
 import { cn, generateId } from '../lib/utils';
 
 export function Accounts() {
@@ -31,6 +31,11 @@ export function Accounts() {
     const [interestRate, setInterestRate] = useState('');
     const [monthlyEmi, setMonthlyEmi] = useState('');
     const [emisLeft, setEmisLeft] = useState('');
+
+    // Insurance Fields
+    const [policyNumber, setPolicyNumber] = useState('');
+    const [premiumAmount, setPremiumAmount] = useState('');
+    const [renewalDate, setRenewalDate] = useState('');
 
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
     const [filterType, setFilterType] = useState<AccountType | 'all'>('all');
@@ -70,6 +75,12 @@ export function Accounts() {
         } else if (type === 'stock' || type === 'mutual-fund' || type === 'other' || type === 'land') {
             accountData.dmatId = dmatId;
             accountData.customerId = customerId;
+        } else if (type === 'insurance') {
+            accountData.insuranceDetails = { // Corrected: insuranceDetails instead of separate fields if preferred, or matching the plan. 
+                policyNumber,
+                premiumAmount: parseFloat(premiumAmount) || 0,
+                renewalDate
+            };
         } else if (type === 'loan') {
             accountData.loanDetails = {
                 principalAmount: parseFloat(principalAmount) || 0,
@@ -110,6 +121,14 @@ export function Accounts() {
             setInterestRate(account.loanDetails.interestRate.toString());
             setMonthlyEmi(account.loanDetails.monthlyEmi.toString());
             setEmisLeft(account.loanDetails.emisLeft.toString());
+            setMonthlyEmi(account.loanDetails.monthlyEmi.toString());
+            setEmisLeft(account.loanDetails.emisLeft.toString());
+        }
+
+        if (account.type === 'insurance' && account.insuranceDetails) {
+            setPolicyNumber(account.insuranceDetails.policyNumber);
+            setPremiumAmount(account.insuranceDetails.premiumAmount.toString());
+            setRenewalDate(account.insuranceDetails.renewalDate);
         }
 
         setIsAdding(true);
@@ -129,7 +148,12 @@ export function Accounts() {
         setPrincipalAmount('');
         setInterestRate('');
         setMonthlyEmi('');
+        setMonthlyEmi('');
         setEmisLeft('');
+
+        setPolicyNumber('');
+        setPremiumAmount('');
+        setRenewalDate('');
     };
 
     const handleDeleteConfirm = () => {
@@ -139,7 +163,7 @@ export function Accounts() {
         }
     };
 
-    const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'other' || type === 'land';
+    const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'other' || type === 'land' || type === 'insurance';
 
     const filteredAccounts = accounts.filter(acc => {
         const matchesTab = activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
@@ -169,6 +193,7 @@ export function Accounts() {
             case 'mutual-fund': return 'Mutual Fund';
             case 'other': return 'Other';
             case 'land': return 'Land';
+            case 'insurance': return 'Insurance';
             default: return type;
         }
     };
@@ -195,6 +220,8 @@ export function Accounts() {
                 return <Briefcase {...iconProps} />;
             case 'land':
                 return <MapPin {...iconProps} />;
+            case 'insurance':
+                return <Shield {...iconProps} />;
             default:
                 return <Building {...iconProps} />;
         }
@@ -310,7 +337,9 @@ export function Accounts() {
                         <>
                             <option value="stock">Stock</option>
                             <option value="mutual-fund">Mutual Fund</option>
+                            <option value="mutual-fund">Mutual Fund</option>
                             <option value="land">Land</option>
+                            <option value="insurance">Insurance</option>
                             <option value="other">Other</option>
                         </>
                     )}
@@ -371,7 +400,7 @@ export function Accounts() {
                                             </button>
                                         ))
                                     ) : (
-                                        ['stock', 'mutual-fund', 'land', 'other'].map((t) => (
+                                        ['stock', 'mutual-fund', 'land', 'insurance', 'other'].map((t) => (
                                             <button
                                                 key={t}
                                                 onClick={() => setType(t as AccountType)}
@@ -389,7 +418,43 @@ export function Accounts() {
                                 </div>
                             </div>
 
-                            {/* Loan Specific Fields */}
+                            {/* Insurance Specific Fields */}
+                            {type === 'insurance' && (
+                                <div className="space-y-4 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Policy Number</label>
+                                        <input
+                                            type="text"
+                                            value={policyNumber}
+                                            onChange={(e) => setPolicyNumber(e.target.value)}
+                                            className="w-full p-3 bg-white rounded-xl border border-purple-200 focus:ring-2 focus:ring-purple-500"
+                                            placeholder="e.g. POL123456789"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Premium Amount</label>
+                                            <input
+                                                type="number"
+                                                value={premiumAmount}
+                                                onChange={(e) => setPremiumAmount(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-purple-200 focus:ring-2 focus:ring-purple-500"
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Renewal Date</label>
+                                            <input
+                                                type="date"
+                                                value={renewalDate}
+                                                onChange={(e) => setRenewalDate(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-purple-200 focus:ring-2 focus:ring-purple-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {type === 'loan' && (
                                 <div className="space-y-4 bg-orange-50 p-4 rounded-xl border border-orange-100">
                                     <div className="grid grid-cols-2 gap-3">
@@ -611,7 +676,7 @@ export function Accounts() {
                                                             acc.type === 'credit' ? "bg-purple-100 text-purple-600" :
                                                                 acc.type === 'cash' ? "bg-green-100 text-green-600" :
                                                                     acc.type === 'loan' ? "bg-orange-100 text-orange-600" :
-                                                                        acc.type === 'stock' || acc.type === 'mutual-fund' || acc.type === 'land' ? "bg-blue-100 text-blue-600" :
+                                                                        acc.type === 'stock' || acc.type === 'mutual-fund' || acc.type === 'land' || acc.type === 'insurance' ? "bg-blue-100 text-blue-600" :
                                                                             acc.type === 'savings' ? "bg-teal-100 text-teal-600" :
                                                                                 "bg-gray-100 text-gray-600"
                                                         )}>
