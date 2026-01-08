@@ -1,4 +1,4 @@
-export type AccountType = 'fixed-deposit' | 'savings' | 'credit' | 'cash' | 'stock' | 'mutual-fund' | 'other' | 'loan' | 'land';
+export type AccountType = 'fixed-deposit' | 'savings' | 'credit' | 'cash' | 'stock' | 'mutual-fund' | 'other' | 'loan' | 'land' | 'insurance';
 
 export interface Holding {
     id: string;
@@ -15,6 +15,12 @@ export interface LoanDetails {
     emisLeft: number;
 }
 
+export interface InsuranceDetails {
+    policyNumber: string;
+    premiumAmount: number;
+    renewalDate: string; // YYYY-MM-DD
+}
+
 export interface Account {
     id: string;
     name: string;
@@ -27,6 +33,7 @@ export interface Account {
     dmatId?: string;
     holdings?: Holding[];
     loanDetails?: LoanDetails;
+    insuranceDetails?: InsuranceDetails;
     subName?: string;
     isPrimary?: boolean;
 }

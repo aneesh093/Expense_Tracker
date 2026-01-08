@@ -1,38 +1,44 @@
 import { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths, startOfYear, endOfYear, addYears, subYears } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, FileDown, ArrowRightLeft, TrendingUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { generateMonthlyReportPDF } from '../lib/pdfGenerator';
+import { generateReportPDF } from '../lib/pdfGenerator';
 
 export function Reports() {
     const navigate = useNavigate();
     const { transactions, categories, events, accounts } = useFinanceStore();
 
-    // current month state
+    // View Mode State
+    const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
+
+    // current date state
     const [currentDate, setCurrentDate] = useState(new Date());
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
+
+    // Calculate start and end based on view mode
+    const periodStart = viewMode === 'monthly' ? startOfMonth(currentDate) : startOfYear(currentDate);
+    const periodEnd = viewMode === 'monthly' ? endOfMonth(currentDate) : endOfYear(currentDate);
 
     // Pagination state
     const [displayLimit, setDisplayLimit] = useState(20);
 
-    // Filter transactions for current month
-    const monthTransactions = useMemo(() => {
-        const primaryAccountIds = new Set(accounts.filter(a => a.isPrimary).map(a => a.id));
+    // Filter transactions for current period
+    const periodTransactions = useMemo(() => {
+        // Include Primary accounts AND Credit Card accounts
+        const reportAccountIds = new Set(accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id));
 
         const relevantTransactions = transactions.filter(t =>
-            primaryAccountIds.size === 0 ||
-            primaryAccountIds.has(t.accountId) ||
-            (t.toAccountId && primaryAccountIds.has(t.toAccountId))
+            reportAccountIds.size === 0 ||
+            reportAccountIds.has(t.accountId) ||
+            (t.toAccountId && reportAccountIds.has(t.toAccountId))
         );
 
         return relevantTransactions
-            .filter(t => isWithinInterval(new Date(t.date), { start: monthStart, end: monthEnd }))
+            .filter(t => isWithinInterval(new Date(t.date), { start: periodStart, end: periodEnd }))
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, currentDate, accounts]);
+    }, [transactions, currentDate, accounts, viewMode]);
 
     const isInvestment = (t: any) => {
         if (t.type !== 'transfer' || !t.toAccountId) return false;
@@ -40,31 +46,31 @@ export function Reports() {
         return toAccount?.type === 'stock' || toAccount?.type === 'mutual-fund';
     };
 
-    const handlePrevMonth = () => {
-        setCurrentDate(prev => subMonths(prev, 1));
+    const handlePrev = () => {
+        setCurrentDate(prev => viewMode === 'monthly' ? subMonths(prev, 1) : subYears(prev, 1));
         setDisplayLimit(20); // Reset pagination
     };
 
-    const handleNextMonth = () => {
-        setCurrentDate(prev => addMonths(prev, 1));
+    const handleNext = () => {
+        setCurrentDate(prev => viewMode === 'monthly' ? addMonths(prev, 1) : addYears(prev, 1));
         setDisplayLimit(20);
     };
 
     // Calculate totals
     const { totalIncome, totalExpense, totalInvestment } = useMemo(() => {
-        return monthTransactions.reduce((acc, t) => {
+        return periodTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
             else if (t.type === 'expense') acc.totalExpense += t.amount;
             else if (isInvestment(t)) acc.totalInvestment += t.amount;
             return acc;
         }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0 });
-    }, [monthTransactions, accounts]);
+    }, [periodTransactions, accounts]);
 
     // Prepare chart data (Expense by Category)
     const chartData = useMemo(() => {
         const expenseMap = new Map<string, number>();
 
-        monthTransactions
+        periodTransactions
             .forEach(t => {
                 if (t.type === 'expense') {
                     const current = expenseMap.get(t.category) || 0;
@@ -85,14 +91,16 @@ export function Reports() {
                 };
             })
             .sort((a, b) => b.value - a.value);
-    }, [monthTransactions, categories]);
+    }, [periodTransactions, categories]);
 
     const handleExportPDF = () => {
-        generateMonthlyReportPDF({
-            period: format(currentDate, 'MMMM yyyy'),
+        const reportTitle = viewMode === 'monthly' ? 'Monthly Financial Report' : 'Yearly Financial Report';
+        generateReportPDF({
+            title: reportTitle,
+            period: format(currentDate, viewMode === 'monthly' ? 'MMMM yyyy' : 'yyyy'),
             totalIncome,
             totalExpense,
-            transactions: monthTransactions,
+            transactions: periodTransactions,
             accounts,
             categories,
             chartData
@@ -109,33 +117,58 @@ export function Reports() {
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#387908'];
 
     return (
-        <div className="flex flex-col h-full bg-gray-50">
-            <header className="flex items-center justify-between p-4 bg-white shadow-sm sticky top-0 z-10">
-                <h1 className="text-xl font-bold text-gray-900">Reports</h1>
+        <div className="flex flex-col bg-gray-50 min-h-full -m-4">
+            <header className="flex flex-col gap-3 p-4 bg-white shadow-sm sticky top-0 z-10">
+                <div className="flex justify-between items-center">
+                    <h1 className="text-xl font-bold text-gray-900">Reports</h1>
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setViewMode('monthly')}
+                            className={cn(
+                                "px-3 py-1 text-sm font-medium rounded-md transition-all",
+                                viewMode === 'monthly' ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            Monthly
+                        </button>
+                        <button
+                            onClick={() => setViewMode('yearly')}
+                            className={cn(
+                                "px-3 py-1 text-sm font-medium rounded-md transition-all",
+                                viewMode === 'yearly' ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            Yearly
+                        </button>
+                    </div>
+                </div>
 
-                <div className="flex items-center space-x-2">
-                    <button
-                        onClick={handleExportPDF}
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
-                        title="Export to PDF"
-                    >
-                        <FileDown size={20} />
-                    </button>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={handleExportPDF}
+                            className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
+                            title="Export to PDF"
+                        >
+                            <FileDown size={20} />
+                        </button>
+                    </div>
+
                     <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-                        <button onClick={handlePrevMonth} className="p-1 rounded-md hover:bg-white text-gray-600">
+                        <button onClick={handlePrev} className="p-1 rounded-md hover:bg-white text-gray-600">
                             <ChevronLeft size={20} />
                         </button>
                         <span className="text-sm font-semibold text-gray-700 w-28 text-center select-none">
-                            {format(currentDate, 'MMM yyyy')}
+                            {format(currentDate, viewMode === 'monthly' ? 'MMM yyyy' : 'yyyy')}
                         </span>
-                        <button onClick={handleNextMonth} className="p-1 rounded-md hover:bg-white text-gray-600">
+                        <button onClick={handleNext} className="p-1 rounded-md hover:bg-white text-gray-600">
                             <ChevronRight size={20} />
                         </button>
                     </div>
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 p-4 space-y-4">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-3 gap-4">
                     <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
@@ -193,62 +226,89 @@ export function Reports() {
                 {/* Transactions List */}
                 <div>
                     <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
-                        Transactions ({monthTransactions.length})
+                        {viewMode === 'monthly' ? `Transactions (${periodTransactions.length})` : 'Category Breakdown'}
                     </h3>
 
                     <div className="space-y-3">
-                        {monthTransactions.length === 0 ? (
-                            <div className="text-center py-10 bg-white rounded-xl">
-                                <p className="text-gray-500 text-sm">No transactions found.</p>
-                            </div>
-                        ) : (
-                            <>
-                                {monthTransactions.slice(0, displayLimit).map((t) => (
-                                    <div
-                                        key={t.id}
-                                        onClick={() => navigate(`/edit/${t.id}`)}
-                                        className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.99] transition-transform"
-                                    >
-                                        <div className="flex items-center space-x-3 overflow-hidden">
-                                            <div className={cn("p-2 rounded-full shrink-0",
-                                                t.type === 'expense' ? "bg-red-50 text-red-500" :
-                                                    t.type === 'income' ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"
-                                            )}>
-                                                {t.type === 'expense' ? <ArrowDownRight size={18} /> :
-                                                    t.type === 'income' ? <ArrowUpRight size={18} /> : <ArrowRightLeft size={18} />}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="font-medium text-gray-900 text-sm truncate">
-                                                    {t.eventId
-                                                        ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
-                                                        : (t.note || t.category)
-                                                    }
-                                                </p>
-                                                <div className="flex items-center text-xs text-gray-500 space-x-1">
-                                                    <span>{format(new Date(t.date), 'MMM dd')}</span>
-                                                    <span>•</span>
-                                                    <span className="truncate max-w-[100px]">{t.category}</span>
+                        {viewMode === 'monthly' ? (
+                            periodTransactions.length === 0 ? (
+                                <div className="text-center py-10 bg-white rounded-xl">
+                                    <p className="text-gray-500 text-sm">No transactions found.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {periodTransactions.slice(0, displayLimit).map((t) => (
+                                        <div
+                                            key={t.id}
+                                            onClick={() => navigate(`/edit/${t.id}`)}
+                                            className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.99] transition-transform"
+                                        >
+                                            <div className="flex items-center space-x-3 overflow-hidden">
+                                                <div className={cn("p-2 rounded-full shrink-0",
+                                                    t.type === 'expense' ? "bg-red-50 text-red-500" :
+                                                        t.type === 'income' ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"
+                                                )}>
+                                                    {t.type === 'expense' ? <ArrowDownRight size={18} /> :
+                                                        t.type === 'income' ? <ArrowUpRight size={18} /> : <ArrowRightLeft size={18} />}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-medium text-gray-900 text-sm truncate">
+                                                        {t.eventId
+                                                            ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
+                                                            : (t.note || t.category)
+                                                        }
+                                                    </p>
+                                                    <div className="flex items-center text-xs text-gray-500 space-x-1">
+                                                        <span>{format(new Date(t.date), 'MMM dd')}</span>
+                                                        <span>•</span>
+                                                        <span className="truncate max-w-[100px]">{t.category}</span>
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <span className={cn("font-bold text-sm whitespace-nowrap ml-2",
+                                                t.type === 'expense' ? "text-gray-900" :
+                                                    t.type === 'income' ? "text-green-600" : "text-blue-600"
+                                            )}>
+                                                {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                                            </span>
                                         </div>
-                                        <span className={cn("font-bold text-sm whitespace-nowrap ml-2",
-                                            t.type === 'expense' ? "text-gray-900" :
-                                                t.type === 'income' ? "text-green-600" : "text-blue-600"
-                                        )}>
-                                            {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                                    ))}
+
+                                    {periodTransactions.length > displayLimit && (
+                                        <button
+                                            onClick={() => setDisplayLimit(prev => prev + 20)}
+                                            className="w-full py-3 text-sm text-blue-600 font-medium bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                                        >
+                                            Load More
+                                        </button>
+                                    )}
+                                </>
+                            )
+                        ) : (
+                            // Yearly View: Category Breakdown
+                            chartData.length === 0 ? (
+                                <div className="text-center py-10 bg-white rounded-xl">
+                                    <p className="text-gray-500 text-sm">No data to display.</p>
+                                </div>
+                            ) : (
+                                chartData.map((item, index) => (
+                                    <div
+                                        key={index}
+                                        className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between"
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <div
+                                                className="w-4 h-4 rounded-full shrink-0"
+                                                style={{ backgroundColor: item.color }}
+                                            />
+                                            <span className="font-medium text-gray-900 text-sm">{item.name}</span>
+                                        </div>
+                                        <span className="font-bold text-gray-900 text-sm">
+                                            {formatCurrency(item.value)}
                                         </span>
                                     </div>
-                                ))}
-
-                                {monthTransactions.length > displayLimit && (
-                                    <button
-                                        onClick={() => setDisplayLimit(prev => prev + 20)}
-                                        className="w-full py-3 text-sm text-blue-600 font-medium bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
-                                    >
-                                        Load More
-                                    </button>
-                                )}
-                            </>
+                                ))
+                            )
                         )}
                     </div>
                 </div>
