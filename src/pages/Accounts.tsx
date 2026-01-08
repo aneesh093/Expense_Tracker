@@ -7,7 +7,7 @@ import { cn, generateId } from '../lib/utils';
 
 export function Accounts() {
     const navigate = useNavigate();
-    const { accounts, addAccount, updateAccount, deleteAccount, isBalanceHidden } = useFinanceStore();
+    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isBalanceHidden } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -642,7 +642,27 @@ export function Accounts() {
                                             {getTypeDisplayName(type as AccountType)}
                                         </h3>
                                         <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
-                                            {isBalanceHidden ? '•••••' : formatCurrency(groupTotal)}
+                                            {isBalanceHidden
+                                                ? '•••••'
+                                                : formatCurrency(
+                                                    type === 'credit'
+                                                        ? accountsInGroup.reduce((total, acc) => {
+                                                            const spent = transactions
+                                                                .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
+                                                                .reduce((sum, t) => {
+                                                                    if (t.accountId === acc.id) {
+                                                                        return sum + (t.type === 'income' ? -t.amount : t.amount);
+                                                                    }
+                                                                    if (t.toAccountId === acc.id) {
+                                                                        return sum + (t.type === 'transfer' ? -t.amount : 0);
+                                                                    }
+                                                                    return sum;
+                                                                }, 0);
+                                                            return total + spent;
+                                                        }, 0)
+                                                        : groupTotal
+                                                )
+                                            }
                                         </span>
                                     </div>
 
@@ -650,6 +670,21 @@ export function Accounts() {
                                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                         {accountsInGroup.map((acc, index) => {
                                             const isSelected = selectedAccounts.has(acc.id);
+                                            const isCredit = acc.type === 'credit';
+                                            const spentAmount = isCredit
+                                                ? transactions
+                                                    .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
+                                                    .reduce((sum, t) => {
+                                                        if (t.accountId === acc.id) {
+                                                            return sum + (t.type === 'income' ? -t.amount : t.amount);
+                                                        }
+                                                        if (t.toAccountId === acc.id) {
+                                                            return sum + (t.type === 'transfer' ? -t.amount : 0);
+                                                        }
+                                                        return sum;
+                                                    }, 0)
+                                                : acc.balance;
+
                                             return (
                                                 <div
                                                     key={acc.id}
@@ -704,8 +739,8 @@ export function Accounts() {
                                                                     {acc.loanDetails.emisLeft} EMIs Left
                                                                 </span>
                                                             )}
-                                                            <p className={cn("font-bold", acc.balance < 0 ? "text-red-600" : "text-gray-900")}>
-                                                                {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(acc.balance)}
+                                                            <p className={cn("font-bold", spentAmount < 0 && !isCredit ? "text-red-600" : "text-gray-900")}>
+                                                                {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(spentAmount)}
                                                             </p>
                                                         </div>
 

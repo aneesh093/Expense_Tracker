@@ -8,6 +8,7 @@ import { Accounts } from './pages/Accounts';
 import { AccountDetails } from './pages/AccountDetails';
 import { TransactionForm } from './pages/TransactionForm';
 import { Reports } from './pages/Reports';
+import { ReportTransactions } from './pages/ReportTransactions';
 import { Events } from './pages/Events';
 import { EventDetails } from './pages/EventDetails';
 import { EventForm } from './pages/EventForm';
@@ -53,6 +54,7 @@ function App() {
           <Route path="/events/edit/:id" element={<EventForm />} />
           <Route path="/events/:id" element={<EventDetails />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/reports/transactions" element={<ReportTransactions />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/mandates" element={<Mandates />} />
           <Route path="/categories" element={<Categories />} />

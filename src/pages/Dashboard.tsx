@@ -206,22 +206,42 @@ export function Dashboard() {
                             <p className="text-gray-500 text-sm">No matching accounts found.</p>
                         </div>
                     ) : (
-                        displayedAccounts.slice(0, 3).map(acc => (
-                            <div key={acc.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100">
-                                <div className="flex items-center space-x-3">
-                                    <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
-                                        <CreditCard size={20} />
+                        displayedAccounts.slice(0, 3).map(acc => {
+                            const isCredit = acc.type === 'credit';
+                            const spentAmount = isCredit
+                                ? transactions
+                                    .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
+                                    .reduce((sum, t) => {
+                                        if (t.accountId === acc.id) {
+                                            return sum + (t.type === 'income' ? -t.amount : t.amount);
+                                        }
+                                        if (t.toAccountId === acc.id) {
+                                            return sum + (t.type === 'transfer' ? -t.amount : 0);
+                                        }
+                                        return sum;
+                                    }, 0)
+                                : acc.balance;
+
+                            return (
+                                <div key={acc.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
+                                            <CreditCard size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 text-sm">{acc.name}</p>
+                                            <p className="text-xs text-gray-500 capitalize">{acc.type}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-semibold text-gray-900 text-sm">{acc.name}</p>
-                                        <p className="text-xs text-gray-500 capitalize">{acc.type}</p>
+                                    <div className="text-right">
+                                        {isCredit && <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Spent</p>}
+                                        <span className="font-bold text-sm text-gray-900">
+                                            {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(spentAmount)}
+                                        </span>
                                     </div>
                                 </div>
-                                <span className="font-bold text-sm text-gray-900">
-                                    {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(acc.balance)}
-                                </span>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </section>

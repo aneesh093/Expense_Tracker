@@ -141,8 +141,26 @@ export function AccountDetails() {
                     <h1 className="text-xl font-bold text-gray-900">{account.name}</h1>
                 </div>
                 <div className="flex flex-col items-center py-4 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl text-white shadow-lg">
-                    <p className="text-blue-100 text-sm font-medium mb-1 uppercase tracking-wider">Current Balance</p>
-                    <h2 className="text-4xl font-bold tracking-tight">{formatCurrency(account.balance)}</h2>
+                    <p className="text-blue-100 text-sm font-medium mb-1 uppercase tracking-wider">
+                        {account.type === 'credit' ? 'Amount Spent' : 'Current Balance'}
+                    </p>
+                    <h2 className="text-4xl font-bold tracking-tight">
+                        {formatCurrency(
+                            account.type === 'credit'
+                                ? transactions
+                                    .filter(t => t.accountId === account.id || t.toAccountId === account.id)
+                                    .reduce((sum, t) => {
+                                        if (t.accountId === account.id) {
+                                            return sum + (t.type === 'income' ? -t.amount : t.amount);
+                                        }
+                                        if (t.toAccountId === account.id) {
+                                            return sum + (t.type === 'transfer' ? -t.amount : 0);
+                                        }
+                                        return sum;
+                                    }, 0)
+                                : account.balance
+                        )}
+                    </h2>
                     <p className="text-blue-200 text-sm mt-1 capitalize">{account.type === 'fixed-deposit' ? 'Fixed Deposit' : account.type}</p>
 
                     {/* Account Specific Details */}

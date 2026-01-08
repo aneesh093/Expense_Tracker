@@ -2,14 +2,14 @@ import { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths, startOfYear, endOfYear, addYears, subYears } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, FileDown, ArrowRightLeft, TrendingUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { generateReportPDF } from '../lib/pdfGenerator';
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, events, accounts } = useFinanceStore();
+    const { transactions, categories, accounts } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -21,16 +21,12 @@ export function Reports() {
     const periodStart = viewMode === 'monthly' ? startOfMonth(currentDate) : startOfYear(currentDate);
     const periodEnd = viewMode === 'monthly' ? endOfMonth(currentDate) : endOfYear(currentDate);
 
-    // Pagination state
-    const [displayLimit, setDisplayLimit] = useState(20);
-
     // Filter transactions for current period
     const periodTransactions = useMemo(() => {
-        // Include Primary accounts AND Credit Card accounts
         const reportAccountIds = new Set(accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id));
 
         const relevantTransactions = transactions.filter(t =>
-            t.excludeFromBalance || // Always include manual transactions
+            t.excludeFromBalance ||
             reportAccountIds.size === 0 ||
             reportAccountIds.has(t.accountId) ||
             (t.toAccountId && reportAccountIds.has(t.toAccountId))
@@ -49,12 +45,10 @@ export function Reports() {
 
     const handlePrev = () => {
         setCurrentDate(prev => viewMode === 'monthly' ? subMonths(prev, 1) : subYears(prev, 1));
-        setDisplayLimit(20); // Reset pagination
     };
 
     const handleNext = () => {
         setCurrentDate(prev => viewMode === 'monthly' ? addMonths(prev, 1) : addYears(prev, 1));
-        setDisplayLimit(20);
     };
 
     // Calculate totals
@@ -76,7 +70,7 @@ export function Reports() {
 
         periodTransactions
             .forEach(t => {
-                if (t.excludeFromBalance) return; // Skip manual transactions
+                if (t.excludeFromBalance) return;
 
                 if (t.type === 'expense') {
                     const current = expenseMap.get(t.category) || 0;
@@ -93,7 +87,7 @@ export function Reports() {
                 return {
                     name,
                     value,
-                    color: name === 'Investment' ? '#8b5cf6' : (category?.color || '#9ca3af') // Purple for Investment
+                    color: name === 'Investment' ? '#8b5cf6' : (category?.color || '#9ca3af')
                 };
             })
             .sort((a, b) => b.value - a.value);
@@ -136,7 +130,7 @@ export function Reports() {
             accounts,
             categories,
             chartData,
-            manualChartData // Pass manual chart data
+            manualChartData
         });
     };
 
@@ -149,17 +143,28 @@ export function Reports() {
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#387908'];
 
+    const navigateToTransactions = (filter: 'all' | 'manual' | 'core' = 'all') => {
+        navigate('/reports/transactions', {
+            state: {
+                start: periodStart,
+                end: periodEnd,
+                title: viewMode === 'monthly' ? format(currentDate, 'MMMM yyyy') : format(currentDate, 'yyyy'),
+                filter
+            }
+        });
+    };
+
     return (
         <div className="flex flex-col bg-gray-50 -mx-4 -mt-4 min-h-full">
             <header className="flex flex-col gap-3 p-4 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20">
                 <div className="flex justify-between items-center">
-                    <h1 className="text-xl font-bold text-gray-900">Reports</h1>
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Financial Reports</h1>
+                    <div className="flex bg-gray-100 p-1 rounded-xl">
                         <button
                             onClick={() => setViewMode('monthly')}
                             className={cn(
-                                "px-3 py-1 text-sm font-medium rounded-md transition-all",
-                                viewMode === 'monthly' ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                                "px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200",
+                                viewMode === 'monthly' ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:text-gray-700"
                             )}
                         >
                             Monthly
@@ -167,8 +172,8 @@ export function Reports() {
                         <button
                             onClick={() => setViewMode('yearly')}
                             className={cn(
-                                "px-3 py-1 text-sm font-medium rounded-md transition-all",
-                                viewMode === 'yearly' ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                                "px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200",
+                                viewMode === 'yearly' ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:text-gray-700"
                             )}
                         >
                             Yearly
@@ -177,71 +182,100 @@ export function Reports() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                        <button
-                            onClick={handleExportPDF}
-                            className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
-                            title="Export to PDF"
-                        >
-                            <FileDown size={20} />
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleExportPDF}
+                        className="flex items-center space-x-2 px-3 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all font-semibold text-xs border border-blue-100"
+                    >
+                        <FileDown size={16} />
+                        <span>Export PDF</span>
+                    </button>
 
-                    <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-                        <button onClick={handlePrev} className="p-1 rounded-md hover:bg-white text-gray-600">
-                            <ChevronLeft size={20} />
+                    <div className="flex items-center bg-gray-100 rounded-xl p-0.5 border border-gray-200">
+                        <button onClick={handlePrev} className="p-1.5 rounded-lg hover:bg-white text-gray-600 transition-colors">
+                            <ChevronLeft size={18} />
                         </button>
-                        <span className="text-sm font-semibold text-gray-700 w-28 text-center select-none">
+                        <span className="text-xs font-bold text-gray-800 w-24 text-center select-none uppercase">
                             {format(currentDate, viewMode === 'monthly' ? 'MMM yyyy' : 'yyyy')}
                         </span>
-                        <button onClick={handleNext} className="p-1 rounded-md hover:bg-white text-gray-600">
-                            <ChevronRight size={20} />
+                        <button onClick={handleNext} className="p-1.5 rounded-lg hover:bg-white text-gray-600 transition-colors">
+                            <ChevronRight size={18} />
                         </button>
                     </div>
                 </div>
             </header>
 
-            <div className="flex-1 p-4 space-y-4 pb-24">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
-                        <p className="text-xs font-medium text-gray-500 mb-1">Income</p>
-                        <p className="text-lg font-bold text-green-600 truncate">{formatCurrency(totalIncome)}</p>
+            <div className="flex-1 p-4 space-y-6 pb-24">
+                {/* Summary List */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-50">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Financial Overview</h3>
                     </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
-                        <p className="text-xs font-medium text-gray-500 mb-1">Expense</p>
-                        <p className="text-lg font-bold text-red-600 truncate">{formatCurrency(totalExpense)}</p>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
-                        <div className="flex items-center space-x-1 mb-1">
-                            <TrendingUp size={12} className="text-purple-500" />
-                            <p className="text-xs font-medium text-gray-500">Invested</p>
+                    <div className="divide-y divide-gray-50">
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-green-50 text-green-600 rounded-xl">
+                                    <ArrowUp size={18} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-600">Total Income</span>
+                            </div>
+                            <span className="text-base font-bold text-green-600">{formatCurrency(totalIncome)}</span>
                         </div>
-                        <p className="text-lg font-bold text-purple-600 truncate">{formatCurrency(totalInvestment)}</p>
-                    </div>
-                    {manualTotalExpense > 0 && (
-                        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-gray-400">
-                            <p className="text-xs font-medium text-gray-500 mb-1 overflow-hidden">Manual Exp</p>
-                            <p className="text-lg font-bold text-gray-600 truncate">{formatCurrency(manualTotalExpense)}</p>
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-red-50 text-red-600 rounded-xl">
+                                    <ArrowDown size={18} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-600">Total Expenses</span>
+                            </div>
+                            <span className="text-base font-bold text-red-600">{formatCurrency(totalExpense)}</span>
                         </div>
-                    )}
+                        <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
+                                    <TrendingUp size={18} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-600">Total Invested</span>
+                            </div>
+                            <span className="text-base font-bold text-purple-600">{formatCurrency(totalInvestment)}</span>
+                        </div>
+                        {manualTotalExpense > 0 && (
+                            <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-gray-50 text-gray-600 rounded-xl">
+                                        <DollarSign size={18} />
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-500">Manual Expenses</span>
+                                </div>
+                                <span className="text-base font-bold text-gray-600">{formatCurrency(manualTotalExpense)}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Main Chart Section */}
-                <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">Expense Breakdown</h3>
+                <div
+                    onClick={() => navigateToTransactions('core')}
+                    className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 cursor-pointer active:scale-[0.99] transition-transform group"
+                >
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Expense Breakdown</h3>
+                        <span className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                            View Details →
+                        </span>
+                    </div>
                     {chartData.length > 0 ? (
-                        <div className="h-80 w-full">
+                        <div className="h-72 w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
+                                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                                     <Pie
                                         data={chartData}
                                         cx="50%"
-                                        cy="50%"
+                                        cy="45%"
                                         innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={2}
+                                        outerRadius={85}
+                                        paddingAngle={4}
                                         dataKey="value"
+                                        stroke="none"
                                     >
                                         {chartData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
@@ -249,20 +283,20 @@ export function Reports() {
                                     </Pie>
                                     <Tooltip
                                         formatter={(value: number) => formatCurrency(value)}
-                                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        contentStyle={{ backgroundColor: 'white', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                                     />
                                     <Legend
                                         iconType="circle"
                                         layout="horizontal"
                                         verticalAlign="bottom"
                                         align="center"
-                                        wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }}
+                                        wrapperStyle={{ fontSize: '11px', paddingTop: '10px', fontWeight: 'bold' }}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div className="h-40 flex items-center justify-center text-gray-400 text-sm italic bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                        <div className="h-40 flex items-center justify-center text-gray-400 text-sm italic bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                             No expenses to display
                         </div>
                     )}
@@ -270,19 +304,28 @@ export function Reports() {
 
                 {/* Manual Expenses Breakdown (if any) */}
                 {manualChartData.length > 0 && (
-                    <div className="bg-white p-4 rounded-xl shadow-sm">
-                        <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wide">Manual Expenses (Non-Impacting)</h3>
+                    <div
+                        onClick={() => navigateToTransactions('manual')}
+                        className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 cursor-pointer active:scale-[0.99] transition-transform group"
+                    >
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Manual Expenses</h3>
+                            <span className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                View Details →
+                            </span>
+                        </div>
                         <div className="h-64 w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
+                                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                                     <Pie
                                         data={manualChartData}
                                         cx="50%"
-                                        cy="50%"
+                                        cy="45%"
                                         innerRadius={50}
-                                        outerRadius={70}
-                                        paddingAngle={2}
+                                        outerRadius={75}
+                                        paddingAngle={4}
                                         dataKey="value"
+                                        stroke="none"
                                     >
                                         {manualChartData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
@@ -290,114 +333,20 @@ export function Reports() {
                                     </Pie>
                                     <Tooltip
                                         formatter={(value: number) => formatCurrency(value)}
-                                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        contentStyle={{ backgroundColor: 'white', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                                     />
                                     <Legend
                                         iconType="circle"
                                         layout="horizontal"
                                         verticalAlign="bottom"
                                         align="center"
-                                        wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
+                                        wrapperStyle={{ fontSize: '11px', paddingTop: '10px', fontWeight: 'bold' }}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
                 )}
-
-                {/* Transactions List */}
-                <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
-                        {viewMode === 'monthly' ? `Transactions (${periodTransactions.length})` : 'Category Breakdown'}
-                    </h3>
-
-                    <div className="space-y-3">
-                        {viewMode === 'monthly' ? (
-                            periodTransactions.length === 0 ? (
-                                <div className="text-center py-10 bg-white rounded-xl">
-                                    <p className="text-gray-500 text-sm">No transactions found.</p>
-                                </div>
-                            ) : (
-                                <>
-                                    {periodTransactions.slice(0, displayLimit).map((t) => (
-                                        <div
-                                            key={t.id}
-                                            onClick={() => navigate(`/edit/${t.id}`)}
-                                            className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.99] transition-transform"
-                                        >
-                                            <div className="flex items-center space-x-3 overflow-hidden">
-                                                <div className={cn("p-2 rounded-full shrink-0",
-                                                    t.type === 'expense' ? "bg-red-50 text-red-500" :
-                                                        t.type === 'income' ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"
-                                                )}>
-                                                    {t.type === 'expense' ? <ArrowDownRight size={18} /> :
-                                                        t.type === 'income' ? <ArrowUpRight size={18} /> : <ArrowRightLeft size={18} />}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-medium text-gray-900 text-sm truncate">
-                                                        {t.eventId
-                                                            ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
-                                                            : (t.note || t.category)
-                                                        }
-                                                    </p>
-                                                    <div className="flex items-center text-xs text-gray-500 space-x-1">
-                                                        <span>{format(new Date(t.date), 'MMM dd')}</span>
-                                                        <span>•</span>
-                                                        <span className="truncate max-w-[80px]">{t.category}</span>
-                                                        <span>•</span>
-                                                        <span className="truncate max-w-[80px] font-medium opacity-80">
-                                                            {accounts.find(a => a.id === t.accountId)?.name || 'Unknown'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <span className={cn("font-bold text-sm whitespace-nowrap ml-2",
-                                                t.type === 'expense' ? "text-gray-900" :
-                                                    t.type === 'income' ? "text-green-600" : "text-blue-600"
-                                            )}>
-                                                {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                                            </span>
-                                        </div>
-                                    ))}
-
-                                    {periodTransactions.length > displayLimit && (
-                                        <button
-                                            onClick={() => setDisplayLimit(prev => prev + 20)}
-                                            className="w-full py-3 text-sm text-blue-600 font-medium bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
-                                        >
-                                            Load More
-                                        </button>
-                                    )}
-                                </>
-                            )
-                        ) : (
-                            // Yearly View: Category Breakdown
-                            chartData.length === 0 ? (
-                                <div className="text-center py-10 bg-white rounded-xl">
-                                    <p className="text-gray-500 text-sm">No data to display.</p>
-                                </div>
-                            ) : (
-                                chartData.map((item, index) => (
-                                    <div
-                                        key={index}
-                                        className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between"
-                                    >
-                                        <div className="flex items-center space-x-3">
-                                            <div
-                                                className="w-4 h-4 rounded-full shrink-0"
-                                                style={{ backgroundColor: item.color }}
-                                            />
-                                            <span className="font-medium text-gray-900 text-sm">{item.name}</span>
-                                        </div>
-                                        <span className="font-bold text-gray-900 text-sm">
-                                            {formatCurrency(item.value)}
-                                        </span>
-                                    </div>
-                                ))
-                            )
-                        )}
-                    </div>
-                </div>
             </div>
         </div>
     );
