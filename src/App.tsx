@@ -13,6 +13,7 @@ import { Events } from './pages/Events';
 import { EventDetails } from './pages/EventDetails';
 import { EventForm } from './pages/EventForm';
 import { Settings } from './pages/Settings';
+import { AuditTrail } from './pages/AuditTrail';
 import { Categories } from './pages/Categories';
 import { Mandates } from './pages/Mandates';
 import { useFinanceStore } from './store/useFinanceStore';
@@ -56,6 +57,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/reports/transactions" element={<ReportTransactions />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/audit-trail" element={<AuditTrail />} />
           <Route path="/mandates" element={<Mandates />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="*" element={<Navigate to="/" replace />} />

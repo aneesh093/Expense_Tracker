@@ -9,7 +9,7 @@ import { generateReportPDF } from '../lib/pdfGenerator';
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts } = useFinanceStore();
+    const { transactions, categories, accounts, mandates } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -34,7 +34,7 @@ export function Reports() {
 
         return relevantTransactions
             .filter(t => isWithinInterval(new Date(t.date), { start: periodStart, end: periodEnd }))
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            .sort((a, b) => b.amount - a.amount);
     }, [transactions, currentDate, accounts, viewMode]);
 
     const isInvestment = (t: any) => {
@@ -52,7 +52,7 @@ export function Reports() {
     };
 
     // Calculate totals
-    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense } = useMemo(() => {
+    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, totalTransferIn, totalTransferOut } = useMemo(() => {
         return periodTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
             else if (t.type === 'expense') {
@@ -60,8 +60,12 @@ export function Reports() {
                 else acc.totalExpense += t.amount;
             }
             else if (isInvestment(t)) acc.totalInvestment += t.amount;
+            else if (t.type === 'transfer') {
+                acc.totalTransferIn += t.amount;
+                acc.totalTransferOut += t.amount;
+            }
             return acc;
-        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0 });
+        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0 });
     }, [periodTransactions, accounts]);
 
     // Prepare chart data (Expense by Category) - Excluding manual
@@ -126,6 +130,8 @@ export function Reports() {
             totalExpense,
             totalInvestment,
             manualTotalExpense,
+            totalTransferIn,
+            totalTransferOut,
             transactions: periodTransactions,
             accounts,
             categories,
@@ -143,7 +149,7 @@ export function Reports() {
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#387908'];
 
-    const navigateToTransactions = (filter: 'all' | 'manual' | 'core' = 'all') => {
+    const navigateToTransactions = (filter: 'all' | 'manual' | 'core' | 'transfer' | 'mandate' = 'all') => {
         navigate('/reports/transactions', {
             state: {
                 start: periodStart,
@@ -347,6 +353,59 @@ export function Reports() {
                         </div>
                     </div>
                 )}
+
+                {/* Mandates Section */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Active Mandates</h3>
+                        <button
+                            onClick={() => navigateToTransactions('mandate')}
+                            className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                        >
+                            View Payments →
+                        </button>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                        {mandates.filter(m => m.isEnabled).length === 0 ? (
+                            <div className="px-5 py-8 text-center text-gray-400 text-sm italic">
+                                No active mandates
+                            </div>
+                        ) : (
+                            mandates.filter(m => m.isEnabled).map(m => (
+                                <div key={m.id} className="flex items-center justify-between px-5 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-semibold text-gray-800">{m.description}</span>
+                                        <span className="text-[10px] text-gray-500 font-medium">Next: Day {m.dayOfMonth} of month</span>
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-900">{formatCurrency(m.amount)}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* Transfers Summary */}
+                <div
+                    onClick={() => navigateToTransactions('transfer')}
+                    className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer active:scale-[0.99] transition-transform group"
+                >
+                    <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Internal Transfers</h3>
+                        <span className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                            View Details →
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-gray-50">
+                        <div className="px-5 py-6 flex flex-col items-center">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total In</span>
+                            <span className="text-lg font-bold text-indigo-600">{formatCurrency(totalTransferIn)}</span>
+                        </div>
+                        <div className="px-5 py-6 flex flex-col items-center">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Out</span>
+                            <span className="text-lg font-bold text-indigo-600">{formatCurrency(totalTransferOut)}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

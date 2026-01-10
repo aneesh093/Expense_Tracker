@@ -36,6 +36,7 @@ export interface Account {
     insuranceDetails?: InsuranceDetails;
     subName?: string;
     isPrimary?: boolean;
+    order?: number;
 }
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
@@ -59,6 +60,7 @@ export interface Category {
     type: TransactionType;
     icon: string;
     color: string;
+    order?: number;
 }
 
 export interface Event {
@@ -69,6 +71,7 @@ export interface Event {
     endDate?: string;
     color: string;
     icon: string;
+    order?: number;
 }
 
 export interface Mandate {
@@ -80,4 +83,19 @@ export interface Mandate {
     description: string;
     isEnabled: boolean;
     lastRunDate?: string; // YYYY-MM-DD
+    lastSkippedDate?: string; // YYYY-MM-DD
+    order?: number;
+}
+
+export interface AuditTrail {
+    id: string;
+    timestamp: string;
+    action: 'create' | 'update' | 'delete';
+    entityType: 'transaction';
+    entityId: string;
+    details: {
+        previous?: any;
+        current?: any;
+    };
+    note?: string;
 }

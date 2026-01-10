@@ -1,7 +1,10 @@
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableMandateItem } from '../components/SortableMandateItem';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, Plus, Calendar, Trash2, Edit2, Play, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Calendar } from 'lucide-react';
 import type { Mandate } from '../types';
 
 export function Mandates() {
@@ -12,8 +15,40 @@ export function Mandates() {
         addMandate,
         updateMandate,
         deleteMandate,
-        checkAndRunMandates
+        runMandate,
+        skipMandate,
+        reorderList
     } = useFinanceStore();
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        }),
+        useSensor(TouchSensor)
+    );
+
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
+
+        if (active.id !== over.id) {
+            const items = [...mandates].sort((a, b) => (a.order || 0) - (b.order || 0));
+            const oldIndex = items.findIndex(item => item.id === active.id);
+            const newIndex = items.findIndex(item => item.id === over.id);
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newOrder = arrayMove(items, oldIndex, newIndex).map(item => item.id);
+                reorderList('mandates', newOrder);
+            }
+        }
+    };
+
+    const isDoneThisMonth = (mandate: Mandate) => {
+        const currentMonthYear = new Date().toISOString().substring(0, 7);
+        const lastRunMonthYear = mandate.lastRunDate?.substring(0, 7);
+        const lastSkippedMonthYear = mandate.lastSkippedDate?.substring(0, 7);
+        return lastRunMonthYear === currentMonthYear || lastSkippedMonthYear === currentMonthYear;
+    };
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,9 +114,16 @@ export function Mandates() {
         resetForm();
     };
 
-    const handleRunNow = async () => {
-        await checkAndRunMandates();
-        alert('Checked for mandates to run today.');
+    const handleRunNow = async (mandateId: string) => {
+        if (window.confirm('Execute this mandate now?')) {
+            await runMandate(mandateId);
+        }
+    };
+
+    const handleSkip = async (mandateId: string) => {
+        if (window.confirm('Skip this mandate for the current month?')) {
+            await skipMandate(mandateId);
+        }
     };
 
     return (
@@ -95,12 +137,6 @@ export function Mandates() {
                     <ArrowLeft size={24} />
                 </button>
                 <h1 className="ml-2 text-xl font-bold text-gray-900">Manage Mandates</h1>
-                <button
-                    onClick={handleRunNow}
-                    className="ml-auto p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                >
-                    <Play size={20} />
-                </button>
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -216,63 +252,27 @@ export function Mandates() {
                         </div>
                     )}
 
-                    {mandates.map(mandate => {
-                        const sourceAccount = accounts.find(a => a.id === mandate.sourceAccountId);
-                        const destAccount = accounts.find(a => a.id === mandate.destinationAccountId);
-
-                        return (
-                            <div key={mandate.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                                <div>
-                                    <div className="flex items-center space-x-2">
-                                        <h3 className="font-semibold text-gray-900">{mandate.description}</h3>
-                                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                                            Day {mandate.dayOfMonth}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm text-gray-500 mt-1">
-                                        {sourceAccount?.name} → {destAccount?.name}
-                                    </p>
-                                    <p className="font-bold text-gray-900 mt-1">
-                                        ₹{mandate.amount.toLocaleString()}
-                                    </p>
-                                    {mandate.lastRunDate && (
-                                        <p className="text-xs text-green-600 flex items-center mt-1">
-                                            <CheckCircle size={12} className="mr-1" />
-                                            Last run: {mandate.lastRunDate}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center space-x-2">
-                                    <button
-                                        onClick={() => updateMandate(mandate.id, { isEnabled: !mandate.isEnabled })}
-                                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${mandate.isEnabled
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-gray-100 text-gray-500'
-                                            }`}
-                                    >
-                                        {mandate.isEnabled ? 'Active' : 'Paused'}
-                                    </button>
-                                    <button
-                                        onClick={() => handleEdit(mandate)}
-                                        className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
-                                    >
-                                        <Edit2 size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            if (window.confirm('Delete this mandate?')) {
-                                                deleteMandate(mandate.id);
-                                            }
-                                        }}
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext items={mandates} strategy={verticalListSortingStrategy}>
+                            {[...mandates].sort((a, b) => (a.order || 0) - (b.order || 0)).map(mandate => (
+                                <SortableMandateItem
+                                    key={mandate.id}
+                                    mandate={mandate}
+                                    accounts={accounts}
+                                    updateMandate={updateMandate}
+                                    deleteMandate={deleteMandate}
+                                    handleEdit={handleEdit}
+                                    handleSkip={handleSkip}
+                                    handleRunNow={handleRunNow}
+                                    isDoneThisMonth={isDoneThisMonth}
+                                />
+                            ))}
+                        </SortableContext>
+                    </DndContext>
                 </div>
             </div>
         </div>

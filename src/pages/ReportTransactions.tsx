@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { format, isWithinInterval } from 'date-fns';
@@ -8,30 +8,37 @@ import { cn } from '../lib/utils';
 export function ReportTransactions() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { transactions, accounts, events } = useFinanceStore();
+    const { transactions, accounts, events, categories } = useFinanceStore();
 
     // Get filter state from navigation
-    const { start, end, title, filter } = (location.state as { start: Date; end: Date; title: string; filter: 'all' | 'manual' | 'core' }) || {
+    const { start, end, title, filter } = (location.state as { start: Date; end: Date; title: string; filter: 'all' | 'manual' | 'core' | 'transfer' | 'mandate' }) || {
         start: new Date(),
         end: new Date(),
         title: 'Transactions',
         filter: 'all'
     };
 
-    const periodTransactions = useMemo(() => {
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [customStart, setCustomStart] = useState<string>(format(new Date(start), 'yyyy-MM-dd'));
+    const [customEnd, setCustomEnd] = useState<string>(format(new Date(end), 'yyyy-MM-dd'));
+
+    const filteredTransactions = useMemo(() => {
         const reportAccountIds = new Set(accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id));
 
         return transactions
             .filter(t => {
                 const isManual = !!t.excludeFromBalance;
 
-                // Date filter first
+                // Date filter
                 if (!isWithinInterval(new Date(t.date), {
-                    start: new Date(start),
-                    end: new Date(end)
+                    start: new Date(customStart),
+                    end: new Date(customEnd)
                 })) return false;
 
-                // Category/Account filter
+                // Category filter
+                if (selectedCategory !== 'all' && t.category !== selectedCategory) return false;
+
+                // Account filter
                 const isRelevantAccount = t.excludeFromBalance ||
                     reportAccountIds.size === 0 ||
                     reportAccountIds.has(t.accountId) ||
@@ -39,13 +46,15 @@ export function ReportTransactions() {
 
                 if (!isRelevantAccount) return false;
 
-                // Manual/Core filter
+                // Filter logic
                 if (filter === 'manual') return isManual;
                 if (filter === 'core') return !isManual;
+                if (filter === 'transfer') return t.type === 'transfer';
+                if (filter === 'mandate') return t.note?.startsWith('Mandate:');
                 return true;
             })
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, accounts, start, end, filter]);
+            .sort((a, b) => b.amount - a.amount);
+    }, [transactions, accounts, customStart, customEnd, filter, selectedCategory]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -65,7 +74,10 @@ export function ReportTransactions() {
                 </button>
                 <div className="ml-2">
                     <h1 className="text-lg font-bold text-gray-900">
-                        {filter === 'manual' ? 'Manual Expenses' : filter === 'core' ? 'Core Expenses' : 'Transactions'}
+                        {filter === 'manual' ? 'Manual Expenses' :
+                            filter === 'core' ? 'Core Expenses' :
+                                filter === 'transfer' ? 'Transfers' :
+                                    filter === 'mandate' ? 'Mandate Payments' : 'Transactions'}
                     </h1>
                     <p className="text-xs text-gray-500">
                         {title}
@@ -73,13 +85,48 @@ export function ReportTransactions() {
                 </div>
             </header>
 
+            {/* Filters Section */}
+            <div className="bg-white p-4 border-b border-gray-100 space-y-3">
+                <div className="flex flex-col space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Date Range</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <input
+                            type="date"
+                            value={customStart}
+                            onChange={(e) => setCustomStart(e.target.value)}
+                            className="p-2 text-xs bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <input
+                            type="date"
+                            value={customEnd}
+                            onChange={(e) => setCustomEnd(e.target.value)}
+                            className="p-2 text-xs bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex flex-col space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Category</label>
+                    <select
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="w-full p-2 text-xs bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                        <option value="all">All Categories</option>
+                        {categories.map(cat => (
+                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
             <div className="p-4 space-y-3 pb-24">
-                {periodTransactions.length === 0 ? (
+                {filteredTransactions.length === 0 ? (
                     <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100">
-                        <p className="text-gray-400 font-medium">No transactions found for this period.</p>
+                        <p className="text-gray-400 font-medium">No transactions found.</p>
                     </div>
                 ) : (
-                    periodTransactions.map((t) => (
+                    filteredTransactions.map((t) => (
                         <div
                             key={t.id}
                             onClick={() => navigate(`/edit/${t.id}`)}

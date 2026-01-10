@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { type Account, type Transaction, type Category, type Event, type Mandate } from '../types';
+import { type Account, type Transaction, type Category, type Event, type Mandate, type AuditTrail } from '../types';
 
 export class FinanceDatabase extends Dexie {
     accounts!: Table<Account, string>;
@@ -7,6 +7,7 @@ export class FinanceDatabase extends Dexie {
     categories!: Table<Category, string>;
     events!: Table<Event, string>;
     mandates!: Table<Mandate, string>;
+    auditTrails!: Table<AuditTrail, string>;
 
     constructor() {
         super('FinanceDB');
@@ -41,6 +42,16 @@ export class FinanceDatabase extends Dexie {
             categories: 'id, name, type',
             events: 'id, name, startDate, endDate',
             mandates: 'id, sourceAccountId, destinationAccountId, isEnabled'
+        });
+
+        // Version 5: Add audit trails
+        this.version(5).stores({
+            accounts: 'id, name, type, balance, isPrimary',
+            transactions: 'id, date, accountId, toAccountId, type, category, eventId',
+            categories: 'id, name, type',
+            events: 'id, name, startDate, endDate',
+            mandates: 'id, sourceAccountId, destinationAccountId, isEnabled',
+            auditTrails: 'id, timestamp, action, entityType, entityId'
         });
     }
 }
@@ -218,5 +229,14 @@ export const dbHelpers = {
 
     async deleteMandate(id: string): Promise<void> {
         await db.mandates.delete(id);
+    },
+
+    // Audit Trails
+    async getAllAuditTrails(): Promise<AuditTrail[]> {
+        return await db.auditTrails.orderBy('timestamp').reverse().toArray();
+    },
+
+    async addAuditTrail(auditTrail: AuditTrail): Promise<string> {
+        return await db.auditTrails.add(auditTrail);
     }
 };

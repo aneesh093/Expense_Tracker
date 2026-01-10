@@ -105,12 +105,25 @@ export function AccountDetails() {
         });
     };
 
+    const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+
     const accountTransactions = useMemo(() => {
         if (!id) return [];
-        return transactions
+        const baseTransactions = transactions
             .filter(t => t.accountId === id || t.toAccountId === id)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [id, transactions]);
+
+        if (filterType === 'all') return baseTransactions;
+
+        return baseTransactions.filter(t => {
+            const isTransfer = t.type === 'transfer';
+            const isIncomingTransfer = isTransfer && t.toAccountId === id;
+            const effectiveType = isTransfer
+                ? (isIncomingTransfer ? 'income' : 'expense')
+                : t.type;
+            return effectiveType === filterType;
+        });
+    }, [id, transactions, filterType]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -279,11 +292,42 @@ export function AccountDetails() {
 
             {/* Transactions List */}
             <div className="flex-1 p-4 overflow-y-auto">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1">Transactions</h3>
+                <div className="flex items-center justify-between mb-3 ml-1">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Transactions</h3>
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setFilterType('all')}
+                            className={cn(
+                                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                filterType === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setFilterType('income')}
+                            className={cn(
+                                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                filterType === 'income' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            Credit
+                        </button>
+                        <button
+                            onClick={() => setFilterType('expense')}
+                            className={cn(
+                                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                filterType === 'expense' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            Debit
+                        </button>
+                    </div>
+                </div>
                 <div className="space-y-3">
                     {accountTransactions.length === 0 ? (
                         <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-                            <p className="text-gray-500 text-sm">No transactions yet.</p>
+                            <p className="text-gray-500 text-sm">No transactions found.</p>
                         </div>
                     ) : (
                         accountTransactions.map((t) => {

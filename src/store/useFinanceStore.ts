@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Account, type Transaction, type Category, type Event, type Mandate } from '../types';
+import { type Account, type Transaction, type Category, type Event, type Mandate, type AuditTrail } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
@@ -9,6 +9,7 @@ interface FinanceState {
     events: Event[];
     isInitialized: boolean;
     isBalanceHidden: boolean;
+    auditTrails: AuditTrail[];
 
     // Initialize store from IndexedDB
     initialize: () => Promise<void>;
@@ -40,7 +41,10 @@ interface FinanceState {
     addMandate: (mandate: Mandate) => void;
     updateMandate: (id: string, updates: Partial<Mandate>) => void;
     deleteMandate: (id: string) => void;
+    runMandate: (id: string) => Promise<void>;
+    skipMandate: (id: string) => Promise<void>;
     checkAndRunMandates: () => Promise<void>;
+    reorderList: (type: 'accounts' | 'categories' | 'events' | 'mandates', newOrderIds: string[]) => void;
 }
 
 export const useFinanceStore = create<FinanceState>()((set, get) => ({
@@ -49,6 +53,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     categories: [],
     events: [],
     mandates: [],
+    auditTrails: [],
     isInitialized: false,
     isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
 
@@ -59,12 +64,13 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await migrateFromLocalStorage();
 
             // Load all data from IndexedDB
-            const [accounts, transactions, categories, events, mandates] = await Promise.all([
+            const [accounts, transactions, categories, events, mandates, auditTrails] = await Promise.all([
                 dbHelpers.getAllAccounts(),
                 dbHelpers.getAllTransactions(),
                 dbHelpers.getAllCategories(),
                 dbHelpers.getAllEvents(),
-                dbHelpers.getAllMandates()
+                dbHelpers.getAllMandates(),
+                dbHelpers.getAllAuditTrails()
             ]);
 
             set({
@@ -73,6 +79,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 categories,
                 events,
                 mandates,
+                auditTrails,
                 isInitialized: true,
                 isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false'
             });
@@ -98,8 +105,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     },
 
     addAccount: (account) => {
-        set((state) => ({ accounts: [...state.accounts, account] }));
-        dbHelpers.addAccount(account).catch(console.error);
+        set((state) => {
+            const order = state.accounts.length;
+            const newAccount = { ...account, order };
+            dbHelpers.addAccount(newAccount).catch(console.error);
+            return { accounts: [...state.accounts, newAccount] };
+        });
     },
 
     updateAccount: (id, updates) => {
@@ -160,6 +171,21 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
             return { transactions: newTransactions, accounts: updatedAccounts };
         });
+
+        // Audit Trail
+        const auditTrail: AuditTrail = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            action: 'create',
+            entityType: 'transaction',
+            entityId: transaction.id,
+            details: {
+                current: transaction
+            }
+        };
+        set((state) => ({ auditTrails: [auditTrail, ...state.auditTrails] }));
+        dbHelpers.addAuditTrail(auditTrail).catch(console.error);
+
         dbHelpers.addTransaction(transaction).catch(console.error);
     },
 
@@ -220,6 +246,21 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             accounts: updatedAccounts,
         });
 
+        // Audit Trail
+        const auditTrail: AuditTrail = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            action: 'update',
+            entityType: 'transaction',
+            entityId: id,
+            details: {
+                previous: oldTransaction,
+                current: updatedTransaction
+            }
+        };
+        set((state) => ({ auditTrails: [auditTrail, ...state.auditTrails] }));
+        dbHelpers.addAuditTrail(auditTrail).catch(console.error);
+
         // Update in IndexedDB
         dbHelpers.updateTransaction(id, updatedTransaction).catch(console.error);
         updatedAccounts.forEach(acc => {
@@ -264,6 +305,20 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             accounts: updatedAccounts,
         });
 
+        // Audit Trail
+        const auditTrail: AuditTrail = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            action: 'delete',
+            entityType: 'transaction',
+            entityId: id,
+            details: {
+                previous: transaction
+            }
+        };
+        set((state) => ({ auditTrails: [auditTrail, ...state.auditTrails] }));
+        dbHelpers.addAuditTrail(auditTrail).catch(console.error);
+
         // Update in IndexedDB
         dbHelpers.deleteTransaction(id).catch(console.error);
         updatedAccounts.forEach(acc => {
@@ -279,8 +334,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     },
 
     addCategory: (category) => {
-        set((state) => ({ categories: [...state.categories, category] }));
-        dbHelpers.addCategory(category).catch(console.error);
+        set((state) => {
+            const order = state.categories.length;
+            const newCategory = { ...category, order };
+            dbHelpers.addCategory(newCategory).catch(console.error);
+            return { categories: [...state.categories, newCategory] };
+        });
     },
 
     deleteCategory: (id) => {
@@ -289,8 +348,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     },
 
     addEvent: (event) => {
-        set((state) => ({ events: [...state.events, event] }));
-        dbHelpers.addEvent(event).catch(console.error);
+        set((state) => {
+            const order = state.events.length;
+            const newEvent = { ...event, order };
+            dbHelpers.addEvent(newEvent).catch(console.error);
+            return { events: [...state.events, newEvent] };
+        });
     },
 
     updateEvent: (id, updates) => {
@@ -317,7 +380,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             });
     },
 
-    importData: async (data) => {
+    importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[] }) => {
         try {
             // Clear existing data
             await db.accounts.clear();
@@ -325,6 +388,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await db.categories.clear();
             await db.events.clear();
             await db.mandates.clear();
+            await db.auditTrails.clear();
 
             // Import new data
             if (data.accounts?.length) await db.accounts.bulkPut(data.accounts);
@@ -332,6 +396,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             if (data.categories?.length) await db.categories.bulkPut(data.categories);
             if (data.events?.length) await db.events.bulkPut(data.events);
             if (data.mandates?.length) await db.mandates.bulkPut(data.mandates);
+            if (data.auditTrails?.length) await db.auditTrails.bulkPut(data.auditTrails);
 
             // Update state
             set({
@@ -339,7 +404,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 transactions: data.transactions || [],
                 categories: data.categories || [],
                 events: data.events || [],
-                mandates: data.mandates || []
+                mandates: data.mandates || [],
+                auditTrails: data.auditTrails || []
             });
 
             console.log('Data imported successfully');
@@ -349,8 +415,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     },
 
     addMandate: (mandate) => {
-        set((state) => ({ mandates: [...state.mandates, mandate] }));
-        dbHelpers.addMandate(mandate).catch(console.error);
+        set((state) => {
+            const order = state.mandates.length;
+            const newMandate = { ...mandate, order };
+            dbHelpers.addMandate(newMandate).catch(console.error);
+            return { mandates: [...state.mandates, newMandate] };
+        });
     },
 
     updateMandate: (id, updates) => {
@@ -370,11 +440,13 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         const today = new Date();
         const currentDay = today.getDate();
         const dateString = today.toISOString().split('T')[0];
+        const currentMonthYear = dateString.substring(0, 7); // YYYY-MM
 
         const mandatesToRun = state.mandates.filter(m =>
             m.isEnabled &&
             m.dayOfMonth === currentDay &&
-            m.lastRunDate !== dateString
+            m.lastRunDate?.substring(0, 7) !== currentMonthYear &&
+            m.lastSkippedDate?.substring(0, 7) !== currentMonthYear
         );
 
         if (mandatesToRun.length === 0) return;
@@ -382,37 +454,90 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         console.log(`Running ${mandatesToRun.length} mandates...`);
 
         for (const mandate of mandatesToRun) {
-            // Create transaction
-            const transaction: Transaction = {
-                id: crypto.randomUUID(),
-                accountId: mandate.sourceAccountId,
-                toAccountId: mandate.destinationAccountId,
-                amount: mandate.amount,
-                type: 'transfer',
-                category: 'Transfer',
-                date: new Date().toISOString(),
-                note: `Mandate: ${mandate.description}`,
-            };
+            await get().runMandate(mandate.id);
+        }
+    },
 
-            // Add transaction (this handles balances)
-            get().addTransaction(transaction);
+    runMandate: async (id) => {
+        const state = get();
+        const mandate = state.mandates.find(m => m.id === id);
+        if (!mandate) return;
 
-            // Update mandate lastRunDate
-            get().updateMandate(mandate.id, { lastRunDate: dateString });
+        const dateString = new Date().toISOString().split('T')[0];
 
-            // If destination is a Loan account, reduce EMIs left
-            const destAccount = get().accounts.find(a => a.id === mandate.destinationAccountId);
-            if (destAccount?.type === 'loan' && destAccount.loanDetails) {
-                const currentEmis = destAccount.loanDetails.emisLeft;
-                if (currentEmis > 0) {
-                    get().updateAccount(destAccount.id, {
-                        loanDetails: {
-                            ...destAccount.loanDetails,
-                            emisLeft: currentEmis - 1
-                        }
-                    });
-                }
+        // Create transaction
+        const transaction: Transaction = {
+            id: crypto.randomUUID(),
+            accountId: mandate.sourceAccountId,
+            toAccountId: mandate.destinationAccountId,
+            amount: mandate.amount,
+            type: 'transfer',
+            category: 'Transfer',
+            date: new Date().toISOString(),
+            note: `Mandate: ${mandate.description}`,
+        };
+
+        // Add transaction (this handles balances)
+        get().addTransaction(transaction);
+
+        // Update mandate lastRunDate
+        get().updateMandate(mandate.id, { lastRunDate: dateString });
+
+        // If destination is a Loan account, reduce EMIs left
+        const destAccount = get().accounts.find(a => a.id === mandate.destinationAccountId);
+        if (destAccount?.type === 'loan' && destAccount.loanDetails) {
+            const currentEmis = destAccount.loanDetails.emisLeft;
+            if (currentEmis > 0) {
+                get().updateAccount(destAccount.id, {
+                    loanDetails: {
+                        ...destAccount.loanDetails,
+                        emisLeft: currentEmis - 1
+                    }
+                });
             }
         }
+    },
+
+    skipMandate: async (id) => {
+        const dateString = new Date().toISOString().split('T')[0];
+        get().updateMandate(id, { lastSkippedDate: dateString });
+    },
+
+    reorderList: (type, newOrderIds) => {
+        const state = get();
+        const items = state[type] as any[];
+
+        // Only process items that are in the newOrderIds list
+        const itemsToReorder = items.filter(item => newOrderIds.includes(item.id));
+
+        // Get the current order values of these items and sort them
+        const existingOrders = itemsToReorder.map(item => item.order || 0).sort((a, b) => a - b);
+
+        // Map of ID to new order value
+        const idToOrder = new Map<string, number>();
+        newOrderIds.forEach((id, index) => {
+            idToOrder.set(id, existingOrders[index]);
+        });
+
+        // Update items with new order values
+        const updatedItems = items.map(item => {
+            if (newOrderIds.includes(item.id)) {
+                return { ...item, order: idToOrder.get(item.id) };
+            }
+            return item;
+        });
+
+        set({ [type]: updatedItems } as any);
+
+        // Update DB
+        newOrderIds.forEach(id => {
+            const order = idToOrder.get(id);
+            if (order !== undefined) {
+                if (type === 'accounts') dbHelpers.updateAccount(id, { order }).catch(console.error);
+                else if (type === 'categories') dbHelpers.updateCategory(id, { order }).catch(console.error);
+                else if (type === 'events') dbHelpers.updateEvent(id, { order }).catch(console.error);
+                else if (type === 'mandates') dbHelpers.updateMandate(id, { order }).catch(console.error);
+            }
+        });
     }
 }));
