@@ -105,11 +105,11 @@ export function SortableAccountItem({
                     {getAccountIcon(account.type)}
                 </div>
                 <div>
-                    <h3 className="font-bold text-gray-900 leading-tight">
+                    <h3 className="text-sm font-semibold text-gray-800 leading-tight">
                         {account.name}
                     </h3>
                     {account.subName && (
-                        <p className="text-sm text-gray-600 mt-0.5">{account.subName}</p>
+                        <p className="text-[10px] text-gray-600 mt-0.5">{account.subName}</p>
                     )}
                 </div>
             </div>
@@ -126,7 +126,7 @@ export function SortableAccountItem({
                             {account.loanDetails.emisLeft} EMIs Left
                         </span>
                     )}
-                    <p className={cn("font-bold", spentAmount < 0 && account.type !== 'credit' ? "text-red-600" : "text-gray-900")}>
+                    <p className={cn("text-sm font-bold", spentAmount < 0 && account.type !== 'credit' ? "text-red-600" : "text-gray-900")}>
                         {isBalanceHidden && !account.isPrimary ? '•••••' : formatCurrency(spentAmount)}
                     </p>
                 </div>

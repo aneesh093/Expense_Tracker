@@ -43,7 +43,7 @@ export function SortableCategoryItem({ category, deleteCategory }: SortableCateg
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: category.color }}
                 />
-                <span className="font-medium text-gray-900">{category.name}</span>
+                <span className="text-sm font-semibold text-gray-800">{category.name}</span>
             </div>
             <button
                 onClick={() => deleteCategory(category.id)}

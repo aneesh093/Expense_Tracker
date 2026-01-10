@@ -507,21 +507,19 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         const state = get();
         const items = state[type] as any[];
 
-        // Only process items that are in the newOrderIds list
-        const itemsToReorder = items.filter(item => newOrderIds.includes(item.id));
-
-        // Get the current order values of these items and sort them
-        const existingOrders = itemsToReorder.map(item => item.order || 0).sort((a, b) => a - b);
-
-        // Map of ID to new order value
+        // Create a map for O(1) lookups
         const idToOrder = new Map<string, number>();
         newOrderIds.forEach((id, index) => {
-            idToOrder.set(id, existingOrders[index]);
+            idToOrder.set(id, index);
         });
 
         // Update items with new order values
+        // We only update items that are part of the reordered list to avoid touching others
+        // But for safety, if we are reordering a full list, we just map everything.
+        // The previous logic was: "Only process items that are in the newOrderIds list"
+
         const updatedItems = items.map(item => {
-            if (newOrderIds.includes(item.id)) {
+            if (idToOrder.has(item.id)) {
                 return { ...item, order: idToOrder.get(item.id) };
             }
             return item;
@@ -530,14 +528,11 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         set({ [type]: updatedItems } as any);
 
         // Update DB
-        newOrderIds.forEach(id => {
-            const order = idToOrder.get(id);
-            if (order !== undefined) {
-                if (type === 'accounts') dbHelpers.updateAccount(id, { order }).catch(console.error);
-                else if (type === 'categories') dbHelpers.updateCategory(id, { order }).catch(console.error);
-                else if (type === 'events') dbHelpers.updateEvent(id, { order }).catch(console.error);
-                else if (type === 'mandates') dbHelpers.updateMandate(id, { order }).catch(console.error);
-            }
+        newOrderIds.forEach((id, index) => {
+            if (type === 'accounts') dbHelpers.updateAccount(id, { order: index }).catch(console.error);
+            else if (type === 'categories') dbHelpers.updateCategory(id, { order: index }).catch(console.error);
+            else if (type === 'events') dbHelpers.updateEvent(id, { order: index }).catch(console.error);
+            else if (type === 'mandates') dbHelpers.updateMandate(id, { order: index }).catch(console.error);
         });
     }
 }));

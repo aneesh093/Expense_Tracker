@@ -82,7 +82,7 @@ export function Settings() {
 
                 {/* General Section */}
                 <section>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">General</h2>
+                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">General</h2>
                     <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
                         <button
                             onClick={() => navigate('/events')}
@@ -92,7 +92,7 @@ export function Settings() {
                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                                     <Clock size={20} />
                                 </div>
-                                <span className="font-medium text-gray-900">Manage Events</span>
+                                <span className="text-sm font-semibold text-gray-800">Manage Events</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
@@ -104,7 +104,7 @@ export function Settings() {
                                 <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
                                     <Layers size={20} />
                                 </div>
-                                <span className="font-medium text-gray-900">Manage Categories</span>
+                                <span className="text-sm font-semibold text-gray-800">Manage Categories</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
@@ -116,7 +116,7 @@ export function Settings() {
                                 <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
                                     <Clock size={20} />
                                 </div>
-                                <span className="font-medium text-gray-900">View Audit Trail</span>
+                                <span className="text-sm font-semibold text-gray-800">View Audit Trail</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
@@ -128,7 +128,7 @@ export function Settings() {
                                 <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
                                     <Clock size={20} />
                                 </div>
-                                <span className="font-medium text-gray-900">Manage Mandates</span>
+                                <span className="text-sm font-semibold text-gray-800">Manage Mandates</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
@@ -137,7 +137,7 @@ export function Settings() {
 
                 {/* Privacy Section */}
                 <section>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Privacy</h2>
+                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Privacy</h2>
                     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                         <div className="p-4">
                             <div className="flex items-start justify-between">
@@ -146,8 +146,8 @@ export function Settings() {
                                         <EyeOff size={20} />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="font-medium text-gray-900">Hide Balances</h3>
-                                        <p className="text-sm text-gray-500 mt-1">Hide account balances by default on startup</p>
+                                        <h3 className="text-sm font-semibold text-gray-800">Hide Balances</h3>
+                                        <p className="text-[10px] text-gray-500 mt-1">Hide account balances by default on startup</p>
                                     </div>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
@@ -166,7 +166,7 @@ export function Settings() {
 
                 {/* Auto Backup Section */}
                 <section>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Auto Backup</h2>
+                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Auto Backup</h2>
                     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                         <div className="p-4">
                             <div className="flex items-start justify-between">
@@ -175,8 +175,8 @@ export function Settings() {
                                         <Clock size={20} />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="font-medium text-gray-900">Daily Backup</h3>
-                                        <p className="text-sm text-gray-500 mt-1">Automatic backup at 9:00 PM IST</p>
+                                        <h3 className="text-sm font-semibold text-gray-800">Daily Backup</h3>
+                                        <p className="text-[10px] text-gray-500 mt-1">Automatic backup at 9:00 PM IST</p>
                                         {(() => {
                                             const lastBackup = localStorage.getItem('last-auto-backup');
                                             if (lastBackup) {
@@ -212,7 +212,7 @@ export function Settings() {
 
                 {/* Data Management Section */}
                 <section>
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Data Management</h2>
+                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Data Management</h2>
                     <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
                         <button
                             onClick={handleExportBackup}
@@ -223,8 +223,8 @@ export function Settings() {
                                     <Download size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="font-medium text-gray-900">Backup Data</h3>
-                                    <p className="text-sm text-gray-500">Download a JSON backup of your data</p>
+                                    <h3 className="text-sm font-semibold text-gray-800">Backup Data</h3>
+                                    <p className="text-[10px] text-gray-500">Download a JSON backup of your data</p>
                                 </div>
                             </div>
                         </button>
@@ -242,8 +242,8 @@ export function Settings() {
                                         <Upload size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="font-medium text-gray-900">Restore Data</h3>
-                                        <p className="text-sm text-gray-500">Import data from a JSON backup</p>
+                                        <h3 className="text-sm font-semibold text-gray-800">Restore Data</h3>
+                                        <p className="text-[10px] text-gray-500">Import data from a JSON backup</p>
                                     </div>
                                 </div>
                             </div>
