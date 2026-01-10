@@ -141,7 +141,9 @@ export function TransactionForm() {
             }
         }
 
-        const categoryName = categories.find(c => c.id === selectedCategory)?.name || 'Uncategorized';
+        const categoryName = type === 'transfer'
+            ? 'Transfer'
+            : (categories.find(c => c.id === selectedCategory)?.name || 'Uncategorized');
 
         const transactionData: Transaction = {
             id: isEditing && id ? id : generateId(),

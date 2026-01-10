@@ -54,14 +54,14 @@ export function AuditTrail() {
                             <div className="flex items-start justify-between mb-2">
                                 <div className="flex items-center space-x-2">
                                     {getActionIcon(log.action)}
-                                    <span className="font-semibold text-gray-900">{getActionLabel(log.action)}</span>
+                                    <span className="text-sm font-semibold text-gray-900">{getActionLabel(log.action)}</span>
                                 </div>
-                                <span className="text-xs text-gray-400">
+                                <span className="text-[10px] text-gray-400">
                                     {format(new Date(log.timestamp), 'MMM d, h:mm a')}
                                 </span>
                             </div>
 
-                            <div className="text-sm text-gray-600 space-y-2">
+                            <div className="text-xs text-gray-600 space-y-2">
                                 {log.action === 'create' && (
                                     <div className="bg-gray-50 p-2 rounded-lg">
                                         <p><span className="font-medium text-gray-700">Account:</span> {getAccountName(log.details.current.accountId)}</p>

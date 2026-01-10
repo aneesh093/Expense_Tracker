@@ -57,8 +57,8 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
                         {event.icon}
                     </div>
                     <div>
-                        <h3 className="font-semibold text-gray-900">{event.name}</h3>
-                        <p className="text-xs text-gray-500 flex items-center mt-1">
+                        <h3 className="text-sm font-semibold text-gray-800">{event.name}</h3>
+                        <p className="text-[10px] text-gray-500 flex items-center mt-1">
                             <Calendar size={12} className="mr-1" />
                             {format(parseISO(event.startDate), 'MMM dd')}
                             {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
@@ -67,7 +67,7 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
                 </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm pl-8">
+            <div className="flex items-center justify-between text-xs pl-8">
                 <div className="flex items-center space-x-4">
                     <div className="flex items-center text-gray-600">
                         <Receipt size={14} className="mr-1" />
