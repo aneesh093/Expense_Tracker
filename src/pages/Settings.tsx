@@ -109,6 +109,18 @@ export function Settings() {
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
                         <button
+                            onClick={() => navigate('/settings/audit-trail')}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                                    <Clock size={20} />
+                                </div>
+                                <span className="font-medium text-gray-900">View Audit Trail</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                        </button>
+                        <button
                             onClick={() => navigate('/mandates')}
                             className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
                         >

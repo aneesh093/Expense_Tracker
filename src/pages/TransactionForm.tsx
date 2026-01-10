@@ -121,6 +121,8 @@ export function TransactionForm() {
         }
     };
 
+    const [showSuccess, setShowSuccess] = useState(false);
+
     const handleSubmit = () => {
         const value = parseFloat(amount);
         if (value <= 0) return;
@@ -158,14 +160,17 @@ export function TransactionForm() {
             editTransaction(id, transactionData);
         } else {
             addTransaction(transactionData);
+            setAmount('0');
         }
-        navigate('/');
+
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
     };
 
     const handleDeleteTransaction = () => {
         if (id && confirm('Are you sure you want to delete this transaction?')) {
             deleteTransaction(id);
-            navigate('/');
+            navigate(-1);
         }
     };
 
@@ -371,7 +376,13 @@ export function TransactionForm() {
                 </>
             )}
 
-            <div className="px-4 pb-4 mt-auto">
+            <div className="px-4 pb-4 mt-auto space-y-3">
+                {showSuccess && (
+                    <div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <Check size={16} className="mr-2" />
+                        Transaction Saved Successfully!
+                    </div>
+                )}
                 <button
                     onClick={handleSubmit}
                     className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform flex items-center justify-center space-x-2"

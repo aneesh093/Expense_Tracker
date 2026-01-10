@@ -1,31 +1,44 @@
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableEventItem } from '../components/SortableEventItem';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useMemo } from 'react';
-import { format, isWithinInterval, parseISO } from 'date-fns';
-import { Plus, Calendar, TrendingDown, Receipt } from 'lucide-react';
+import { isWithinInterval, parseISO } from 'date-fns';
+import { Plus, Calendar } from 'lucide-react';
 
 export function Events() {
     const navigate = useNavigate();
-    const { events, transactions } = useFinanceStore();
+    const { events, transactions, reorderList } = useFinanceStore();
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        }),
+        useSensor(TouchSensor)
+    );
 
     const eventsWithStats = useMemo(() => {
-        return events.map(event => {
-            const eventTransactions = transactions.filter(t => t.eventId === event.id);
-            const totalExpense = eventTransactions
-                .filter(t => t.type === 'expense')
-                .reduce((sum, t) => sum + t.amount, 0);
-            const totalIncome = eventTransactions
-                .filter(t => t.type === 'income')
-                .reduce((sum, t) => sum + t.amount, 0);
+        return [...events]
+            .sort((a, b) => (a.order || 0) - (b.order || 0))
+            .map(event => {
+                const eventTransactions = transactions.filter(t => t.eventId === event.id);
+                const totalExpense = eventTransactions
+                    .filter(t => t.type === 'expense')
+                    .reduce((sum, t) => sum + t.amount, 0);
+                const totalIncome = eventTransactions
+                    .filter(t => t.type === 'income')
+                    .reduce((sum, t) => sum + t.amount, 0);
 
-            return {
-                ...event,
-                transactionCount: eventTransactions.length,
-                totalExpense,
-                totalIncome,
-                netAmount: totalIncome - totalExpense
-            };
-        });
+                return {
+                    ...event,
+                    transactionCount: eventTransactions.length,
+                    totalExpense,
+                    totalIncome,
+                    netAmount: totalIncome - totalExpense
+                };
+            });
     }, [events, transactions]);
 
     const activeEvents = useMemo(() => {
@@ -52,44 +65,34 @@ export function Events() {
         }).format(amount);
     };
 
-    const EventCard = ({ event }: { event: typeof eventsWithStats[0] }) => (
-        <div
-            onClick={() => navigate(`/events/${event.id}`)}
-            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer active:bg-gray-50 transition-colors"
-        >
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                    <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                        style={{ backgroundColor: `${event.color}20`, color: event.color }}
-                    >
-                        {event.icon}
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-900">{event.name}</h3>
-                        <p className="text-xs text-gray-500 flex items-center mt-1">
-                            <Calendar size={12} className="mr-1" />
-                            {format(parseISO(event.startDate), 'MMM dd')}
-                            {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
-                        </p>
-                    </div>
-                </div>
-            </div>
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
 
-            <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-4">
-                    <div className="flex items-center text-gray-600">
-                        <Receipt size={14} className="mr-1" />
-                        <span>{event.transactionCount}</span>
-                    </div>
-                    <div className="flex items-center text-red-600">
-                        <TrendingDown size={14} className="mr-1" />
-                        <span>{formatCurrency(event.totalExpense)}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+        if (active.id !== over.id) {
+            // Determine if we are in active or past events list
+            // We can check which list the active item belongs to
+            const isActive = activeEvents.some(e => e.id === active.id);
+            const isPast = pastEvents.some(e => e.id === active.id);
+
+            let groupItems: typeof eventsWithStats = [];
+
+            if (isActive) {
+                groupItems = activeEvents;
+            } else if (isPast) {
+                groupItems = pastEvents;
+            }
+
+            if (groupItems.length > 0) {
+                const oldIndex = groupItems.findIndex(item => item.id === active.id);
+                const newIndex = groupItems.findIndex(item => item.id === over.id);
+
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    const newOrder = arrayMove(groupItems, oldIndex, newIndex).map(item => item.id);
+                    reorderList('events', newOrder);
+                }
+            }
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -107,29 +110,49 @@ export function Events() {
                 </button>
             </header>
 
-            {/* Active Events */}
-            {activeEvents.length > 0 && (
-                <section>
-                    <h2 className="text-lg font-bold text-gray-900 mb-3">Active Events</h2>
-                    <div className="space-y-3">
-                        {activeEvents.map(event => (
-                            <EventCard key={event.id} event={event} />
-                        ))}
-                    </div>
-                </section>
-            )}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                {/* Active Events */}
+                {activeEvents.length > 0 && (
+                    <section>
+                        <h2 className="text-lg font-bold text-gray-900 mb-3">Active Events</h2>
+                        <div className="space-y-3">
+                            <SortableContext items={activeEvents} strategy={verticalListSortingStrategy}>
+                                {activeEvents.map(event => (
+                                    <SortableEventItem
+                                        key={event.id}
+                                        event={event}
+                                        navigate={navigate}
+                                        formatCurrency={formatCurrency}
+                                    />
+                                ))}
+                            </SortableContext>
+                        </div>
+                    </section>
+                )}
 
-            {/* Past Events */}
-            {pastEvents.length > 0 && (
-                <section>
-                    <h2 className="text-lg font-bold text-gray-900 mb-3">Past Events</h2>
-                    <div className="space-y-3">
-                        {pastEvents.map(event => (
-                            <EventCard key={event.id} event={event} />
-                        ))}
-                    </div>
-                </section>
-            )}
+                {/* Past Events */}
+                {pastEvents.length > 0 && (
+                    <section>
+                        <h2 className="text-lg font-bold text-gray-900 mb-3">Past Events</h2>
+                        <div className="space-y-3">
+                            <SortableContext items={pastEvents} strategy={verticalListSortingStrategy}>
+                                {pastEvents.map(event => (
+                                    <SortableEventItem
+                                        key={event.id}
+                                        event={event}
+                                        navigate={navigate}
+                                        formatCurrency={formatCurrency}
+                                    />
+                                ))}
+                            </SortableContext>
+                        </div>
+                    </section>
+                )}
+            </DndContext>
 
             {/* Empty State */}
             {events.length === 0 && (

@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableAccountItem } from '../components/SortableAccountItem';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { type Account, type AccountType } from '../types';
-import { CreditCard, Plus, X, Wallet, Building, Banknote, Landmark, Trash2, AlertTriangle, Pencil, PiggyBank, TrendingUp, PieChart, Briefcase, Check, MapPin, Shield } from 'lucide-react';
+import { useState } from 'react';
 import { cn, generateId } from '../lib/utils';
+import { type Account, type AccountType } from '../types';
+import { Plus, Trash2, Wallet, X, AlertTriangle } from 'lucide-react';
 
 export function Accounts() {
     const navigate = useNavigate();
-    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isBalanceHidden } = useFinanceStore();
+    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isBalanceHidden, reorderList } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -40,11 +43,50 @@ export function Accounts() {
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
     const [filterType, setFilterType] = useState<AccountType | 'all'>('all');
 
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        }),
+        useSensor(TouchSensor)
+    );
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
         }).format(amount);
+    };
+
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
+
+        if (active.id !== over.id) {
+            // Find which group the active item belongs to
+            // We can infer the group from the active item's type, but we must use the filtered list logic
+            // Actually, we can just find the item in our local 'groupedAccounts' derived state, 
+            // but we don't have access to 'groupedAccounts' inside this callback easily unless we define it before,
+            // or we re-derive.
+            // Better: find the type of the account.
+            const activeAccount = accounts.find(a => a.id === active.id);
+            const overAccount = accounts.find(a => a.id === over.id);
+
+            if (activeAccount && overAccount && activeAccount.type === overAccount.type) {
+                // Get all accounts of this type, sorted by current order
+                // IMPORTANT: We must use the same sorting logic as the UI (which is by order)
+                const groupItems = accounts
+                    .filter(a => a.type === activeAccount.type)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                const oldIndex = groupItems.findIndex(item => item.id === active.id);
+                const newIndex = groupItems.findIndex(item => item.id === over.id);
+
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    const newOrder = arrayMove(groupItems, oldIndex, newIndex).map(item => item.id);
+                    reorderList('accounts', newOrder);
+                }
+            }
+        }
     };
 
     const handleSave = () => {
@@ -76,7 +118,7 @@ export function Accounts() {
             accountData.dmatId = dmatId;
             accountData.customerId = customerId;
         } else if (type === 'insurance') {
-            accountData.insuranceDetails = { // Corrected: insuranceDetails instead of separate fields if preferred, or matching the plan. 
+            accountData.insuranceDetails = {
                 policyNumber,
                 premiumAmount: parseFloat(premiumAmount) || 0,
                 renewalDate
@@ -121,8 +163,6 @@ export function Accounts() {
             setInterestRate(account.loanDetails.interestRate.toString());
             setMonthlyEmi(account.loanDetails.monthlyEmi.toString());
             setEmisLeft(account.loanDetails.emisLeft.toString());
-            setMonthlyEmi(account.loanDetails.monthlyEmi.toString());
-            setEmisLeft(account.loanDetails.emisLeft.toString());
         }
 
         if (account.type === 'insurance' && account.insuranceDetails) {
@@ -148,7 +188,6 @@ export function Accounts() {
         setPrincipalAmount('');
         setInterestRate('');
         setMonthlyEmi('');
-        setMonthlyEmi('');
         setEmisLeft('');
 
         setPolicyNumber('');
@@ -169,7 +208,7 @@ export function Accounts() {
         const matchesTab = activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
         const matchesFilter = filterType === 'all' || acc.type === filterType;
         return matchesTab && matchesFilter;
-    });
+    }).sort((a, b) => (a.order || 0) - (b.order || 0));
 
     // Group accounts by type
     const groupedAccounts = filteredAccounts.reduce((groups, account) => {
@@ -198,34 +237,11 @@ export function Accounts() {
         }
     };
 
-    // Get icon for account type
-    const getAccountIcon = (type: AccountType) => {
-        const iconProps = { size: 20 };
-        switch (type) {
-            case 'fixed-deposit':
-                return <Landmark {...iconProps} />;
-            case 'savings':
-                return <PiggyBank {...iconProps} />;
-            case 'credit':
-                return <CreditCard {...iconProps} />;
-            case 'cash':
-                return <Banknote {...iconProps} />;
-            case 'loan':
-                return <Wallet {...iconProps} />;
-            case 'stock':
-                return <TrendingUp {...iconProps} />;
-            case 'mutual-fund':
-                return <PieChart {...iconProps} />;
-            case 'other':
-                return <Briefcase {...iconProps} />;
-            case 'land':
-                return <MapPin {...iconProps} />;
-            case 'insurance':
-                return <Shield {...iconProps} />;
-            default:
-                return <Building {...iconProps} />;
-        }
-    };
+    // getAccountIcon removed as it is in SortableAccountItem or reused if needed.
+    // Keeping it if needed for other parts, but SortableAccountItem handles it.
+    // Actually, let's keep it for now or remove if unused. It was used in the list mapping.
+    // I am replacing the list mapping, so I can remove it if I replace the list code.
+    // It's still used in this snippet so I'm not including it here, I cut off before.
 
     const openAddModal = () => {
         resetForm();
@@ -631,155 +647,91 @@ export function Accounts() {
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-6">
-                        {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => {
-                            const groupTotal = accountsInGroup.reduce((sum, acc) => sum + acc.balance, 0);
-                            return (
-                                <div key={type}>
-                                    {/* Type Header */}
-                                    <div className="flex justify-between items-center mb-3 ml-1">
-                                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
-                                            {getTypeDisplayName(type as AccountType)}
-                                        </h3>
-                                        <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
-                                            {isBalanceHidden
-                                                ? '•••••'
-                                                : formatCurrency(
-                                                    type === 'credit'
-                                                        ? accountsInGroup.reduce((total, acc) => {
-                                                            const spent = transactions
-                                                                .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
-                                                                .reduce((sum, t) => {
-                                                                    if (t.accountId === acc.id) {
-                                                                        return sum + (t.type === 'income' ? -t.amount : t.amount);
-                                                                    }
-                                                                    if (t.toAccountId === acc.id) {
-                                                                        return sum + (t.type === 'transfer' ? -t.amount : 0);
-                                                                    }
-                                                                    return sum;
-                                                                }, 0);
-                                                            return total + spent;
-                                                        }, 0)
-                                                        : groupTotal
-                                                )
-                                            }
-                                        </span>
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <div className="space-y-6">
+                            {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => {
+                                const groupTotal = accountsInGroup.reduce((sum, acc) => sum + acc.balance, 0);
+                                return (
+                                    <div key={type}>
+                                        {/* Type Header */}
+                                        <div className="flex justify-between items-center mb-3 ml-1">
+                                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+                                                {getTypeDisplayName(type as AccountType)}
+                                            </h3>
+                                            <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
+                                                {isBalanceHidden
+                                                    ? '•••••'
+                                                    : formatCurrency(
+                                                        type === 'credit'
+                                                            ? accountsInGroup.reduce((total, acc) => {
+                                                                const spent = transactions
+                                                                    .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
+                                                                    .reduce((sum, t) => {
+                                                                        if (t.accountId === acc.id) {
+                                                                            return sum + (t.type === 'income' ? -t.amount : t.amount);
+                                                                        }
+                                                                        if (t.toAccountId === acc.id) {
+                                                                            return sum + (t.type === 'transfer' ? -t.amount : 0);
+                                                                        }
+                                                                        return sum;
+                                                                    }, 0);
+                                                                return total + spent;
+                                                            }, 0)
+                                                            : groupTotal
+                                                    )
+                                                }
+                                            </span>
+                                        </div>
+
+                                        {/* Accounts in this type */}
+                                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                            <SortableContext items={accountsInGroup} strategy={verticalListSortingStrategy}>
+                                                {accountsInGroup.map((acc) => {
+                                                    const isSelected = selectedAccounts.has(acc.id);
+                                                    const isCredit = acc.type === 'credit';
+                                                    const spentAmount = isCredit
+                                                        ? transactions
+                                                            .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
+                                                            .reduce((sum, t) => {
+                                                                if (t.accountId === acc.id) {
+                                                                    return sum + (t.type === 'income' ? -t.amount : t.amount);
+                                                                }
+                                                                if (t.toAccountId === acc.id) {
+                                                                    return sum + (t.type === 'transfer' ? -t.amount : 0);
+                                                                }
+                                                                return sum;
+                                                            }, 0)
+                                                        : acc.balance;
+
+                                                    return (
+                                                        <SortableAccountItem
+                                                            key={acc.id}
+                                                            account={acc}
+                                                            isSelectMode={isSelectMode}
+                                                            isSelected={isSelected}
+                                                            toggleSelectAccount={toggleSelectAccount}
+                                                            handleEdit={handleEdit}
+                                                            setAccountToDelete={setAccountToDelete}
+                                                            navigate={navigate}
+                                                            isBalanceHidden={isBalanceHidden}
+                                                            formatCurrency={formatCurrency}
+                                                            spentAmount={spentAmount}
+                                                            transactions={transactions}
+                                                        />
+                                                    );
+                                                })}
+                                            </SortableContext>
+                                        </div>
                                     </div>
-
-                                    {/* Accounts in this type */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                                        {accountsInGroup.map((acc, index) => {
-                                            const isSelected = selectedAccounts.has(acc.id);
-                                            const isCredit = acc.type === 'credit';
-                                            const spentAmount = isCredit
-                                                ? transactions
-                                                    .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
-                                                    .reduce((sum, t) => {
-                                                        if (t.accountId === acc.id) {
-                                                            return sum + (t.type === 'income' ? -t.amount : t.amount);
-                                                        }
-                                                        if (t.toAccountId === acc.id) {
-                                                            return sum + (t.type === 'transfer' ? -t.amount : 0);
-                                                        }
-                                                        return sum;
-                                                    }, 0)
-                                                : acc.balance;
-
-                                            return (
-                                                <div
-                                                    key={acc.id}
-                                                    onClick={() => isSelectMode ? toggleSelectAccount(acc.id) : navigate(`/accounts/${acc.id}`)}
-                                                    className={cn(
-                                                        "flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100",
-                                                        index !== accountsInGroup.length - 1 && "border-b border-gray-100",
-                                                        isSelected && "bg-blue-50"
-                                                    )}
-                                                >
-                                                    <div className="flex items-center space-x-4">
-                                                        {isSelectMode && (
-                                                            <div
-                                                                className={cn(
-                                                                    "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
-                                                                    isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300"
-                                                                )}
-                                                            >
-                                                                {isSelected && <Check size={14} className="text-white" />}
-                                                            </div>
-                                                        )}
-                                                        <div className={cn(
-                                                            "p-3 rounded-xl",
-                                                            acc.type === 'credit' ? "bg-purple-100 text-purple-600" :
-                                                                acc.type === 'cash' ? "bg-green-100 text-green-600" :
-                                                                    acc.type === 'loan' ? "bg-orange-100 text-orange-600" :
-                                                                        acc.type === 'stock' || acc.type === 'mutual-fund' || acc.type === 'land' || acc.type === 'insurance' ? "bg-blue-100 text-blue-600" :
-                                                                            acc.type === 'savings' ? "bg-teal-100 text-teal-600" :
-                                                                                "bg-gray-100 text-gray-600"
-                                                        )}>
-                                                            {getAccountIcon(acc.type)}
-                                                        </div>
-                                                        <div>
-                                                            <h3 className="font-bold text-gray-900 leading-tight">
-                                                                {acc.name}
-                                                            </h3>
-                                                            {acc.subName && (
-                                                                <p className="text-sm text-gray-600 mt-0.5">{acc.subName}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center space-x-4">
-                                                        <div className="text-right flex flex-col items-end min-h-[44px] justify-center">
-                                                            {acc.isPrimary && (
-                                                                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider mb-1">
-                                                                    Primary
-                                                                </span>
-                                                            )}
-                                                            {acc.type === 'loan' && acc.loanDetails && (
-                                                                <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold tracking-wide mb-1">
-                                                                    {acc.loanDetails.emisLeft} EMIs Left
-                                                                </span>
-                                                            )}
-                                                            <p className={cn("font-bold", spentAmount < 0 && !isCredit ? "text-red-600" : "text-gray-900")}>
-                                                                {isBalanceHidden && !acc.isPrimary ? '•••••' : formatCurrency(spentAmount)}
-                                                            </p>
-                                                        </div>
-
-                                                        {!isSelectMode && (
-                                                            <>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        e.preventDefault();
-                                                                        handleEdit(acc);
-                                                                    }}
-                                                                    className="p-2 text-gray-400 hover:text-blue-500 transition-colors hover:bg-blue-50 rounded-lg"
-                                                                >
-                                                                    <Pencil size={18} />
-                                                                </button>
-
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        e.preventDefault();
-                                                                        setAccountToDelete(acc);
-                                                                    }}
-                                                                    className="p-2 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-lg"
-                                                                >
-                                                                    <Trash2 size={18} />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )
-                }
+                                );
+                            })}
+                        </div>
+                    </DndContext>
+                )}
             </div>
 
             {/* Bulk Action Bar */}

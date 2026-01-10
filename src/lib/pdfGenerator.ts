@@ -10,6 +10,8 @@ interface ReportData {
     totalExpense: number;
     totalInvestment: number;
     manualTotalExpense?: number;
+    totalTransferIn?: number;
+    totalTransferOut?: number;
     transactions: Transaction[];
     accounts: Account[];
     categories: Category[]; // To look up names if needed
@@ -103,6 +105,28 @@ export const generateReportPDF = (data: ReportData) => {
         doc.setFontSize(12);
         doc.text(`INR ${data.manualTotalExpense.toLocaleString('en-IN')}`, 20, manualBoxY + 16);
         summaryEndY = manualBoxY + boxHeight + 5;
+    }
+
+    // Transfers Summary (Secondary Row)
+    if ((data.totalTransferIn && data.totalTransferIn > 0) || (data.totalTransferOut && data.totalTransferOut > 0)) {
+        const transferY = summaryEndY;
+        doc.setFillColor(238, 242, 255); // Indigo 50
+        doc.rect(14, transferY, boxWidth, boxHeight, 'F');
+        doc.setTextColor(67, 56, 202); // Indigo 700
+        doc.setFontSize(9);
+        doc.text('Internal Transfers (In)', 20, transferY + 7);
+        doc.setFontSize(12);
+        doc.text(`INR ${(data.totalTransferIn || 0).toLocaleString('en-IN')}`, 20, transferY + 16);
+
+        doc.setFillColor(238, 242, 255); // Indigo 50
+        doc.rect(77, transferY, boxWidth, boxHeight, 'F');
+        doc.setTextColor(67, 56, 202); // Indigo 700
+        doc.setFontSize(9);
+        doc.text('Internal Transfers (Out)', 83, transferY + 7);
+        doc.setFontSize(12);
+        doc.text(`INR ${(data.totalTransferOut || 0).toLocaleString('en-IN')}`, 83, transferY + 16);
+
+        summaryEndY = transferY + boxHeight + 5;
     }
 
     // Charts
