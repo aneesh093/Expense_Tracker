@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Account, type Transaction, type Category, type Event, type Mandate, type AuditTrail } from '../types';
+import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
@@ -45,6 +45,12 @@ interface FinanceState {
     skipMandate: (id: string) => Promise<void>;
     checkAndRunMandates: () => Promise<void>;
     reorderList: (type: 'accounts' | 'categories' | 'events' | 'mandates', newOrderIds: string[]) => void;
+
+    // Account Type Visibility for Net Worth
+    // Stores type keys like "credit", "land", "banking-other", "investment-other"
+    hiddenAccountTypes: string[];
+    toggleAccountTypeVisibility: (type: AccountType, group?: 'banking' | 'investment') => void;
+    isAccountTypeHidden: (type: AccountType, group?: 'banking' | 'investment') => boolean;
 }
 
 export const useFinanceStore = create<FinanceState>()((set, get) => ({
@@ -56,6 +62,31 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     auditTrails: [],
     isInitialized: false,
     isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
+    hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
+
+    isAccountTypeHidden: (type, group) => {
+        const state = get();
+        // For 'other' type, check group-specific key
+        if (type === 'other' && group) {
+            return state.hiddenAccountTypes.includes(`${group}-other`);
+        }
+        // For all other types, check the type directly
+        return state.hiddenAccountTypes.includes(type);
+    },
+
+    toggleAccountTypeVisibility: (type, group) => {
+        set((state) => {
+            // For 'other' type, use group-specific key
+            const key = (type === 'other' && group) ? `${group}-other` : type;
+            const isHidden = state.hiddenAccountTypes.includes(key);
+            const newHiddenTypes = isHidden
+                ? state.hiddenAccountTypes.filter((t) => t !== key)
+                : [...state.hiddenAccountTypes, key];
+
+            localStorage.setItem('finance-hidden-account-types', JSON.stringify(newHiddenTypes));
+            return { hiddenAccountTypes: newHiddenTypes };
+        });
+    },
 
     // Initialize: Load data from IndexedDB and migrate from localStorage if needed
     initialize: async () => {

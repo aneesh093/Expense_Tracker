@@ -108,7 +108,7 @@ export function EventDetails() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <p className="text-xs text-gray-500 mb-1">Total Expense</p>
                     <p className="text-lg font-bold text-red-600">{formatCurrency(stats.totalExpense)}</p>
@@ -116,6 +116,15 @@ export function EventDetails() {
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <p className="text-xs text-gray-500 mb-1">Total Income</p>
                     <p className="text-lg font-bold text-green-600">{formatCurrency(stats.totalIncome)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <p className="text-xs text-gray-500 mb-1">Balance</p>
+                    <p className={cn(
+                        "text-lg font-bold",
+                        stats.netAmount >= 0 ? "text-green-600" : "text-red-600"
+                    )}>
+                        {formatCurrency(stats.netAmount)}
+                    </p>
                 </div>
             </div>
 

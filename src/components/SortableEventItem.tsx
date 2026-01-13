@@ -73,9 +73,9 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
                         <Receipt size={14} className="mr-1" />
                         <span>{event.transactionCount}</span>
                     </div>
-                    <div className="flex items-center text-red-600">
+                    <div className={cn("flex items-center", event.netAmount >= 0 ? "text-green-600" : "text-red-600")}>
                         <TrendingDown size={14} className="mr-1" />
-                        <span>{formatCurrency(event.totalExpense)}</span>
+                        <span>{formatCurrency(event.netAmount)}</span>
                     </div>
                 </div>
             </div>
