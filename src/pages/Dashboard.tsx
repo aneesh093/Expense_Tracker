@@ -7,19 +7,35 @@ import { cn } from '../lib/utils';
 
 export function Dashboard() {
     const navigate = useNavigate();
-    const { accounts, transactions, events, isBalanceHidden, toggleBalanceHidden } = useFinanceStore();
+    const { accounts, transactions, events, isBalanceHidden, toggleBalanceHidden, isAccountTypeHidden } = useFinanceStore();
 
     const totalBalance = useMemo(() => {
         return accounts.reduce((sum, acc) => {
-            if (acc.type === 'credit' || acc.type === 'land' || acc.type === 'insurance') {
+            // Determine the group for this account
+            // If account has explicit group, use it. Otherwise infer from type.
+            let group: 'banking' | 'investment';
+            if (acc.group) {
+                group = acc.group;
+            } else {
+                // Fallback: infer group from type (for legacy accounts)
+                const isInvestmentType = acc.type === 'stock' || acc.type === 'mutual-fund' || acc.type === 'land' || acc.type === 'insurance' || acc.type === 'other';
+                group = isInvestmentType ? 'investment' : 'banking';
+            }
+
+            // Check if this account type is hidden from Net Worth
+            if (isAccountTypeHidden(acc.type, group)) {
                 return sum;
             }
+
+            // Loans are liabilities - subtract from net worth
             if (acc.type === 'loan') {
                 return sum - acc.balance;
             }
+
+            // All other account types (if not hidden) add to net worth
             return sum + acc.balance;
         }, 0);
-    }, [accounts]);
+    }, [accounts, isAccountTypeHidden]);
 
     const displayedAccounts = useMemo(() => {
         const primaryAccounts = accounts.filter(acc => acc.isPrimary);
@@ -36,7 +52,7 @@ export function Dashboard() {
         const end = endOfMonth(now);
 
         return transactions
-            .filter(t => isWithinInterval(new Date(t.date), { start, end }))
+            .filter(t => !t.excludeFromBalance && isWithinInterval(new Date(t.date), { start, end }))
             .reduce((acc, t) => {
                 if (t.type === 'income') acc.totalIncome += t.amount;
                 else if (t.type === 'expense') acc.totalExpense += t.amount;
@@ -52,12 +68,17 @@ export function Dashboard() {
         // User said "only display transactions from primary bank accounts".
         // Let's assume strict filtering. If no primary, show nothing? Or show all as fallback?
         // Let's show all if NO primary accounts exist, otherwise filter.
-        if (primaryAccountIds.size === 0) return [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        if (primaryAccountIds.size === 0) {
+            return transactions
+                .filter(t => !t.excludeFromBalance)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        }
 
         return transactions
             .filter(t =>
-                primaryAccountIds.has(t.accountId) ||
-                (t.toAccountId && primaryAccountIds.has(t.toAccountId))
+                !t.excludeFromBalance &&
+                (primaryAccountIds.has(t.accountId) ||
+                    (t.toAccountId && primaryAccountIds.has(t.toAccountId)))
             )
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transactions, accounts]);
@@ -210,7 +231,7 @@ export function Dashboard() {
                             const isCredit = acc.type === 'credit';
                             const spentAmount = isCredit
                                 ? transactions
-                                    .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
+                                    .filter(t => !t.excludeFromBalance && (t.accountId === acc.id || t.toAccountId === acc.id))
                                     .reduce((sum, t) => {
                                         if (t.accountId === acc.id) {
                                             return sum + (t.type === 'income' ? -t.amount : t.amount);

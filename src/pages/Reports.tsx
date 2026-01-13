@@ -15,8 +15,8 @@ export function Reports() {
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
 
     // Filter State
-    const [showMandates, setShowMandates] = useState(true);
-    const [showTransfers, setShowTransfers] = useState(true);
+    const [showMandates, setShowMandates] = useState(false);
+    const [showTransfers, setShowTransfers] = useState(false);
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
     // Close filter menu when clicking outside

@@ -6,11 +6,11 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { useState } from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Plus, Trash2, Wallet, X, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
 
 export function Accounts() {
     const navigate = useNavigate();
-    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isBalanceHidden, reorderList } = useFinanceStore();
+    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -18,13 +18,13 @@ export function Accounts() {
     const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
 
     // Form State
+    // Form State
     const [name, setName] = useState('');
     const [subName, setSubName] = useState('');
     const [type, setType] = useState<AccountType>('fixed-deposit');
+
     const [balance, setBalance] = useState('');
     const [isPrimary, setIsPrimary] = useState(false);
-
-    // Additional Fields
     const [accountNumber, setAccountNumber] = useState('');
     const [customerId, setCustomerId] = useState('');
     const [dmatId, setDmatId] = useState('');
@@ -112,7 +112,8 @@ export function Accounts() {
             type,
             balance: parseFloat(balance) || 0,
             color: 'blue',
-            isPrimary
+            isPrimary,
+            group: activeTab === 'investments' ? 'investment' : 'banking'
         };
 
         if (type === 'savings') {
@@ -206,9 +207,17 @@ export function Accounts() {
         }
     };
 
-    const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'other' || type === 'land' || type === 'insurance';
+    const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'land' || type === 'insurance' || type === 'other';
 
     const filteredAccounts = accounts.filter(acc => {
+        // If account has a group, use that to determine tab
+        if (acc.group) {
+            const matchesTab = (activeTab === 'investments' ? 'investment' : 'banking') === acc.group;
+            const matchesFilter = filterType === 'all' || acc.type === filterType;
+            return matchesTab && matchesFilter;
+        }
+
+        // Fallback for generic categorization
         const matchesTab = activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
         const matchesFilter = filterType === 'all' || acc.type === filterType;
         return matchesTab && matchesFilter;
@@ -344,7 +353,6 @@ export function Accounts() {
                     onChange={(e) => setFilterType(e.target.value as AccountType | 'all')}
                     className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                    <option value="all">All {activeTab === 'banking' ? 'Banking' : 'Investment'} Accounts</option>
                     {activeTab === 'banking' ? (
                         <>
                             <option value="fixed-deposit">Fixed Deposit</option>
@@ -352,11 +360,11 @@ export function Accounts() {
                             <option value="credit">Credit Card</option>
                             <option value="cash">Cash</option>
                             <option value="loan">Loans</option>
+                            <option value="other">Other</option>
                         </>
                     ) : (
                         <>
                             <option value="stock">Stock</option>
-                            <option value="mutual-fund">Mutual Fund</option>
                             <option value="mutual-fund">Mutual Fund</option>
                             <option value="land">Land</option>
                             <option value="insurance">Insurance</option>
@@ -405,7 +413,7 @@ export function Accounts() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {activeTab === 'banking' ? (
-                                        ['fixed-deposit', 'savings', 'credit', 'cash', 'loan'].map((t) => (
+                                        ['fixed-deposit', 'savings', 'credit', 'cash', 'loan', 'other'].map((t) => (
                                             <button
                                                 key={t}
                                                 onClick={() => setType(t as AccountType)}
@@ -596,47 +604,50 @@ export function Accounts() {
                                 </label>
                             </div>
 
-                            <button
-                                onClick={handleSave}
-                                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl mt-4 shadow-lg active:scale-[0.98] transition-transform"
-                            >
-                                {editingId ? 'Save Changes' : 'Create Account'}
-                            </button>
                         </div>
+
+                        <button
+                            onClick={handleSave}
+                            className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl mt-4 shadow-lg active:scale-[0.98] transition-transform"
+                        >
+                            {editingId ? 'Save Changes' : 'Create Account'}
+                        </button>
                     </div>
                 </div>
             )}
 
             {/* Delete Confirmation Modal */}
-            {accountToDelete && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
-                            <AlertTriangle className="text-red-600" size={24} />
-                        </div>
+            {
+                accountToDelete && (
+                    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+                                <AlertTriangle className="text-red-600" size={24} />
+                            </div>
 
-                        <h3 className="text-lg font-bold text-center mb-2">Delete Account?</h3>
-                        <p className="text-sm text-gray-600 text-center mb-6">
-                            Are you sure you want to delete "{accountToDelete.name}"? This action cannot be undone.
-                        </p>
+                            <h3 className="text-lg font-bold text-center mb-2">Delete Account?</h3>
+                            <p className="text-sm text-gray-600 text-center mb-6">
+                                Are you sure you want to delete "{accountToDelete.name}"? This action cannot be undone.
+                            </p>
 
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={() => setAccountToDelete(null)}
-                                className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDeleteConfirm}
-                                className="flex-1 py-3 px-4 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
-                            >
-                                Delete
-                            </button>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={() => setAccountToDelete(null)}
+                                    className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteConfirm}
+                                    className="flex-1 py-3 px-4 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Accounts List */}
             <div className="space-y-4">
@@ -659,13 +670,33 @@ export function Accounts() {
                         <div className="space-y-6">
                             {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => {
                                 const groupTotal = accountsInGroup.reduce((sum, acc) => sum + acc.balance, 0);
+                                // Determine the group for this account type based on activeTab
+                                const group = activeTab === 'investments' ? 'investment' : 'banking';
+                                const isHidden = isAccountTypeHidden(type as AccountType, group);
+
                                 return (
                                     <div key={type}>
                                         {/* Type Header */}
                                         <div className="flex justify-between items-center mb-3 ml-1">
-                                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
-                                                {getTypeDisplayName(type as AccountType)}
-                                            </h3>
+                                            <div className="flex items-center space-x-3">
+                                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+                                                    {getTypeDisplayName(type as AccountType)}
+                                                </h3>
+                                                <button
+                                                    onClick={() => toggleAccountTypeVisibility(type as AccountType, group)}
+                                                    className={cn(
+                                                        "transition-colors rounded-full p-1",
+                                                        isHidden ? "text-gray-400 hover:text-gray-600" : "text-blue-600 hover:text-blue-700"
+                                                    )}
+                                                    title={isHidden ? "Include in Net Worth" : "Exclude from Net Worth"}
+                                                >
+                                                    {isHidden ? (
+                                                        <ToggleLeft size={24} />
+                                                    ) : (
+                                                        <ToggleRight size={24} />
+                                                    )}
+                                                </button>
+                                            </div>
                                             <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
                                                 {isBalanceHidden
                                                     ? '•••••'
@@ -739,22 +770,24 @@ export function Accounts() {
             </div>
 
             {/* Bulk Action Bar */}
-            {isSelectMode && selectedAccounts.size > 0 && (
-                <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40">
-                    <div className="max-w-2xl mx-auto flex items-center justify-between">
-                        <p className="text-sm font-medium text-gray-700">
-                            {selectedAccounts.size} account{selectedAccounts.size > 1 ? 's' : ''} selected
-                        </p>
-                        <button
-                            onClick={handleBulkDelete}
-                            className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-md flex items-center space-x-2"
-                        >
-                            <Trash2 size={18} />
-                            <span>Delete Selected</span>
-                        </button>
+            {
+                isSelectMode && selectedAccounts.size > 0 && (
+                    <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-40">
+                        <div className="max-w-2xl mx-auto flex items-center justify-between">
+                            <p className="text-sm font-medium text-gray-700">
+                                {selectedAccounts.size} account{selectedAccounts.size > 1 ? 's' : ''} selected
+                            </p>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-md flex items-center space-x-2"
+                            >
+                                <Trash2 size={18} />
+                                <span>Delete Selected</span>
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

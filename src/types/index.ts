@@ -37,6 +37,8 @@ export interface Account {
     subName?: string;
     isPrimary?: boolean;
     order?: number;
+    includeInNetWorth?: boolean;
+    group?: 'banking' | 'investment';
 }
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
