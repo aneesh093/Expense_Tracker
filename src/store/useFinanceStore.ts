@@ -39,7 +39,7 @@ interface FinanceState {
     updateEvent: (id: string, updates: Partial<Event>) => void;
     deleteEvent: (id: string) => void;
 
-    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[] }) => void;
+    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[] }) => void;
 
     // Mandates
     mandates: Mandate[];
@@ -428,7 +428,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             });
     },
 
-    importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[] }) => {
+    importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[] }) => {
         try {
             // Clear existing data
             await db.accounts.clear();
@@ -437,6 +437,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await db.events.clear();
             await db.mandates.clear();
             await db.auditTrails.clear();
+            await db.investmentLogs.clear();
 
             // Import new data
             if (data.accounts?.length) await db.accounts.bulkPut(data.accounts);
@@ -445,6 +446,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             if (data.events?.length) await db.events.bulkPut(data.events);
             if (data.mandates?.length) await db.mandates.bulkPut(data.mandates);
             if (data.auditTrails?.length) await db.auditTrails.bulkPut(data.auditTrails);
+            if (data.investmentLogs?.length) await db.investmentLogs.bulkPut(data.investmentLogs);
 
             // Update state
             set({
@@ -453,7 +455,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 categories: data.categories || [],
                 events: data.events || [],
                 mandates: data.mandates || [],
-                auditTrails: data.auditTrails || []
+                auditTrails: data.auditTrails || [],
+                investmentLogs: data.investmentLogs || []
             });
 
             console.log('Data imported successfully');
