@@ -4,8 +4,8 @@ import { SortableEventItem } from '../components/SortableEventItem';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useMemo } from 'react';
-import { isWithinInterval, parseISO } from 'date-fns';
-import { Plus, Calendar } from 'lucide-react';
+import { parseISO } from 'date-fns';
+import { Plus, Calendar, ArrowLeft } from 'lucide-react';
 
 export function Events() {
     const navigate = useNavigate();
@@ -49,16 +49,29 @@ export function Events() {
         const now = new Date();
         return eventsWithStats.filter(event => {
             const start = parseISO(event.startDate);
-            const end = event.endDate ? parseISO(event.endDate) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000); // Default 30 days
-            return isWithinInterval(now, { start, end });
+            const end = event.endDate ? parseISO(event.endDate) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+            return now >= start && now <= end;
+        });
+    }, [eventsWithStats]);
+
+    const upcomingEvents = useMemo(() => {
+        const now = new Date();
+        return eventsWithStats.filter(event => {
+            const start = parseISO(event.startDate);
+            return start > now;
         });
     }, [eventsWithStats]);
 
     const pastEvents = useMemo(() => {
         const now = new Date();
         return eventsWithStats.filter(event => {
-            const end = event.endDate ? parseISO(event.endDate) : parseISO(event.startDate);
-            return end < now;
+            // If no end date, and start date is past, and not active (which means it ended), then past.
+            // But logic above for Active uses default 30 days if no end date.
+            // So if no end date, "End" is start + 30 days.
+            // Let's reuse the same end calculation logic for consistency
+            const start = parseISO(event.startDate);
+            const effectiveEnd = event.endDate ? parseISO(event.endDate) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+            return effectiveEnd < now;
         });
     }, [eventsWithStats]);
 
@@ -84,6 +97,10 @@ export function Events() {
                 groupItems = activeEvents;
             } else if (isPast) {
                 groupItems = pastEvents;
+            } else {
+                // Check upcoming
+                const isUpcoming = upcomingEvents.some(e => e.id === active.id);
+                if (isUpcoming) groupItems = upcomingEvents;
             }
 
             if (groupItems.length > 0) {
@@ -102,9 +119,17 @@ export function Events() {
         <div className="space-y-6">
             {/* Header */}
             <header className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Events</h1>
-                    <p className="text-sm text-gray-500">Track expenses by event</p>
+                <div className="flex items-center">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="p-2 -ml-2 mr-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                        <ArrowLeft size={24} />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Events</h1>
+                        <p className="text-sm text-gray-500">Track expenses by event</p>
+                    </div>
                 </div>
                 <button
                     onClick={() => navigate('/events/new')}
@@ -126,6 +151,25 @@ export function Events() {
                         <div className="space-y-3">
                             <SortableContext items={activeEvents} strategy={verticalListSortingStrategy}>
                                 {activeEvents.map(event => (
+                                    <SortableEventItem
+                                        key={event.id}
+                                        event={event}
+                                        navigate={navigate}
+                                        formatCurrency={formatCurrency}
+                                    />
+                                ))}
+                            </SortableContext>
+                        </div>
+                    </section>
+                )}
+
+                {/* Upcoming Events */}
+                {upcomingEvents.length > 0 && (
+                    <section>
+                        <h2 className="text-lg font-bold text-gray-900 mb-3">Upcoming Events</h2>
+                        <div className="space-y-3">
+                            <SortableContext items={upcomingEvents} strategy={verticalListSortingStrategy}>
+                                {upcomingEvents.map(event => (
                                     <SortableEventItem
                                         key={event.id}
                                         event={event}

@@ -52,6 +52,8 @@ export function MobileLayout() {
                         <span className="text-[10px] font-medium text-gray-500 mt-1">Add</span>
                     </NavLink>
 
+
+
                     <NavLink
                         to="/reports"
                         className={({ isActive }) =>
