@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail } from '../types';
+import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
@@ -10,9 +10,13 @@ interface FinanceState {
     isInitialized: boolean;
     isBalanceHidden: boolean;
     auditTrails: AuditTrail[];
+    investmentLogs: InvestmentLog[];
 
     // Initialize store from IndexedDB
     initialize: () => Promise<void>;
+
+    addInvestmentLog: (log: InvestmentLog) => void;
+    deleteInvestmentLog: (id: string, reason?: string) => void;
 
     toggleBalanceHidden: () => void;
     setBalanceHidden: (hidden: boolean) => void;
@@ -28,6 +32,7 @@ interface FinanceState {
     getAccountBalance: (accountId: string) => number;
 
     addCategory: (category: Category) => void;
+    updateCategory: (id: string, updates: Partial<Category>) => void;
     deleteCategory: (id: string) => void;
 
     addEvent: (event: Event) => void;
@@ -60,6 +65,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     events: [],
     mandates: [],
     auditTrails: [],
+    investmentLogs: [],
     isInitialized: false,
     isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
     hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
@@ -95,13 +101,14 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await migrateFromLocalStorage();
 
             // Load all data from IndexedDB
-            const [accounts, transactions, categories, events, mandates, auditTrails] = await Promise.all([
+            const [accounts, transactions, categories, events, mandates, auditTrails, investmentLogs] = await Promise.all([
                 dbHelpers.getAllAccounts(),
                 dbHelpers.getAllTransactions(),
                 dbHelpers.getAllCategories(),
                 dbHelpers.getAllEvents(),
                 dbHelpers.getAllMandates(),
-                dbHelpers.getAllAuditTrails()
+                dbHelpers.getAllAuditTrails(),
+                dbHelpers.getInvestmentLogs()
             ]);
 
             set({
@@ -111,6 +118,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 events,
                 mandates,
                 auditTrails,
+                investmentLogs,
                 isInitialized: true,
                 isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false'
             });
@@ -373,6 +381,15 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         });
     },
 
+    updateCategory: (id, updates) => {
+        set((state) => ({
+            categories: state.categories.map((cat) =>
+                cat.id === id ? { ...cat, ...updates } : cat
+            )
+        }));
+        dbHelpers.updateCategory(id, updates).catch(console.error);
+    },
+
     deleteCategory: (id) => {
         set((state) => ({ categories: state.categories.filter((cat) => cat.id !== id) }));
         dbHelpers.deleteCategory(id).catch(console.error);
@@ -532,6 +549,37 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     skipMandate: async (id) => {
         const dateString = new Date().toISOString().split('T')[0];
         get().updateMandate(id, { lastSkippedDate: dateString });
+    },
+
+    addInvestmentLog: (log) => {
+        set((state) => ({ investmentLogs: [log, ...state.investmentLogs] }));
+        dbHelpers.addInvestmentLog(log).catch(console.error);
+    },
+
+    deleteInvestmentLog: (id, reason) => {
+        const state = get();
+        const log = state.investmentLogs.find(l => l.id === id);
+        if (!log) return;
+
+        // Remove from state
+        set((state) => ({ investmentLogs: state.investmentLogs.filter(l => l.id !== id) }));
+
+        // Create Audit Trail
+        const auditTrail: AuditTrail = {
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            action: 'delete',
+            entityType: 'investment-log',
+            entityId: id,
+            details: { previous: log },
+            note: reason
+        };
+
+        set((state) => ({ auditTrails: [auditTrail, ...state.auditTrails] }));
+        dbHelpers.addAuditTrail(auditTrail).catch(console.error);
+
+        // Remove from DB
+        dbHelpers.deleteInvestmentLog(id).catch(console.error);
     },
 
     reorderList: (type, newOrderIds) => {

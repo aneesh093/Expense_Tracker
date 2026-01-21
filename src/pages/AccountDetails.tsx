@@ -6,6 +6,197 @@ import { cn, generateId } from '../lib/utils';
 import { useMemo, useState } from 'react';
 import { type Holding } from '../types';
 
+
+function InvestmentLogsSection({ accountId }: { accountId: string }) {
+    const { investmentLogs, addInvestmentLog, deleteInvestmentLog } = useFinanceStore();
+    // Sort logs by date descending
+    const logs = investmentLogs.filter(l => l.accountId === accountId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const [isAdding, setIsAdding] = useState(false);
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [type, setType] = useState<'value' | 'profit'>('profit');
+    const [amount, setAmount] = useState('');
+    const [note, setNote] = useState('');
+
+    // Deletion State
+    const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+    const [deleteReason, setDeleteReason] = useState('');
+
+    const handleAdd = () => {
+        if (!amount || !date) return;
+
+        addInvestmentLog({
+            id: generateId(),
+            accountId,
+            date,
+            type,
+            amount: parseFloat(amount),
+            note
+        });
+
+        setIsAdding(false);
+        setAmount('');
+        setNote('');
+        setDate(new Date().toISOString().split('T')[0]);
+    };
+
+    const handleDelete = () => {
+        if (deletingLogId) {
+            deleteInvestmentLog(deletingLogId, deleteReason);
+            setDeletingLogId(null);
+            setDeleteReason('');
+        }
+    };
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+        }).format(amount);
+    };
+
+    return (
+        <div className="flex-1 p-4 pb-0 overflow-y-auto max-h-64 border-b border-gray-100">
+            <div className="flex justify-between items-center mb-3 ml-1">
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Performance Logs</h3>
+                {!isAdding && (
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        className="text-sm text-blue-600 font-bold hover:text-blue-800 flex items-center"
+                    >
+                        <Plus size={16} className="mr-1" /> Add Log
+                    </button>
+                )}
+            </div>
+
+            {/* Deletion Modal */}
+            {deletingLogId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl scale-100 animate-in zoom-in-95 duration-200">
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Log Entry?</h3>
+                        <p className="text-sm text-gray-500 mb-4">
+                            This action cannot be undone. Please provide a reason for the audit trail.
+                        </p>
+
+                        <textarea
+                            placeholder="Reason for deletion (optional)"
+                            value={deleteReason}
+                            onChange={(e) => setDeleteReason(e.target.value)}
+                            className="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-red-500 outline-none min-h-[80px] mb-4 resize-none"
+                            autoFocus
+                        />
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => { setDeletingLogId(null); setDeleteReason(''); }}
+                                className="flex-1 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="flex-1 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-200"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isAdding && (
+                <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl mb-4 animate-in fade-in zoom-in duration-200">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Add Performance Log</h3>
+                    <div className="space-y-3">
+                        <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setType('profit')}
+                                className={cn("flex-1 py-2 text-sm font-medium rounded-lg border transition-colors", type === 'profit' ? "bg-blue-50 border-blue-200 text-blue-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}
+                            >
+                                Profit/Loss
+                            </button>
+                            <button
+                                onClick={() => setType('value')}
+                                className={cn("flex-1 py-2 text-sm font-medium rounded-lg border transition-colors", type === 'value' ? "bg-blue-50 border-blue-200 text-blue-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}
+                            >
+                                Total Value
+                            </button>
+                        </div>
+                        <input
+                            type="number"
+                            placeholder="Amount"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            autoFocus
+                        />
+                        <input
+                            type="text"
+                            placeholder="Note (Optional)"
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            className="w-full p-2 bg-gray-50 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+
+                        <div className="flex items-center justify-between pt-1">
+                            <button
+                                onClick={() => setIsAdding(false)}
+                                className="text-gray-500 text-sm font-medium hover:text-gray-700"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAdd}
+                                disabled={!amount}
+                                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="space-y-2">
+                {logs.length > 0 ? (
+                    logs.map((log) => (
+                        <div key={log.id} className="p-3 bg-white border border-gray-100 rounded-xl flex items-center justify-between">
+                            <div>
+                                <div className="flex items-center space-x-2">
+                                    <span className={cn("text-xs font-bold px-2 py-0.5 rounded-md uppercase", log.type === 'profit' ? (log.amount >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700") : "bg-blue-100 text-blue-700")}>
+                                        {log.type === 'profit' ? 'P/L' : 'VAL'}
+                                    </span>
+                                    <span className="text-xs text-gray-500">{format(new Date(log.date), 'MMM dd, yyyy')}</span>
+                                </div>
+                                {log.note && <p className="text-xs text-gray-600 mt-1">{log.note}</p>}
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <span className={cn("font-bold text-sm", log.type === 'profit' ? (log.amount >= 0 ? "text-green-600" : "text-red-600") : "text-gray-900")}>
+                                    {log.type === 'profit' && log.amount > 0 ? '+' : ''}{formatCurrency(log.amount)}
+                                </span>
+                                <button
+                                    onClick={() => setDeletingLogId(log.id)}
+                                    className="text-gray-400 hover:text-red-500 transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    !isAdding && <p className="text-gray-400 text-sm italic text-center py-4">No logs yet</p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export function AccountDetails() {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -194,6 +385,7 @@ export function AccountDetails() {
             {/* Holdings Section (Only for Stock and Mutual Fund Accounts) */}
             {(account.type === 'stock' || account.type === 'mutual-fund') && (
                 <div className="flex-1 p-4 pb-0 overflow-y-auto max-h-64 border-b border-gray-100">
+                    {/* Holdings Content (Keep existing content inside) */}
                     <div className="flex justify-between items-center mb-3 ml-1">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Holdings</h3>
                         {!isAddingHolding && (
@@ -288,6 +480,11 @@ export function AccountDetails() {
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* Investment Performance Logs Section */}
+            {(account.type === 'stock' || account.type === 'mutual-fund' || account.type === 'land' || account.type === 'insurance' || account.type === 'fixed-deposit' || account.group === 'investment') && (
+                <InvestmentLogsSection accountId={account.id} />
             )}
 
             {/* Transactions List */}

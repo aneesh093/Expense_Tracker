@@ -93,11 +93,20 @@ export interface AuditTrail {
     id: string;
     timestamp: string;
     action: 'create' | 'update' | 'delete';
-    entityType: 'transaction';
+    entityType: 'transaction' | 'investment-log';
     entityId: string;
     details: {
         previous?: any;
         current?: any;
     };
+    note?: string;
+}
+
+export interface InvestmentLog {
+    id: string;
+    accountId: string;
+    date: string;
+    type: 'value' | 'profit';
+    amount: number;
     note?: string;
 }

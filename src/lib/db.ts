@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { type Account, type Transaction, type Category, type Event, type Mandate, type AuditTrail } from '../types';
+import { type Account, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog } from '../types';
 
 export class FinanceDatabase extends Dexie {
     accounts!: Table<Account, string>;
@@ -8,6 +8,7 @@ export class FinanceDatabase extends Dexie {
     events!: Table<Event, string>;
     mandates!: Table<Mandate, string>;
     auditTrails!: Table<AuditTrail, string>;
+    investmentLogs!: Table<InvestmentLog, string>;
 
     constructor() {
         super('FinanceDB');
@@ -52,6 +53,17 @@ export class FinanceDatabase extends Dexie {
             events: 'id, name, startDate, endDate',
             mandates: 'id, sourceAccountId, destinationAccountId, isEnabled',
             auditTrails: 'id, timestamp, action, entityType, entityId'
+        });
+
+        // Version 6: Add Investment Logs
+        this.version(6).stores({
+            accounts: 'id, name, type, balance, isPrimary',
+            transactions: 'id, date, accountId, toAccountId, type, category, eventId',
+            categories: 'id, name, type',
+            events: 'id, name, startDate, endDate',
+            mandates: 'id, sourceAccountId, destinationAccountId, isEnabled',
+            auditTrails: 'id, timestamp, action, entityType, entityId',
+            investmentLogs: 'id, accountId, date'
         });
     }
 }
@@ -238,5 +250,18 @@ export const dbHelpers = {
 
     async addAuditTrail(auditTrail: AuditTrail): Promise<string> {
         return await db.auditTrails.add(auditTrail);
+    },
+
+    // Investment Logs
+    async getInvestmentLogs(): Promise<InvestmentLog[]> {
+        return await db.investmentLogs.orderBy('date').reverse().toArray();
+    },
+
+    async addInvestmentLog(log: InvestmentLog): Promise<string> {
+        return await db.investmentLogs.add(log);
+    },
+
+    async deleteInvestmentLog(id: string): Promise<void> {
+        await db.investmentLogs.delete(id);
     }
 };

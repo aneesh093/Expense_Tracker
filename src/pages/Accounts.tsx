@@ -6,7 +6,7 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { useState } from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
 
 export function Accounts() {
     const navigate = useNavigate();
@@ -306,6 +306,13 @@ export function Accounts() {
                                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
                                 >
                                     Select
+                                </button>
+                                <button
+                                    onClick={() => navigate('/events')}
+                                    className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors"
+                                    title="Manage Events"
+                                >
+                                    <Calendar size={24} />
                                 </button>
                                 <button
                                     onClick={openAddModal}

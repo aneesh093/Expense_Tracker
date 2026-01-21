@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit2, Play, CheckCircle, XCircle, RefreshCcw } from 'lucide-react';
+import { GripVertical, Trash2, Edit2, Play, CheckCircle, XCircle, RefreshCcw, MoreVertical } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { type Mandate, type Account } from '../types';
 
@@ -33,6 +34,8 @@ export function SortableMandateItem({
         transition,
         isDragging
     } = useSortable({ id: mandate.id });
+
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -80,45 +83,77 @@ export function SortableMandateItem({
                         {mandate.isEnabled ? <Play size={14} className="fill-current" /> : <RefreshCcw size={14} />}
                     </button>
 
-                    {/* Edit Button */}
-                    <button
-                        onClick={() => handleEdit(mandate)}
-                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
-                    >
-                        <Edit2 size={14} />
-                    </button>
+                    {/* Menu Button */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                        >
+                            <MoreVertical size={16} />
+                        </button>
 
-                    {/* Delete Button */}
-                    <button
-                        onClick={() => {
-                            if (window.confirm('Delete this mandate?')) {
-                                deleteMandate(mandate.id);
-                            }
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                    >
-                        <Trash2 size={14} />
-                    </button>
+                        {/* Dropdown Menu */}
+                        {isMenuOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setIsMenuOpen(false)}
+                                />
+                                <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20">
+                                    <button
+                                        onClick={() => {
+                                            handleEdit(mandate);
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                    >
+                                        <Edit2 size={12} />
+                                        Edit
+                                    </button>
 
-                    {/* Execution Actions (Skip/Run) */}
-                    {!isDoneThisMonth(mandate) && mandate.isEnabled && (
-                        <div className="flex space-x-1 ml-1 pl-1 border-l border-gray-100">
-                            <button
-                                onClick={() => handleSkip(mandate.id)}
-                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
-                                title="Skip this month"
-                            >
-                                <XCircle size={14} />
-                            </button>
-                            <button
-                                onClick={() => handleRunNow(mandate.id)}
-                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                                title="Run now"
-                            >
-                                <Play size={14} />
-                            </button>
-                        </div>
-                    )}
+                                    {!isDoneThisMonth(mandate) && mandate.isEnabled && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    handleSkip(mandate.id);
+                                                    setIsMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-xs text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                            >
+                                                <XCircle size={12} />
+                                                Skip
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    handleRunNow(mandate.id);
+                                                    setIsMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                            >
+                                                <Play size={12} />
+                                                Run Now
+                                            </button>
+                                        </>
+                                    )}
+
+                                    <div className="my-1 border-t border-gray-100" />
+
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm('Delete this mandate?')) {
+                                                deleteMandate(mandate.id);
+                                            }
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    >
+                                        <Trash2 size={12} />
+                                        Delete
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 
