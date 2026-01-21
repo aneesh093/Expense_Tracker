@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 
 export function useBackupScheduler() {
-    const { accounts, transactions, categories, mandates, events } = useFinanceStore();
+    const { accounts, transactions, categories, mandates, events, auditTrails, investmentLogs } = useFinanceStore();
 
     useEffect(() => {
         // Check if auto-backup is enabled
@@ -41,6 +41,8 @@ export function useBackupScheduler() {
                     categories,
                     mandates,
                     events,
+                    auditTrails,
+                    investmentLogs,
                     exportDate: new Date().toISOString(),
                     version: '1.0'
                 };

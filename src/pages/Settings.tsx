@@ -10,6 +10,8 @@ export function Settings() {
         transactions,
         events,
         mandates,
+        auditTrails,
+        investmentLogs,
         importData,
         isBalanceHidden,
         setBalanceHidden
@@ -21,7 +23,9 @@ export function Settings() {
             transactions,
             categories,
             events,
-            mandates
+            mandates,
+            auditTrails,
+            investmentLogs
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
