@@ -4,7 +4,7 @@ import { generateReportPDF } from '../lib/pdfGenerator';
 import { endOfMonth, format, isSameDay, startOfMonth } from 'date-fns';
 
 export function useAutoReport() {
-    const { transactions, accounts, categories } = useFinanceStore();
+    const { transactions, accounts, categories, events } = useFinanceStore();
 
     useEffect(() => {
         const checkAndRunAutoReport = async () => {
@@ -53,12 +53,15 @@ export function useAutoReport() {
                         return toAccount?.type === 'stock' || toAccount?.type === 'mutual-fund';
                     };
 
-                    const { totalIncome, totalExpense, totalInvestment } = relevantTransactions.reduce((acc, t) => {
+                    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense } = relevantTransactions.reduce((acc, t) => {
                         if (t.type === 'income') acc.totalIncome += t.amount;
-                        else if (t.type === 'expense') acc.totalExpense += t.amount;
+                        else if (t.type === 'expense') {
+                            if (t.excludeFromBalance) acc.manualTotalExpense += t.amount;
+                            else acc.totalExpense += t.amount;
+                        }
                         else if (isInvestment(t)) acc.totalInvestment += t.amount;
                         return acc;
-                    }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0 });
+                    }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0 });
 
                     // Calculate Chart Data
                     const expenseMap = new Map<string, number>();
@@ -80,16 +83,68 @@ export function useAutoReport() {
                         })
                         .sort((a, b) => b.value - a.value);
 
+                    // Manual Chart Data
+                    const manualMap = new Map<string, number>();
+                    relevantTransactions
+                        .filter(t => t.type === 'expense' && t.excludeFromBalance)
+                        .forEach(t => {
+                            const current = manualMap.get(t.category) || 0;
+                            manualMap.set(t.category, current + t.amount);
+                        });
+
+                    const manualChartData = Array.from(manualMap.entries())
+                        .map(([name, value]) => {
+                            const category = categories.find(c => c.name === name);
+                            return {
+                                name,
+                                value,
+                                color: category?.color || '#9ca3af'
+                            };
+                        })
+                        .sort((a, b) => b.value - a.value);
+
+                    // Calculate Opening Balances
+                    const openingBalances: Record<string, number> = {};
+                    accounts.forEach(acc => {
+                        const isLoan = acc.type === 'loan';
+                        const currentAssetBalance = isLoan ? -acc.balance : acc.balance;
+
+                        const periodAndFutureTransactions = transactions.filter(t =>
+                            (t.accountId === acc.id || t.toAccountId === acc.id) &&
+                            !t.excludeFromBalance &&
+                            new Date(t.date) >= monthStart
+                        );
+
+                        const netChange = periodAndFutureTransactions.reduce((sum, t) => {
+                            const isSource = t.accountId === acc.id;
+                            const isDest = t.toAccountId === acc.id;
+
+                            if (t.type === 'income' && isSource) return sum + t.amount;
+                            if (t.type === 'expense' && isSource) return sum - t.amount;
+                            if (t.type === 'transfer') {
+                                if (isSource) return sum - t.amount; // Outflow
+                                if (isDest) return sum + t.amount;   // Inflow
+                            }
+                            return sum;
+                        }, 0);
+
+                        openingBalances[acc.id] = currentAssetBalance - netChange;
+                    });
+
                     generateReportPDF({
                         title: 'Monthly Financial Report',
                         period: currentPeriod,
                         totalIncome,
                         totalExpense,
                         totalInvestment,
+                        manualTotalExpense,
                         transactions: relevantTransactions,
                         accounts,
                         categories,
-                        chartData
+                        events,
+                        chartData,
+                        manualChartData,
+                        openingBalances
                     });
 
                     // Mark as done
@@ -105,5 +160,5 @@ export function useAutoReport() {
             checkAndRunAutoReport();
         }
 
-    }, [transactions, accounts, categories]);
+    }, [transactions, accounts, categories, events]);
 }

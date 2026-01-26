@@ -11,19 +11,31 @@ export function ReportTransactions() {
     const { transactions, accounts, events, categories } = useFinanceStore();
 
     // Get filter state from navigation
-    const { start, end, title, filter } = (location.state as { start: Date; end: Date; title: string; filter: 'all' | 'manual' | 'core' | 'transfer' | 'mandate' }) || {
+    const { start, end, title, filter, selectedAccountId: initialAccountId } = (location.state as {
+        start: Date;
+        end: Date;
+        title: string;
+        filter: 'all' | 'manual' | 'core' | 'transfer' | 'mandate';
+        selectedAccountId?: string;
+    }) || {
         start: new Date(),
         end: new Date(),
         title: 'Transactions',
-        filter: 'all'
+        filter: 'all',
+        selectedAccountId: 'all'
     };
 
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || 'all');
     const [customStart, setCustomStart] = useState<string>(format(new Date(start), 'yyyy-MM-dd'));
     const [customEnd, setCustomEnd] = useState<string>(format(new Date(end), 'yyyy-MM-dd'));
 
     const filteredTransactions = useMemo(() => {
-        const reportAccountIds = new Set(accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id));
+        const reportAccountIds = new Set(
+            accounts
+                .filter(a => a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan')
+                .map(a => a.id)
+        );
 
         return transactions
             .filter(t => {
@@ -46,15 +58,20 @@ export function ReportTransactions() {
 
                 if (!isRelevantAccount) return false;
 
-                // Filter logic
-                if (filter === 'manual') return isManual;
-                if (filter === 'core') return !isManual;
-                if (filter === 'transfer') return t.type === 'transfer';
-                if (filter === 'mandate') return t.note?.startsWith('Mandate:');
+                if (filter === 'manual') if (!isManual) return false;
+                if (filter === 'core') if (isManual) return false;
+                if (filter === 'transfer') if (t.type !== 'transfer') return false;
+                if (filter === 'mandate') if (!t.note?.startsWith('Mandate:')) return false;
+
+                // Account selection filter
+                if (selectedAccountId !== 'all') {
+                    if (t.accountId !== selectedAccountId && t.toAccountId !== selectedAccountId) return false;
+                }
+
                 return true;
             })
             .sort((a, b) => b.amount - a.amount);
-    }, [transactions, accounts, customStart, customEnd, filter, selectedCategory]);
+    }, [transactions, accounts, customStart, customEnd, filter, selectedCategory, selectedAccountId]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -115,6 +132,20 @@ export function ReportTransactions() {
                         <option value="all">All Categories</option>
                         {categories.map(cat => (
                             <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex flex-col space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Account</label>
+                    <select
+                        value={selectedAccountId}
+                        onChange={(e) => setSelectedAccountId(e.target.value)}
+                        className="w-full p-2 text-xs bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                        <option value="all">All Accounts</option>
+                        {accounts.map(acc => (
+                            <option key={acc.id} value={acc.id}>{acc.name}</option>
                         ))}
                     </select>
                 </div>

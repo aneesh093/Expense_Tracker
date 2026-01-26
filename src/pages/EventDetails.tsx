@@ -91,14 +91,25 @@ export function EventDetails() {
                 className="rounded-2xl p-6 text-white shadow-xl"
                 style={{ background: `linear-gradient(135deg, ${event.color} 0%, ${event.color}dd 100%)` }}
             >
-                <div className="flex items-center space-x-3 mb-4">
-                    <div className="text-4xl">{event.icon}</div>
-                    <div>
-                        <h1 className="text-2xl font-bold">{event.name}</h1>
-                        <p className="text-white/80 text-sm flex items-center mt-1">
-                            <Calendar size={14} className="mr-1" />
-                            {format(parseISO(event.startDate), 'MMM dd, yyyy')}
-                            {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
+                <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center space-x-3">
+                        <div className="text-4xl">{event.icon}</div>
+                        <div>
+                            <h1 className="text-2xl font-bold">{event.name}</h1>
+                            <p className="text-white/80 text-sm flex items-center mt-1">
+                                <Calendar size={14} className="mr-1" />
+                                {format(parseISO(event.startDate), 'MMM dd, yyyy')}
+                                {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-right bg-white p-2.5 rounded-xl shadow-sm border border-white/20">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Balance</p>
+                        <p className={cn(
+                            "text-lg sm:text-xl font-bold font-mono tracking-tight",
+                            stats.netAmount >= 0 ? "text-green-600" : "text-red-600"
+                        )}>
+                            {formatCurrency(stats.netAmount)}
                         </p>
                     </div>
                 </div>
@@ -108,23 +119,14 @@ export function EventDetails() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Total Expense</p>
-                    <p className="text-lg font-bold text-red-600">{formatCurrency(stats.totalExpense)}</p>
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <p className="text-xs text-gray-500 mb-1 truncate">Total Expense</p>
+                    <p className="text-sm sm:text-lg font-bold text-red-600 break-words">{formatCurrency(stats.totalExpense)}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Total Income</p>
-                    <p className="text-lg font-bold text-green-600">{formatCurrency(stats.totalIncome)}</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Balance</p>
-                    <p className={cn(
-                        "text-lg font-bold",
-                        stats.netAmount >= 0 ? "text-green-600" : "text-red-600"
-                    )}>
-                        {formatCurrency(stats.netAmount)}
-                    </p>
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <p className="text-xs text-gray-500 mb-1 truncate">Total Income</p>
+                    <p className="text-sm sm:text-lg font-bold text-green-600 break-words">{formatCurrency(stats.totalIncome)}</p>
                 </div>
             </div>
 

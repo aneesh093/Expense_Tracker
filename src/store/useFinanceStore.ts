@@ -412,20 +412,20 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     },
 
     deleteEvent: (id) => {
+        const state = get();
+        const transactionsToUpdate = state.transactions.filter(t => t.eventId === id);
+
         set((state) => ({
             events: state.events.filter((evt) => evt.id !== id),
-            // Remove eventId from transactions when event is deleted
             transactions: state.transactions.map((t) =>
                 t.eventId === id ? { ...t, eventId: undefined } : t
             ),
         }));
+
         dbHelpers.deleteEvent(id).catch(console.error);
-        // Update transactions in DB to remove eventId
-        get().transactions
-            .filter((t) => t.eventId === id)
-            .forEach((t) => {
-                dbHelpers.updateTransaction(t.id, { eventId: undefined }).catch(console.error);
-            });
+        transactionsToUpdate.forEach((t) => {
+            dbHelpers.updateTransaction(t.id, { eventId: undefined }).catch(console.error);
+        });
     },
 
     importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[] }) => {

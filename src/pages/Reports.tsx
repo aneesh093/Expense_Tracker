@@ -9,14 +9,16 @@ import { generateReportPDF } from '../lib/pdfGenerator';
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
 
     // Filter State
     const [showMandates, setShowMandates] = useState(false);
+    const [showEvents, setShowEvents] = useState(false);
     const [showTransfers, setShowTransfers] = useState(false);
+    const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
     // Close filter menu when clicking outside
@@ -42,19 +44,36 @@ export function Reports() {
 
     // Filter transactions for current period
     const periodTransactions = useMemo(() => {
-        const reportAccountIds = new Set(accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id));
-
-        const relevantTransactions = transactions.filter(t =>
-            t.excludeFromBalance ||
-            reportAccountIds.size === 0 ||
-            reportAccountIds.has(t.accountId) ||
-            (t.toAccountId && reportAccountIds.has(t.toAccountId))
+        const reportAccountIds = new Set(
+            accounts
+                .filter(a => a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan')
+                .map(a => a.id)
         );
+
+        const relevantTransactions = transactions.filter(t => {
+            // Include if tagged with an event
+            if (t.eventId) return true;
+
+            // Account basic inclusion logic
+            const isIncluded = t.excludeFromBalance ||
+                reportAccountIds.size === 0 ||
+                reportAccountIds.has(t.accountId) ||
+                (t.toAccountId && reportAccountIds.has(t.toAccountId));
+
+            if (!isIncluded) return false;
+
+            // Specific account filter
+            if (selectedAccountId !== 'all') {
+                return t.accountId === selectedAccountId || t.toAccountId === selectedAccountId;
+            }
+
+            return true;
+        });
 
         return relevantTransactions
             .filter(t => isWithinInterval(new Date(t.date), { start: periodStart, end: periodEnd }))
             .sort((a, b) => b.amount - a.amount);
-    }, [transactions, currentDate, accounts, viewMode]);
+    }, [transactions, currentDate, accounts, viewMode, selectedAccountId]);
 
     const isInvestment = (t: any) => {
         if (t.type !== 'transfer' || !t.toAccountId) return false;
@@ -142,6 +161,36 @@ export function Reports() {
 
     const handleExportPDF = () => {
         const reportTitle = viewMode === 'monthly' ? 'Monthly Financial Report' : 'Yearly Financial Report';
+
+        // Calculate Opening Balances for each account
+        // Opening Balance = Current Asset Balance - Net of transactions from periodStart to today
+        const openingBalances: Record<string, number> = {};
+        accounts.forEach(acc => {
+            const isLoan = acc.type === 'loan';
+            const currentAssetBalance = isLoan ? -acc.balance : acc.balance;
+
+            const periodAndFutureTransactions = transactions.filter(t =>
+                (t.accountId === acc.id || t.toAccountId === acc.id) &&
+                !t.excludeFromBalance &&
+                new Date(t.date) >= periodStart
+            );
+
+            const netChange = periodAndFutureTransactions.reduce((sum, t) => {
+                const isSource = t.accountId === acc.id;
+                const isDest = t.toAccountId === acc.id;
+
+                if (t.type === 'income' && isSource) return sum + t.amount;
+                if (t.type === 'expense' && isSource) return sum - t.amount;
+                if (t.type === 'transfer') {
+                    if (isSource) return sum - t.amount; // Outflow
+                    if (isDest) return sum + t.amount;   // Inflow
+                }
+                return sum;
+            }, 0);
+
+            openingBalances[acc.id] = currentAssetBalance - netChange;
+        });
+
         generateReportPDF({
             title: reportTitle,
             period: format(currentDate, viewMode === 'monthly' ? 'MMMM yyyy' : 'yyyy'),
@@ -154,8 +203,10 @@ export function Reports() {
             transactions: periodTransactions,
             accounts,
             categories,
+            events,
             chartData,
-            manualChartData
+            manualChartData,
+            openingBalances
         });
     };
 
@@ -174,7 +225,8 @@ export function Reports() {
                 start: periodStart,
                 end: periodEnd,
                 title: viewMode === 'monthly' ? format(currentDate, 'MMMM yyyy') : format(currentDate, 'yyyy'),
-                filter
+                filter,
+                selectedAccountId: selectedAccountId
             }
         });
     };
@@ -242,12 +294,35 @@ export function Reports() {
                                     <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
                                         <input
                                             type="checkbox"
+                                            checked={showEvents}
+                                            onChange={(e) => setShowEvents(e.target.checked)}
+                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-gray-700">Show Events</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                                        <input
+                                            type="checkbox"
                                             checked={showTransfers}
                                             onChange={(e) => setShowTransfers(e.target.checked)}
                                             className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                         />
                                         <span className="text-sm text-gray-700">Show Transfers</span>
                                     </label>
+
+                                    <div className="border-t border-gray-100 my-1 pt-1">
+                                        <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">Account</div>
+                                        <select
+                                            value={selectedAccountId}
+                                            onChange={(e) => setSelectedAccountId(e.target.value)}
+                                            className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                                        >
+                                            <option value="all">All Accounts</option>
+                                            {accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -407,6 +482,58 @@ export function Reports() {
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
+
+                {/* Events Section */}
+                {showEvents && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Events Performance</h3>
+                            <button
+                                onClick={() => navigateToTransactions('all')}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                            >
+                                View All →
+                            </button>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                            {(() => {
+                                const eventMap = new Map<string, { income: number; expense: number; name: string }>();
+                                periodTransactions.forEach(t => {
+                                    if (t.eventId) {
+                                        const event = events.find(e => e.id === t.eventId);
+                                        if (!event) return; // Skip orphaned events
+
+                                        const stats = eventMap.get(t.eventId) || { income: 0, expense: 0, name: event.name };
+                                        if (t.type === 'income') stats.income += t.amount;
+                                        if (t.type === 'expense') stats.expense += t.amount;
+                                        eventMap.set(t.eventId, stats);
+                                    }
+                                });
+
+                                if (eventMap.size === 0) {
+                                    return <div className="px-5 py-8 text-center text-gray-400 text-sm italic">No event transactions</div>;
+                                }
+
+                                return Array.from(eventMap.entries()).map(([id, stats]) => (
+                                    <div key={id} className="flex items-center justify-between px-5 py-4">
+                                        <div className="flex flex-col">
+                                            <span className={cn("text-sm font-semibold", stats.name === 'Unknown Event' ? "text-red-500" : "text-gray-800")}>
+                                                {stats.name}
+                                            </span>
+                                            <div className="flex space-x-2 text-[10px] font-medium">
+                                                <span className="text-green-600">In: {formatCurrency(stats.income)}</span>
+                                                <span className="text-red-500">Out: {formatCurrency(stats.expense)}</span>
+                                            </div>
+                                        </div>
+                                        <span className={cn("text-sm font-bold", (stats.income - stats.expense) >= 0 ? "text-green-600" : "text-red-600")}>
+                                            {formatCurrency(stats.income - stats.expense)}
+                                        </span>
+                                    </div>
+                                ));
+                            })()}
                         </div>
                     </div>
                 )}
