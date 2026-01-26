@@ -41,7 +41,6 @@ export function Accounts() {
     const [renewalDate, setRenewalDate] = useState('');
 
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
-    const [filterType, setFilterType] = useState<AccountType | 'all'>('all');
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -212,15 +211,11 @@ export function Accounts() {
     const filteredAccounts = accounts.filter(acc => {
         // If account has a group, use that to determine tab
         if (acc.group) {
-            const matchesTab = (activeTab === 'investments' ? 'investment' : 'banking') === acc.group;
-            const matchesFilter = filterType === 'all' || acc.type === filterType;
-            return matchesTab && matchesFilter;
+            return (activeTab === 'investments' ? 'investment' : 'banking') === acc.group;
         }
 
         // Fallback for generic categorization
-        const matchesTab = activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
-        const matchesFilter = filterType === 'all' || acc.type === filterType;
-        return matchesTab && matchesFilter;
+        return activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
     }).sort((a, b) => (a.order || 0) - (b.order || 0));
 
     // Group accounts by type
@@ -335,7 +330,7 @@ export function Accounts() {
                 {/* Tabs */}
                 <div className="flex p-1 bg-gray-100 rounded-xl">
                     <button
-                        onClick={() => { setActiveTab('banking'); setFilterType('all'); }}
+                        onClick={() => { setActiveTab('banking'); }}
                         className={cn(
                             "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
                             activeTab === 'banking' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
@@ -344,7 +339,7 @@ export function Accounts() {
                         Banking
                     </button>
                     <button
-                        onClick={() => { setActiveTab('investments'); setFilterType('all'); }}
+                        onClick={() => { setActiveTab('investments'); }}
                         className={cn(
                             "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
                             activeTab === 'investments' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
@@ -354,31 +349,6 @@ export function Accounts() {
                     </button>
                 </div>
 
-                {/* Filter Dropdown */}
-                <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value as AccountType | 'all')}
-                    className="w-full p-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                    {activeTab === 'banking' ? (
-                        <>
-                            <option value="fixed-deposit">Fixed Deposit</option>
-                            <option value="savings">Savings</option>
-                            <option value="credit">Credit Card</option>
-                            <option value="cash">Cash</option>
-                            <option value="loan">Loans</option>
-                            <option value="other">Other</option>
-                        </>
-                    ) : (
-                        <>
-                            <option value="stock">Stock</option>
-                            <option value="mutual-fund">Mutual Fund</option>
-                            <option value="land">Land</option>
-                            <option value="insurance">Insurance</option>
-                            <option value="other">Other</option>
-                        </>
-                    )}
-                </select>
             </header>
 
             {/* Add Account Modal */}
@@ -665,7 +635,7 @@ export function Accounts() {
                         </div>
                         <h3 className="text-gray-900 font-medium">No accounts found</h3>
                         <p className="text-gray-500 text-sm mt-1">
-                            {accounts.length === 0 ? "Tap + to add your first account" : "Try selecting a different filter"}
+                            Tap + to add your first account
                         </p>
                     </div>
                 ) : (
