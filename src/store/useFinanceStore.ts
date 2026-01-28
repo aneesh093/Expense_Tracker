@@ -9,6 +9,7 @@ interface FinanceState {
     events: Event[];
     isInitialized: boolean;
     isBalanceHidden: boolean;
+    isAccountsBalanceHidden: boolean;
     auditTrails: AuditTrail[];
     investmentLogs: InvestmentLog[];
 
@@ -20,6 +21,7 @@ interface FinanceState {
 
     toggleBalanceHidden: () => void;
     setBalanceHidden: (hidden: boolean) => void;
+    toggleAccountsBalanceHidden: () => void;
 
     addAccount: (account: Account) => void;
     updateAccount: (id: string, updates: Partial<Account>) => void;
@@ -70,6 +72,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     investmentLogs: [],
     isInitialized: false,
     isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
+    isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true', // Default to false
     hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
 
     isAccountTypeHidden: (type, group) => {
@@ -122,7 +125,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 auditTrails,
                 investmentLogs,
                 isInitialized: true,
-                isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false'
+                isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false',
+                isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true'
             });
 
             console.log('Store initialized from IndexedDB');
@@ -143,6 +147,14 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     setBalanceHidden: (hidden: boolean) => {
         localStorage.setItem('finance-privacy-mode', hidden.toString());
         set({ isBalanceHidden: hidden });
+    },
+
+    toggleAccountsBalanceHidden: () => {
+        set((state) => {
+            const newState = !state.isAccountsBalanceHidden;
+            localStorage.setItem('finance-accounts-privacy-mode', newState.toString());
+            return { isAccountsBalanceHidden: newState };
+        });
     },
 
     addAccount: (account) => {

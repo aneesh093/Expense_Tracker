@@ -165,7 +165,6 @@ export function Dashboard() {
                             </p>
                         )}
                     </div>
-                    <button onClick={() => navigate('/transactions')} className="text-sm text-blue-600 font-medium pb-1">See all</button>
                 </div>
 
                 <div className="space-y-3">

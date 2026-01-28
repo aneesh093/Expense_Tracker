@@ -3,7 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Check, Pencil, Trash2, Building, Banknote, CreditCard, Wallet, TrendingUp, PieChart, MapPin, Shield, PiggyBank, Landmark, Briefcase } from 'lucide-react';
+import { Check, Pencil, Building, Banknote, CreditCard, Wallet, TrendingUp, PieChart, MapPin, Shield, PiggyBank, Landmark, Briefcase } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 
 interface SortableAccountItemProps {
@@ -12,7 +12,6 @@ interface SortableAccountItemProps {
     isSelected: boolean;
     toggleSelectAccount: (id: string) => void;
     handleEdit: (account: Account) => void;
-    setAccountToDelete: (account: Account) => void;
     navigate: (path: string) => void;
     isBalanceHidden: boolean;
     formatCurrency: (amount: number) => string;
@@ -26,7 +25,6 @@ export function SortableAccountItem({
     isSelected,
     toggleSelectAccount,
     handleEdit,
-    setAccountToDelete,
     navigate,
     isBalanceHidden,
     formatCurrency,
@@ -161,16 +159,6 @@ export function SortableAccountItem({
                             <Pencil size={18} />
                         </button>
 
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                setAccountToDelete(account);
-                            }}
-                            className="p-2 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-lg"
-                        >
-                            <Trash2 size={18} />
-                        </button>
                     </div>
                 )}
             </div>

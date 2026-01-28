@@ -6,11 +6,11 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { useState } from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
+import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Calendar, Eye, EyeOff } from 'lucide-react';
 
 export function Accounts() {
     const navigate = useNavigate();
-    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden } = useFinanceStore();
+    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -324,6 +324,13 @@ export function Accounts() {
                                     title="Manage Events"
                                 >
                                     <Calendar size={24} />
+                                </button>
+                                <button
+                                    onClick={toggleAccountsBalanceHidden}
+                                    className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors"
+                                    title={isAccountsBalanceHidden ? "Show Balances" : "Hide Balances"}
+                                >
+                                    {isAccountsBalanceHidden ? <EyeOff size={24} /> : <Eye size={24} />}
                                 </button>
                                 <button
                                     onClick={openAddModal}
@@ -727,7 +734,7 @@ export function Accounts() {
                                                 </button>
                                             </div>
                                             <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
-                                                {isBalanceHidden
+                                                {isAccountsBalanceHidden
                                                     ? '•••••'
                                                     : formatCurrency(
                                                         type === 'credit'
@@ -779,9 +786,8 @@ export function Accounts() {
                                                             isSelected={isSelected}
                                                             toggleSelectAccount={toggleSelectAccount}
                                                             handleEdit={handleEdit}
-                                                            setAccountToDelete={setAccountToDelete}
                                                             navigate={navigate}
-                                                            isBalanceHidden={isBalanceHidden}
+                                                            isBalanceHidden={isAccountsBalanceHidden}
                                                             formatCurrency={formatCurrency}
                                                             spentAmount={spentAmount}
                                                             transactions={transactions}
