@@ -40,6 +40,10 @@ export function Accounts() {
     const [premiumAmount, setPremiumAmount] = useState('');
     const [renewalDate, setRenewalDate] = useState('');
 
+    // Credit Card Fields
+    const [statementDate, setStatementDate] = useState('');
+    const [dueDate, setDueDate] = useState('');
+
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
 
     const sensors = useSensors(
@@ -134,6 +138,11 @@ export function Accounts() {
                 monthlyEmi: parseFloat(monthlyEmi) || 0,
                 emisLeft: parseFloat(emisLeft) || 0,
             };
+        } else if (type === 'credit') {
+            accountData.creditCardDetails = {
+                statementDate: parseInt(statementDate) || 1,
+                dueDate: parseInt(dueDate) || 1,
+            };
         }
 
         if (editingId) {
@@ -175,6 +184,11 @@ export function Accounts() {
             setRenewalDate(account.insuranceDetails.renewalDate);
         }
 
+        if (account.type === 'credit' && account.creditCardDetails) {
+            setStatementDate(account.creditCardDetails.statementDate.toString());
+            setDueDate(account.creditCardDetails.dueDate.toString());
+        }
+
         setIsAdding(true);
     };
 
@@ -197,6 +211,8 @@ export function Accounts() {
         setPolicyNumber('');
         setPremiumAmount('');
         setRenewalDate('');
+        setStatementDate('');
+        setDueDate('');
     };
 
     const handleDeleteConfirm = () => {
@@ -506,6 +522,42 @@ export function Accounts() {
                                             />
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {type === 'credit' && (
+                                <div className="space-y-4 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Statement Date</label>
+                                            <select
+                                                value={statementDate}
+                                                onChange={(e) => setStatementDate(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-purple-200 focus:ring-2 focus:ring-purple-500 text-sm"
+                                            >
+                                                <option value="">Select Day</option>
+                                                {[...Array(31)].map((_, i) => (
+                                                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                                            <select
+                                                value={dueDate}
+                                                onChange={(e) => setDueDate(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-purple-200 focus:ring-2 focus:ring-purple-500 text-sm"
+                                            >
+                                                <option value="">Select Day</option>
+                                                {[...Array(31)].map((_, i) => (
+                                                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-purple-600">
+                                        These dates help calculate your billed and due amounts based on the monthly cycle.
+                                    </p>
                                 </div>
                             )}
 

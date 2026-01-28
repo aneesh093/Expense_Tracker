@@ -166,7 +166,7 @@ export function ReportTransactions() {
                             <div className="flex items-center space-x-3 overflow-hidden">
                                 <div className={cn("p-2.5 rounded-xl shrink-0",
                                     t.type === 'expense' ? "bg-red-50 text-red-500" :
-                                        t.type === 'income' ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"
+                                        t.type === 'income' ? "bg-green-50 text-green-500" : "bg-indigo-50 text-indigo-500"
                                 )}>
                                     {t.type === 'expense' ? <ArrowDownRight size={20} /> :
                                         t.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowRightLeft size={20} />}
@@ -191,7 +191,7 @@ export function ReportTransactions() {
                             </div>
                             <span className={cn("font-bold text-sm whitespace-nowrap ml-3",
                                 t.type === 'expense' ? "text-gray-900" :
-                                    t.type === 'income' ? "text-green-600" : "text-blue-600"
+                                    t.type === 'income' ? "text-green-600" : "text-indigo-600"
                             )}>
                                 {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
                             </span>

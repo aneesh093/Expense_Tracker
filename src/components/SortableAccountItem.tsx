@@ -4,6 +4,7 @@ import { GripVertical } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
 import { Check, Pencil, Trash2, Building, Banknote, CreditCard, Wallet, TrendingUp, PieChart, MapPin, Shield, PiggyBank, Landmark, Briefcase } from 'lucide-react';
+import { useFinanceStore } from '../store/useFinanceStore';
 
 interface SortableAccountItemProps {
     account: Account;
@@ -31,6 +32,7 @@ export function SortableAccountItem({
     formatCurrency,
     spentAmount
 }: SortableAccountItemProps) {
+    const { getCreditCardStats } = useFinanceStore();
     const {
         attributes,
         listeners,
@@ -111,6 +113,16 @@ export function SortableAccountItem({
                     {account.subName && (
                         <p className="text-[10px] text-gray-600 mt-0.5">{account.subName}</p>
                     )}
+                    {account.type === 'credit' && account.creditCardDetails && (
+                        <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-[9px] text-purple-600 font-bold uppercase tracking-tight bg-purple-50 px-1.5 py-0.5 rounded">
+                                Billed: {formatCurrency(getCreditCardStats(account.id).billed)}
+                            </span>
+                            <span className="text-[9px] text-blue-600 font-medium uppercase tracking-tight bg-blue-50 px-1.5 py-0.5 rounded">
+                                Unbilled: {formatCurrency(getCreditCardStats(account.id).unbilled)}
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -124,6 +136,11 @@ export function SortableAccountItem({
                     {account.type === 'loan' && account.loanDetails && (
                         <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold tracking-wide mb-1">
                             {account.loanDetails.emisLeft} EMIs Left
+                        </span>
+                    )}
+                    {account.type === 'credit' && account.creditCardDetails && (
+                        <span className="text-[8px] text-gray-400 mb-1">
+                            Stmt: {account.creditCardDetails.statementDate}th
                         </span>
                     )}
                     <p className={cn("text-sm font-bold", spentAmount < 0 && account.type !== 'credit' ? "text-red-600" : "text-gray-900")}>

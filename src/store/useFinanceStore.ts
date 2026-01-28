@@ -39,6 +39,8 @@ interface FinanceState {
     updateEvent: (id: string, updates: Partial<Event>) => void;
     deleteEvent: (id: string) => void;
 
+    getCreditCardStats: (accountId: string) => { unbilled: number; billed: number; totalDue: number };
+
     importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[] }) => void;
 
     // Mandates
@@ -426,6 +428,66 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         transactionsToUpdate.forEach((t) => {
             dbHelpers.updateTransaction(t.id, { eventId: undefined }).catch(console.error);
         });
+    },
+
+    getCreditCardStats: (accountId) => {
+        const state = get();
+        const account = state.accounts.find(a => a.id === accountId);
+        if (!account || account.type !== 'credit' || !account.creditCardDetails) {
+            return { unbilled: 0, billed: 0, totalDue: account?.balance || 0 };
+        }
+
+        const { statementDate } = account.creditCardDetails;
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+
+        // Calculate Last Statement Date
+        let lastStatementDate = new Date(currentYear, currentMonth, statementDate);
+        if (today.getDate() < statementDate) {
+            lastStatementDate = new Date(currentYear, currentMonth - 1, statementDate);
+        }
+
+        const prevStatementDate = new Date(lastStatementDate.getFullYear(), lastStatementDate.getMonth() - 1, statementDate);
+
+        // Billed: Transactions strictly before or ON the last statement date
+        const billedTransactions = state.transactions.filter(t =>
+            t.accountId === accountId &&
+            !t.excludeFromBalance &&
+            t.type === 'expense' &&
+            new Date(t.date) > prevStatementDate &&
+            new Date(t.date) <= lastStatementDate
+        );
+
+        const totalBilled = billedTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+        // Payments (Transfers In) since Last Statement Date
+        const paymentsSinceStatement = state.transactions.filter(t =>
+            t.type === 'transfer' &&
+            t.toAccountId === accountId &&
+            !t.excludeFromBalance &&
+            new Date(t.date) > lastStatementDate
+        );
+
+        const totalPaid = paymentsSinceStatement.reduce((sum, t) => sum + t.amount, 0);
+
+        // Remaining Billed amount
+        const billed = Math.max(0, totalBilled - totalPaid);
+
+        // Unbilled: Transactions strictly AFTER the last statement date
+        const unbilledTransactions = state.transactions.filter(t =>
+            t.accountId === accountId &&
+            !t.excludeFromBalance &&
+            t.type === 'expense' &&
+            new Date(t.date) > lastStatementDate
+        );
+        const unbilled = unbilledTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+        return {
+            unbilled,
+            billed,
+            totalDue: account.balance
+        };
     },
 
     importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[] }) => {
