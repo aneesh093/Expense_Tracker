@@ -133,7 +133,7 @@ export function Events() {
                 </div>
                 <button
                     onClick={() => navigate('/events/new')}
-                    className="bg-blue-600 text-white p-3 rounded-full shadow-lg active:scale-95 transition-transform"
+                    className="p-3 bg-blue-100 text-blue-600 rounded-full shadow-sm hover:bg-blue-200 active:scale-95 transition-all"
                 >
                     <Plus size={24} />
                 </button>

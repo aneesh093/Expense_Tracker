@@ -6,11 +6,11 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { useState } from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
+import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Calendar, Eye, EyeOff } from 'lucide-react';
 
 export function Accounts() {
     const navigate = useNavigate();
-    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden } = useFinanceStore();
+    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -39,6 +39,10 @@ export function Accounts() {
     const [policyNumber, setPolicyNumber] = useState('');
     const [premiumAmount, setPremiumAmount] = useState('');
     const [renewalDate, setRenewalDate] = useState('');
+
+    // Credit Card Fields
+    const [statementDate, setStatementDate] = useState('');
+    const [dueDate, setDueDate] = useState('');
 
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
 
@@ -134,6 +138,11 @@ export function Accounts() {
                 monthlyEmi: parseFloat(monthlyEmi) || 0,
                 emisLeft: parseFloat(emisLeft) || 0,
             };
+        } else if (type === 'credit') {
+            accountData.creditCardDetails = {
+                statementDate: parseInt(statementDate) || 1,
+                dueDate: parseInt(dueDate) || 1,
+            };
         }
 
         if (editingId) {
@@ -175,6 +184,11 @@ export function Accounts() {
             setRenewalDate(account.insuranceDetails.renewalDate);
         }
 
+        if (account.type === 'credit' && account.creditCardDetails) {
+            setStatementDate(account.creditCardDetails.statementDate.toString());
+            setDueDate(account.creditCardDetails.dueDate.toString());
+        }
+
         setIsAdding(true);
     };
 
@@ -197,6 +211,8 @@ export function Accounts() {
         setPolicyNumber('');
         setPremiumAmount('');
         setRenewalDate('');
+        setStatementDate('');
+        setDueDate('');
     };
 
     const handleDeleteConfirm = () => {
@@ -308,6 +324,13 @@ export function Accounts() {
                                     title="Manage Events"
                                 >
                                     <Calendar size={24} />
+                                </button>
+                                <button
+                                    onClick={toggleAccountsBalanceHidden}
+                                    className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors"
+                                    title={isAccountsBalanceHidden ? "Show Balances" : "Hide Balances"}
+                                >
+                                    {isAccountsBalanceHidden ? <EyeOff size={24} /> : <Eye size={24} />}
                                 </button>
                                 <button
                                     onClick={openAddModal}
@@ -509,6 +532,42 @@ export function Accounts() {
                                 </div>
                             )}
 
+                            {type === 'credit' && (
+                                <div className="space-y-4 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Statement Date</label>
+                                            <select
+                                                value={statementDate}
+                                                onChange={(e) => setStatementDate(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-purple-200 focus:ring-2 focus:ring-purple-500 text-sm"
+                                            >
+                                                <option value="">Select Day</option>
+                                                {[...Array(31)].map((_, i) => (
+                                                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                                            <select
+                                                value={dueDate}
+                                                onChange={(e) => setDueDate(e.target.value)}
+                                                className="w-full p-3 bg-white rounded-xl border border-purple-200 focus:ring-2 focus:ring-purple-500 text-sm"
+                                            >
+                                                <option value="">Select Day</option>
+                                                {[...Array(31)].map((_, i) => (
+                                                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-purple-600">
+                                        These dates help calculate your billed and due amounts based on the monthly cycle.
+                                    </p>
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     {type === 'loan' ? 'Outstanding Balance' : 'Balance'}
@@ -675,7 +734,7 @@ export function Accounts() {
                                                 </button>
                                             </div>
                                             <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
-                                                {isBalanceHidden
+                                                {isAccountsBalanceHidden
                                                     ? '•••••'
                                                     : formatCurrency(
                                                         type === 'credit'
@@ -727,9 +786,8 @@ export function Accounts() {
                                                             isSelected={isSelected}
                                                             toggleSelectAccount={toggleSelectAccount}
                                                             handleEdit={handleEdit}
-                                                            setAccountToDelete={setAccountToDelete}
                                                             navigate={navigate}
-                                                            isBalanceHidden={isBalanceHidden}
+                                                            isBalanceHidden={isAccountsBalanceHidden}
                                                             formatCurrency={formatCurrency}
                                                             spentAmount={spentAmount}
                                                             transactions={transactions}

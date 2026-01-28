@@ -21,6 +21,11 @@ export interface InsuranceDetails {
     renewalDate: string; // YYYY-MM-DD
 }
 
+export interface CreditCardDetails {
+    statementDate: number; // Day of month
+    dueDate: number;       // Day of month
+}
+
 export interface Account {
     id: string;
     name: string;
@@ -34,6 +39,7 @@ export interface Account {
     holdings?: Holding[];
     loanDetails?: LoanDetails;
     insuranceDetails?: InsuranceDetails;
+    creditCardDetails?: CreditCardDetails;
     subName?: string;
     isPrimary?: boolean;
     order?: number;

@@ -222,12 +222,12 @@ export const generateReportPDF = (data: ReportData) => {
             didParseCell: (cellData) => {
                 if (cellData.section === 'body') {
                     const type = cellData.row.cells[1].raw as string;
-                    if (type === 'EXPENSE' || type === 'TRANSFER (OUT)') {
-                        cellData.cell.styles.textColor = [153, 27, 27]; // Red 800
-                    } else if (type === 'INCOME' || type === 'TRANSFER (IN)') {
-                        cellData.cell.styles.textColor = [22, 101, 52]; // Green 800
-                    } else if (type === 'TRANSFER') {
+                    if (type.includes('TRANSFER')) {
                         cellData.cell.styles.textColor = [67, 56, 202]; // Indigo 700
+                    } else if (type === 'EXPENSE') {
+                        cellData.cell.styles.textColor = [153, 27, 27]; // Red 800
+                    } else if (type === 'INCOME') {
+                        cellData.cell.styles.textColor = [22, 101, 52]; // Green 800
                     }
                 }
             },

@@ -1,6 +1,6 @@
 
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PlusCircle, Settings, PieChart } from 'lucide-react';
+import { LayoutDashboard, Wallet, Calendar, Settings, PieChart } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export function MobileLayout() {
@@ -43,13 +43,16 @@ export function MobileLayout() {
                     </NavLink>
 
                     <NavLink
-                        to="/add"
-                        className="flex flex-col items-center justify-center w-full h-full -mt-6"
+                        to="/events"
+                        className={({ isActive }) =>
+                            cn(
+                                "flex flex-col items-center justify-center w-full h-full space-y-1",
+                                isActive ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+                            )
+                        }
                     >
-                        <div className="bg-blue-600 rounded-full p-4 shadow-lg active:scale-95 transition-transform">
-                            <PlusCircle size={32} className="text-white" />
-                        </div>
-                        <span className="text-[10px] font-medium text-gray-500 mt-1">Add</span>
+                        <Calendar size={24} />
+                        <span className="text-[10px] font-medium">Events</span>
                     </NavLink>
 
 
