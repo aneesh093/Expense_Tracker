@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { type Account, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog } from '../types';
+import { type Account, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog } from '../types';
 
 export class FinanceDatabase extends Dexie {
     accounts!: Table<Account, string>;
@@ -9,6 +9,7 @@ export class FinanceDatabase extends Dexie {
     mandates!: Table<Mandate, string>;
     auditTrails!: Table<AuditTrail, string>;
     investmentLogs!: Table<InvestmentLog, string>;
+    eventLogs!: Table<EventLog, string>;
 
     constructor() {
         super('FinanceDB');
@@ -64,6 +65,18 @@ export class FinanceDatabase extends Dexie {
             mandates: 'id, sourceAccountId, destinationAccountId, isEnabled',
             auditTrails: 'id, timestamp, action, entityType, entityId',
             investmentLogs: 'id, accountId, date'
+        });
+
+        // Version 7: Add Event Logs
+        this.version(7).stores({
+            accounts: 'id, name, type, balance, isPrimary',
+            transactions: 'id, date, accountId, toAccountId, type, category, eventId',
+            categories: 'id, name, type',
+            events: 'id, name, startDate, endDate',
+            mandates: 'id, sourceAccountId, destinationAccountId, isEnabled',
+            auditTrails: 'id, timestamp, action, entityType, entityId',
+            investmentLogs: 'id, accountId, date',
+            eventLogs: 'id, eventId, date'
         });
     }
 }
@@ -263,5 +276,26 @@ export const dbHelpers = {
 
     async deleteInvestmentLog(id: string): Promise<void> {
         await db.investmentLogs.delete(id);
+    },
+
+    // Event Logs
+    async getAllEventLogs(): Promise<EventLog[]> {
+        return await db.eventLogs.orderBy('date').reverse().toArray();
+    },
+
+    async getEventLogsByEvent(eventId: string): Promise<EventLog[]> {
+        return await db.eventLogs.where('eventId').equals(eventId).sortBy('date');
+    },
+
+    async addEventLog(log: EventLog): Promise<string> {
+        return await db.eventLogs.add(log);
+    },
+
+    async updateEventLog(id: string, updates: Partial<EventLog>): Promise<number> {
+        return await db.eventLogs.update(id, updates);
+    },
+
+    async deleteEventLog(id: string): Promise<void> {
+        await db.eventLogs.delete(id);
     }
 };

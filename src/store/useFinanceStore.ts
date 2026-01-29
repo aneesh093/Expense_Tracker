@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog } from '../types';
+import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
@@ -12,6 +12,7 @@ interface FinanceState {
     isAccountsBalanceHidden: boolean;
     auditTrails: AuditTrail[];
     investmentLogs: InvestmentLog[];
+    eventLogs: EventLog[];
 
     // Initialize store from IndexedDB
     initialize: () => Promise<void>;
@@ -19,9 +20,15 @@ interface FinanceState {
     addInvestmentLog: (log: InvestmentLog) => void;
     deleteInvestmentLog: (id: string, reason?: string) => void;
 
+    addEventLog: (log: EventLog) => void;
+    updateEventLog: (id: string, updates: Partial<EventLog>) => void;
+    deleteEventLog: (id: string) => void;
+
     toggleBalanceHidden: () => void;
     setBalanceHidden: (hidden: boolean) => void;
     toggleAccountsBalanceHidden: () => void;
+    toggleAccountReportInclusion: (id: string) => void;
+    toggleEventReportInclusion: (id: string) => void;
 
     addAccount: (account: Account) => void;
     updateAccount: (id: string, updates: Partial<Account>) => void;
@@ -43,7 +50,7 @@ interface FinanceState {
 
     getCreditCardStats: (accountId: string) => { unbilled: number; billed: number; totalDue: number };
 
-    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[] }) => void;
+    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[] }) => void;
 
     // Mandates
     mandates: Mandate[];
@@ -70,6 +77,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     mandates: [],
     auditTrails: [],
     investmentLogs: [],
+    eventLogs: [],
     isInitialized: false,
     isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
     isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true', // Default to false
@@ -106,14 +114,15 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await migrateFromLocalStorage();
 
             // Load all data from IndexedDB
-            const [accounts, transactions, categories, events, mandates, auditTrails, investmentLogs] = await Promise.all([
+            const [accounts, transactions, categories, events, mandates, auditTrails, investmentLogs, eventLogs] = await Promise.all([
                 dbHelpers.getAllAccounts(),
                 dbHelpers.getAllTransactions(),
                 dbHelpers.getAllCategories(),
                 dbHelpers.getAllEvents(),
                 dbHelpers.getAllMandates(),
                 dbHelpers.getAllAuditTrails(),
-                dbHelpers.getInvestmentLogs()
+                dbHelpers.getInvestmentLogs(),
+                dbHelpers.getAllEventLogs()
             ]);
 
             set({
@@ -124,6 +133,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 mandates,
                 auditTrails,
                 investmentLogs,
+                eventLogs,
                 isInitialized: true,
                 isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false',
                 isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true'
@@ -154,6 +164,32 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             const newState = !state.isAccountsBalanceHidden;
             localStorage.setItem('finance-accounts-privacy-mode', newState.toString());
             return { isAccountsBalanceHidden: newState };
+        });
+    },
+
+    toggleAccountReportInclusion: (id: string) => {
+        set((state) => {
+            const updatedAccounts = state.accounts.map((acc) =>
+                acc.id === id ? { ...acc, includeInReports: acc.includeInReports === false } : acc
+            );
+            const account = updatedAccounts.find(a => a.id === id);
+            if (account) {
+                dbHelpers.updateAccount(id, { includeInReports: account.includeInReports }).catch(console.error);
+            }
+            return { accounts: updatedAccounts };
+        });
+    },
+
+    toggleEventReportInclusion: (id: string) => {
+        set((state) => {
+            const updatedEvents = state.events.map((ev) =>
+                ev.id === id ? { ...ev, includeInReports: ev.includeInReports === false } : ev
+            );
+            const event = updatedEvents.find(e => e.id === id);
+            if (event) {
+                dbHelpers.updateEvent(id, { includeInReports: event.includeInReports }).catch(console.error);
+            }
+            return { events: updatedEvents };
         });
     },
 
@@ -455,45 +491,57 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         const currentMonth = today.getMonth();
 
         // Calculate Last Statement Date
-        let lastStatementDate = new Date(currentYear, currentMonth, statementDate);
+        let lastStatementDate = new Date(currentYear, currentMonth, statementDate, 23, 59, 59);
         if (today.getDate() < statementDate) {
-            lastStatementDate = new Date(currentYear, currentMonth - 1, statementDate);
+            lastStatementDate = new Date(currentYear, currentMonth - 1, statementDate, 23, 59, 59);
         }
 
-        const prevStatementDate = new Date(lastStatementDate.getFullYear(), lastStatementDate.getMonth() - 1, statementDate);
+        const prevStatementDate = new Date(lastStatementDate.getFullYear(), lastStatementDate.getMonth() - 1, lastStatementDate.getDate(), 23, 59, 59);
 
-        // Billed: Transactions strictly before or ON the last statement date
-        const billedTransactions = state.transactions.filter(t =>
-            t.accountId === accountId &&
-            !t.excludeFromBalance &&
-            t.type === 'expense' &&
-            new Date(t.date) > prevStatementDate &&
-            new Date(t.date) <= lastStatementDate
-        );
+        // Helper to get net impact on debt (positive = increases debt, negative = reduces debt)
+        const getImpact = (t: Transaction) => {
+            if (t.excludeFromBalance) return 0;
+            if (t.accountId === accountId) {
+                // Outgoing: Expense/Transfer increases debt, Income (Refund) reduces it
+                return (t.type === 'expense' || t.type === 'transfer') ? t.amount : (t.type === 'income' ? -t.amount : 0);
+            }
+            if (t.toAccountId === accountId) {
+                // Incoming: Transfer In reduces debt
+                return -t.amount;
+            }
+            return 0;
+        };
 
-        const totalBilled = billedTransactions.reduce((sum, t) => sum + t.amount, 0);
+        // 1. Calculate Billed Balance: Net impact of transactions in the previous statement cycle
+        const billedTransactions = state.transactions.filter(t => {
+            const d = new Date(t.date);
+            return d > prevStatementDate && d <= lastStatementDate;
+        });
 
-        // Payments (Transfers In) since Last Statement Date
-        const paymentsSinceStatement = state.transactions.filter(t =>
-            t.type === 'transfer' &&
-            t.toAccountId === accountId &&
-            !t.excludeFromBalance &&
-            new Date(t.date) > lastStatementDate
-        );
+        const billedBalance = billedTransactions.reduce((sum, t) => sum + getImpact(t), 0);
 
-        const totalPaid = paymentsSinceStatement.reduce((sum, t) => sum + t.amount, 0);
+        // 2. Separate Post-Statement Credits and Debits
+        const postStatementTransactions = state.transactions.filter(t => new Date(t.date) > lastStatementDate);
 
-        // Remaining Billed amount
-        const billed = Math.max(0, totalBilled - totalPaid);
+        // Credits (Income/Transfers In) since statement
+        const postCredits = postStatementTransactions.reduce((sum, t) => {
+            const impact = getImpact(t);
+            return impact < 0 ? sum + Math.abs(impact) : sum;
+        }, 0);
 
-        // Unbilled: Transactions strictly AFTER the last statement date
-        const unbilledTransactions = state.transactions.filter(t =>
-            t.accountId === accountId &&
-            !t.excludeFromBalance &&
-            t.type === 'expense' &&
-            new Date(t.date) > lastStatementDate
-        );
-        const unbilled = unbilledTransactions.reduce((sum, t) => sum + t.amount, 0);
+        // Debits (Expenses/Transfers Out) since statement
+        const postDebts = postStatementTransactions.reduce((sum, t) => {
+            const impact = getImpact(t);
+            return impact > 0 ? sum + impact : sum;
+        }, 0);
+
+        // 3. Final Calculation
+        const remainingBilled = billedBalance - postCredits;
+        const billed = Math.max(0, remainingBilled);
+        const excessCredit = Math.max(0, -remainingBilled);
+
+        // Apply any excess credit (overpayments or net refunds) to unbilled debits
+        const unbilled = Math.max(0, postDebts - excessCredit);
 
         return {
             unbilled,
@@ -502,7 +550,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         };
     },
 
-    importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[] }) => {
+    importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[] }) => {
         try {
             // Clear existing data
             await db.accounts.clear();
@@ -512,6 +560,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await db.mandates.clear();
             await db.auditTrails.clear();
             await db.investmentLogs.clear();
+            await db.eventLogs.clear();
 
             // Import new data
             if (data.accounts?.length) await db.accounts.bulkPut(data.accounts);
@@ -521,6 +570,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             if (data.mandates?.length) await db.mandates.bulkPut(data.mandates);
             if (data.auditTrails?.length) await db.auditTrails.bulkPut(data.auditTrails);
             if (data.investmentLogs?.length) await db.investmentLogs.bulkPut(data.investmentLogs);
+            if (data.eventLogs?.length) await db.eventLogs.bulkPut(data.eventLogs);
 
             // Update state
             set({
@@ -530,7 +580,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 events: data.events || [],
                 mandates: data.mandates || [],
                 auditTrails: data.auditTrails || [],
-                investmentLogs: data.investmentLogs || []
+                investmentLogs: data.investmentLogs || [],
+                eventLogs: data.eventLogs || []
             });
 
             console.log('Data imported successfully');
@@ -690,5 +741,22 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             else if (type === 'events') dbHelpers.updateEvent(id, { order: index }).catch(console.error);
             else if (type === 'mandates') dbHelpers.updateMandate(id, { order: index }).catch(console.error);
         });
+    },
+
+    addEventLog: (log) => {
+        set((state) => ({ eventLogs: [log, ...state.eventLogs] }));
+        dbHelpers.addEventLog(log).catch(console.error);
+    },
+
+    updateEventLog: (id, updates) => {
+        set((state) => ({
+            eventLogs: state.eventLogs.map((log) => (log.id === id ? { ...log, ...updates } : log)),
+        }));
+        dbHelpers.updateEventLog(id, updates).catch(console.error);
+    },
+
+    deleteEventLog: (id) => {
+        set((state) => ({ eventLogs: state.eventLogs.filter((log) => log.id !== id) }));
+        dbHelpers.deleteEventLog(id).catch(console.error);
     }
 }));

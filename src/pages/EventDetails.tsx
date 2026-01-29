@@ -8,7 +8,7 @@ import { cn } from '../lib/utils';
 export function EventDetails() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const { events, transactions, deleteEvent } = useFinanceStore();
+    const { events, transactions, eventLogs, deleteEvent } = useFinanceStore();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const event = useMemo(() => events.find(e => e.id === id), [events, id]);
@@ -16,6 +16,10 @@ export function EventDetails() {
     const eventTransactions = useMemo(() => {
         return transactions.filter(t => t.eventId === id);
     }, [transactions, id]);
+
+    const eventLogsList = useMemo(() => {
+        return eventLogs.filter(l => l.eventId === id);
+    }, [eventLogs, id]);
 
     const stats = useMemo(() => {
         const totalExpense = eventTransactions
@@ -25,12 +29,22 @@ export function EventDetails() {
             .filter(t => t.type === 'income')
             .reduce((sum, t) => sum + t.amount, 0);
 
+        const logExpense = eventLogsList
+            .filter(l => l.type === 'expense')
+            .reduce((sum, l) => sum + l.amount, 0);
+        const logIncome = eventLogsList
+            .filter(l => l.type === 'income')
+            .reduce((sum, l) => sum + l.amount, 0);
+
+        const grandTotalExpense = totalExpense + logExpense;
+        const grandTotalIncome = totalIncome + logIncome;
+
         return {
-            totalExpense,
-            totalIncome,
-            netAmount: totalIncome - totalExpense
+            totalExpense: grandTotalExpense,
+            totalIncome: grandTotalIncome,
+            netAmount: grandTotalIncome - grandTotalExpense
         };
-    }, [eventTransactions]);
+    }, [eventTransactions, eventLogsList]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -130,48 +144,98 @@ export function EventDetails() {
                 </div>
             </div>
 
-            {/* Transactions */}
-            <section>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-bold text-gray-900">Transactions</h2>
-                    <button
-                        onClick={() => navigate(`/add?eventId=${id}`)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 active:scale-95 transition-transform"
-                    >
-                        <Plus size={16} />
-                        <span>Add</span>
-                    </button>
-                </div>
+            {/* Activity Sections */}
+            <div className="space-y-6">
+                <section>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-lg font-bold text-gray-900">Transactions</h2>
+                        <button
+                            onClick={() => navigate(`/add?eventId=${id}`)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 active:scale-95 transition-transform"
+                        >
+                            <Plus size={16} />
+                            <span>Add</span>
+                        </button>
+                    </div>
 
-                <div className="space-y-3">
-                    {eventTransactions.length === 0 ? (
-                        <div className="text-center py-8 bg-white rounded-xl border border-dashed border-gray-300">
-                            <p className="text-gray-500 text-sm">No transactions yet.</p>
-                        </div>
-                    ) : (
-                        eventTransactions.map((t) => (
-                            <div
-                                key={t.id}
-                                onClick={() => navigate(`/edit/${t.id}`)}
-                                className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100 cursor-pointer active:bg-gray-50 transition-colors"
-                            >
-                                <div className="flex items-center space-x-3">
-                                    <div className={cn("p-2 rounded-full", t.type === 'expense' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500")}>
-                                        {t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-gray-900 text-sm">{t.note || t.category}</p>
-                                        <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
-                                    </div>
-                                </div>
-                                <span className={cn("font-bold text-sm", t.type === 'expense' ? "text-gray-900" : "text-green-600")}>
-                                    {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                                </span>
+                    <div className="space-y-3">
+                        {eventTransactions.length === 0 ? (
+                            <div className="text-center py-8 bg-white rounded-xl border border-dashed border-gray-300">
+                                <p className="text-gray-500 text-sm">No transactions yet.</p>
                             </div>
-                        ))
-                    )}
-                </div>
-            </section>
+                        ) : (
+                            eventTransactions.map((t) => (
+                                <div
+                                    key={t.id}
+                                    onClick={() => navigate(`/edit/${t.id}`)}
+                                    className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100 cursor-pointer active:bg-gray-50 transition-colors"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className={cn("p-2 rounded-full", t.type === 'expense' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500")}>
+                                            {t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 text-sm">{t.note || t.category}</p>
+                                            <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
+                                        </div>
+                                    </div>
+                                    <span className={cn("font-bold text-sm", t.type === 'expense' ? "text-gray-900" : "text-green-600")}>
+                                        {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </section>
+
+                <section>
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center space-x-2">
+                            <h2 className="text-lg font-bold text-gray-900">Manual Logs</h2>
+                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Historical</span>
+                        </div>
+                        <button
+                            onClick={() => navigate(`/logs/new?eventId=${id}`)}
+                            className="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 active:scale-95 transition-transform"
+                        >
+                            <Plus size={16} />
+                            <span>Log</span>
+                        </button>
+                    </div>
+
+                    <div className="space-y-3">
+                        {eventLogsList.length === 0 ? (
+                            <div className="text-center py-8 bg-white rounded-xl border border-dashed border-gray-300">
+                                <p className="text-gray-500 text-sm">No manual logs yet.</p>
+                            </div>
+                        ) : (
+                            eventLogsList.map((l) => (
+                                <div
+                                    key={l.id}
+                                    onClick={() => navigate(`/logs/edit/${l.id}`)}
+                                    className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100 cursor-pointer active:bg-gray-50 transition-colors"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className={cn("p-2 rounded-full", l.type === 'expense' ? "bg-orange-50 text-orange-500" : "bg-blue-50 text-blue-500")}>
+                                            <Calendar size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 text-sm">{l.description}</p>
+                                            <p className="text-xs text-gray-500">{format(parseISO(l.date), 'MMM dd, yyyy')}</p>
+                                        </div>
+                                    </div>
+                                    <span className={cn("font-bold text-sm", l.type === 'expense' ? "text-gray-900" : "text-blue-600")}>
+                                        {l.type === 'expense' ? '-' : '+'}{formatCurrency(l.amount)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-4 leading-relaxed italic">
+                        * Manual logs allow tracking past bills or offline expenses without affecting bank balances.
+                    </p>
+                </section>
+            </div>
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (

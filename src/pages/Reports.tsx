@@ -9,7 +9,7 @@ import { generateReportPDF } from '../lib/pdfGenerator';
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events, eventLogs } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -46,13 +46,20 @@ export function Reports() {
     const periodTransactions = useMemo(() => {
         const reportAccountIds = new Set(
             accounts
-                .filter(a => a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan')
+                .filter(a => {
+                    const isTypeAllowed = a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan';
+                    return isTypeAllowed && a.includeInReports !== false;
+                })
                 .map(a => a.id)
         );
 
         const relevantTransactions = transactions.filter(t => {
-            // Include if tagged with an event
-            if (t.eventId) return true;
+            // Check event exclusion
+            if (t.eventId) {
+                const event = events.find(e => e.id === t.eventId);
+                if (event?.includeInReports === false) return false;
+                return true;
+            }
 
             // Account basic inclusion logic
             const isIncluded = t.excludeFromBalance ||
@@ -73,7 +80,16 @@ export function Reports() {
         return relevantTransactions
             .filter(t => isWithinInterval(new Date(t.date), { start: periodStart, end: periodEnd }))
             .sort((a, b) => b.amount - a.amount);
-    }, [transactions, currentDate, accounts, viewMode, selectedAccountId]);
+    }, [transactions, currentDate, accounts, viewMode, selectedAccountId, periodStart, periodEnd]);
+
+    // Filter event logs for current period
+    const periodEventLogs = useMemo(() => {
+        return eventLogs.filter(l => {
+            const event = events.find(e => e.id === l.eventId);
+            if (event?.includeInReports === false) return false;
+            return isWithinInterval(new Date(l.date), { start: periodStart, end: periodEnd });
+        });
+    }, [eventLogs, periodStart, periodEnd, events]);
 
     const isInvestment = (t: any) => {
         if (t.type !== 'transfer' || !t.toAccountId) return false;
@@ -91,7 +107,7 @@ export function Reports() {
 
     // Calculate totals
     const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, totalTransferIn, totalTransferOut } = useMemo(() => {
-        return periodTransactions.reduce((acc, t) => {
+        const transTotals = periodTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
             else if (t.type === 'expense') {
                 if (t.excludeFromBalance) acc.manualTotalExpense += t.amount;
@@ -104,7 +120,15 @@ export function Reports() {
             }
             return acc;
         }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0 });
-    }, [periodTransactions, accounts]);
+
+        // Add event logs to manual totals
+        periodEventLogs.forEach(l => {
+            if (l.type === 'expense') transTotals.manualTotalExpense += l.amount;
+            else if (l.type === 'income') transTotals.totalIncome += l.amount;
+        });
+
+        return transTotals;
+    }, [periodTransactions, periodEventLogs, accounts]);
 
     // Prepare chart data (Expense by Category) - Excluding manual
     const chartData = useMemo(() => {
@@ -201,9 +225,10 @@ export function Reports() {
             totalTransferIn,
             totalTransferOut,
             transactions: periodTransactions,
-            accounts,
+            eventLogs: periodEventLogs,
+            accounts: accounts.filter(a => a.includeInReports !== false),
             categories,
-            events,
+            events: events.filter(e => e.includeInReports !== false),
             chartData,
             manualChartData,
             openingBalances

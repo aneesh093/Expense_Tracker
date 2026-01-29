@@ -1,9 +1,9 @@
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, X, Pencil } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, CirclePlus, X, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, generateId } from '../lib/utils';
-import { useMemo, useState } from 'react';
 import { type Holding } from '../types';
 
 
@@ -200,7 +200,7 @@ function InvestmentLogsSection({ accountId }: { accountId: string }) {
 export function AccountDetails() {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { accounts, transactions, updateAccount } = useFinanceStore();
+    const { accounts, transactions, updateAccount, deleteAccount } = useFinanceStore();
 
     const account = accounts.find(a => a.id === id);
 
@@ -210,6 +210,7 @@ export function AccountDetails() {
     const [holdingName, setHoldingName] = useState('');
     const [holdingQty, setHoldingQty] = useState('');
     const [holdingRate, setHoldingRate] = useState('');
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     const handleAddHolding = () => {
         if (!account || !holdingName || !holdingQty || !holdingRate) return;
@@ -338,11 +339,36 @@ export function AccountDetails() {
         <div className="flex flex-col h-full bg-gray-50 pb-20">
             {/* Header */}
             <header className="bg-white p-4 sticky top-0 z-10 shadow-sm">
-                <div className="flex items-center space-x-3 mb-4">
-                    <button onClick={() => navigate('/accounts')} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-                        <ArrowLeft size={24} />
-                    </button>
-                    <h1 className="text-xl font-bold text-gray-900">{account.name}</h1>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                        <button onClick={() => navigate('/accounts')} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                            <ArrowLeft size={24} />
+                        </button>
+                        <h1 className="text-xl font-bold text-gray-900">{account.name}</h1>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={() => navigate(`/add?accountId=${account.id}`)}
+                            className="p-2 text-blue-600 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-all shadow-sm active:scale-95"
+                            title="Add Transaction"
+                        >
+                            <CirclePlus size={20} strokeWidth={2.5} />
+                        </button>
+                        <button
+                            onClick={() => navigate(`/accounts?editAccountId=${account.id}`)}
+                            className="p-2 text-gray-600 bg-gray-50 border border-gray-100 rounded-xl hover:bg-gray-100 transition-all shadow-sm active:scale-95"
+                            title="Edit Account"
+                        >
+                            <Pencil size={20} />
+                        </button>
+                        <button
+                            onClick={() => setIsDeletingAccount(true)}
+                            className="p-2 text-red-600 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-all shadow-sm active:scale-95"
+                            title="Delete Account"
+                        >
+                            <Trash2 size={20} />
+                        </button>
+                    </div>
                 </div>
                 <div className="flex flex-col items-center py-4 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl text-white shadow-lg">
                     <p className="text-blue-100 text-sm font-medium mb-1 uppercase tracking-wider">
@@ -575,6 +601,39 @@ export function AccountDetails() {
                     )}
                 </div>
             </div>
+
+            {/* Account Deletion Modal */}
+            {isDeletingAccount && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl scale-100 animate-in zoom-in-95 duration-200 border border-gray-100">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                            <Trash2 size={32} className="text-red-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">Delete Account?</h3>
+                        <p className="text-sm text-gray-500 mb-6 text-center leading-relaxed">
+                            Are you sure you want to delete <span className="font-bold text-gray-700">"{account.name}"</span>? This will also remove all associated transactions and cannot be undone.
+                        </p>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setIsDeletingAccount(false)}
+                                className="flex-1 py-3 text-sm font-bold text-gray-600 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    deleteAccount(account.id);
+                                    navigate('/accounts');
+                                }}
+                                className="flex-1 py-3 text-sm font-bold text-white bg-red-600 rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
