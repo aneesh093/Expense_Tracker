@@ -3,7 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Check, Pencil, Building, Banknote, CreditCard, Wallet, TrendingUp, PieChart, MapPin, Shield, PiggyBank, Landmark, Briefcase } from 'lucide-react';
+import { Check, Building, Banknote, CreditCard, Wallet, TrendingUp, PieChart, MapPin, Shield, PiggyBank, Landmark, Briefcase } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 
 interface SortableAccountItemProps {
@@ -11,7 +11,6 @@ interface SortableAccountItemProps {
     isSelectMode: boolean;
     isSelected: boolean;
     toggleSelectAccount: (id: string) => void;
-    handleEdit: (account: Account) => void;
     navigate: (path: string) => void;
     isBalanceHidden: boolean;
     formatCurrency: (amount: number) => string;
@@ -24,11 +23,11 @@ export function SortableAccountItem({
     isSelectMode,
     isSelected,
     toggleSelectAccount,
-    handleEdit,
     navigate,
     isBalanceHidden,
     formatCurrency,
-    spentAmount
+    spentAmount,
+    transactions: _transactions // Keep it if used elsewhere, prefix with _ if unused
 }: SortableAccountItemProps) {
     const { getCreditCardStats } = useFinanceStore();
     const {
@@ -105,11 +104,23 @@ export function SortableAccountItem({
                     {getAccountIcon(account.type)}
                 </div>
                 <div>
-                    <h3 className="text-sm font-semibold text-gray-800 leading-tight">
-                        {account.name}
-                    </h3>
+                    <div className="flex items-center space-x-2">
+                        <h3 className="text-sm font-semibold text-gray-800 leading-tight">
+                            {account.name}
+                        </h3>
+                        {account.isPrimary && (
+                            <span className="text-[10px] bg-blue-100 text-blue-600 w-5 h-5 flex items-center justify-center rounded-full font-bold">
+                                P
+                            </span>
+                        )}
+                    </div>
                     {account.subName && (
                         <p className="text-[10px] text-gray-600 mt-0.5">{account.subName}</p>
+                    )}
+                    {account.type === 'loan' && account.loanDetails && (
+                        <span className="inline-block mt-1 text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold tracking-wide">
+                            {account.loanDetails.emisLeft} EMIs Left
+                        </span>
                     )}
                     {account.type === 'credit' && account.creditCardDetails && (
                         <div className="flex items-center space-x-2 mt-1">
@@ -124,43 +135,15 @@ export function SortableAccountItem({
                 </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-                <div className="text-right flex flex-col items-end min-h-[44px] justify-center">
-                    {account.isPrimary && (
-                        <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider mb-1">
-                            Primary
-                        </span>
-                    )}
-                    {account.type === 'loan' && account.loanDetails && (
-                        <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold tracking-wide mb-1">
-                            {account.loanDetails.emisLeft} EMIs Left
-                        </span>
-                    )}
-                    {account.type === 'credit' && account.creditCardDetails && (
-                        <span className="text-[8px] text-gray-400 mb-1">
-                            Stmt: {account.creditCardDetails.statementDate}th
-                        </span>
-                    )}
-                    <p className={cn("text-sm font-bold", spentAmount < 0 && account.type !== 'credit' ? "text-red-600" : "text-gray-900")}>
-                        {isBalanceHidden && !account.isPrimary ? '•••••' : formatCurrency(spentAmount)}
-                    </p>
-                </div>
-
-                {!isSelectMode && (
-                    <div className="flex items-center">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                handleEdit(account);
-                            }}
-                            className="p-2 text-gray-400 hover:text-blue-500 transition-colors hover:bg-blue-50 rounded-lg"
-                        >
-                            <Pencil size={18} />
-                        </button>
-
-                    </div>
+            <div className="text-right flex flex-col items-end min-h-[44px] justify-center">
+                {account.type === 'credit' && account.creditCardDetails && (
+                    <span className="text-[8px] text-gray-400 mb-1">
+                        Stmt: {account.creditCardDetails.statementDate}th
+                    </span>
                 )}
+                <p className={cn("text-[15px] font-bold", spentAmount < 0 && account.type !== 'credit' ? "text-red-600" : "text-gray-900")}>
+                    {isBalanceHidden && !account.isPrimary ? '•••••' : formatCurrency(spentAmount)}
+                </p>
             </div>
         </div>
     );

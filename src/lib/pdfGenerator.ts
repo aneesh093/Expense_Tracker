@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import type { Transaction, Account, Category, Event } from '../types';
+import type { Transaction, Account, Category, Event, EventLog } from '../types';
 
 interface ReportData {
     title: string;
@@ -13,6 +13,7 @@ interface ReportData {
     totalTransferIn?: number;
     totalTransferOut?: number;
     transactions: Transaction[];
+    eventLogs: EventLog[];
     accounts: Account[];
     categories: Category[]; // To look up names if needed
     events: Event[];
@@ -333,17 +334,29 @@ export const generateReportPDF = (data: ReportData) => {
         tableStartY += 10;
     }
 
+    // Event Manual Logs Section (REMOVED - now integrated into Event Breakdown)
+
     // Events Detailed Breakdown
     const eventTransactions = data.transactions.filter(t => t.eventId && data.events.some(e => e.id === t.eventId));
-    if (eventTransactions.length > 0) {
-        // Group transactions by eventId
-        const groupedEvents = eventTransactions.reduce((acc, t) => {
+    const eventManualLogs = data.eventLogs.filter(l => l.eventId && data.events.some(e => e.id === l.eventId));
+
+    if (eventTransactions.length > 0 || eventManualLogs.length > 0) {
+        // Group everything by eventId
+        const groupedEvents = {} as Record<string, { trans: Transaction[], logs: EventLog[] }>;
+
+        eventTransactions.forEach(t => {
             if (t.eventId) {
-                if (!acc[t.eventId]) acc[t.eventId] = [];
-                acc[t.eventId].push(t);
+                if (!groupedEvents[t.eventId]) groupedEvents[t.eventId] = { trans: [], logs: [] };
+                groupedEvents[t.eventId].trans.push(t);
             }
-            return acc;
-        }, {} as Record<string, Transaction[]>);
+        });
+
+        eventManualLogs.forEach(l => {
+            if (l.eventId) {
+                if (!groupedEvents[l.eventId]) groupedEvents[l.eventId] = { trans: [], logs: [] };
+                groupedEvents[l.eventId].logs.push(l);
+            }
+        });
 
         // Add a new page for events if current space is tight
         if (tableStartY > 220) {
@@ -375,7 +388,7 @@ export const generateReportPDF = (data: ReportData) => {
             return new Date(eventB.startDate).getTime() - new Date(eventA.startDate).getTime();
         });
 
-        sortedEvents.forEach(([eventId, transactions]) => {
+        sortedEvents.forEach(([eventId]) => {
             const event = data.events.find(e => e.id === eventId);
             if (!event) return; // Double check
 
@@ -391,22 +404,38 @@ export const generateReportPDF = (data: ReportData) => {
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(31, 41, 55);
             doc.text(eventName, 14, tableStartY);
-            tableStartY += 5;
+            tableStartY += 10;
             doc.setTextColor(31, 41, 55); // Reset
 
-            const eventTableBody = transactions.map(t => {
-                const accountName = data.accounts.find(a => a.id === t.accountId)?.name || 'Unknown';
-                return [
-                    format(new Date(t.date), 'MMM dd, yyyy'),
-                    accountName,
-                    t.note || t.category,
-                    t.type.toUpperCase(),
-                    t.amount.toLocaleString('en-IN')
-                ];
-            });
+            const eventItems = [
+                ...groupedEvents[eventId].trans.map(t => ({
+                    date: t.date,
+                    account: data.accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
+                    details: t.note || t.category,
+                    type: t.type.toUpperCase(),
+                    amount: t.amount,
+                    isLog: false
+                })),
+                ...groupedEvents[eventId].logs.map(l => ({
+                    date: l.date,
+                    account: 'Manual Log',
+                    details: `[LOG] ${l.description}`,
+                    type: l.type.toUpperCase(),
+                    amount: l.amount,
+                    isLog: true
+                }))
+            ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            const eventTableBody = eventItems.map(item => [
+                format(new Date(item.date), 'MMM dd, yyyy'),
+                item.account,
+                item.details,
+                item.type,
+                item.amount.toLocaleString('en-IN')
+            ]);
 
             autoTable(doc, {
-                head: [['Date', 'Account', 'Details', 'Type', 'Amount (INR)']],
+                head: [['Date', 'Account/Source', 'Details', 'Type', 'Amount (INR)']],
                 body: eventTableBody,
                 startY: tableStartY,
                 theme: 'grid',
@@ -414,11 +443,20 @@ export const generateReportPDF = (data: ReportData) => {
                 headStyles: { fillColor: [44, 44, 44] },
                 didParseCell: (cellData) => {
                     if (cellData.section === 'body') {
-                        const type = cellData.row.cells[3].raw as string;
+                        const rowIndex = cellData.row.index;
+                        const item = eventItems[rowIndex];
+                        const type = item.type;
+
+                        // Color coding
                         if (type === 'EXPENSE') {
                             cellData.cell.styles.textColor = [153, 27, 27];
                         } else if (type === 'INCOME') {
                             cellData.cell.styles.textColor = [22, 101, 52];
+                        }
+
+                        // Bold for logs
+                        if (item.isLog) {
+                            cellData.cell.styles.fontStyle = 'bold';
                         }
                     }
                 },
@@ -435,9 +473,12 @@ export const generateReportPDF = (data: ReportData) => {
             tableStartY = doc.lastAutoTable.finalY;
 
             // Event Summary
-            const eventSum = transactions.reduce((sum, t) => {
-                if (t.type === 'income') return sum + t.amount;
-                if (t.type === 'expense') return sum - t.amount;
+            const eventSum = [
+                ...groupedEvents[eventId].trans,
+                ...groupedEvents[eventId].logs
+            ].reduce((sum, item) => {
+                if (item.type === 'income') return sum + item.amount;
+                if (item.type === 'expense') return sum - item.amount;
                 return sum;
             }, 0);
 

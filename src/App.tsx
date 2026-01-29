@@ -12,10 +12,13 @@ import { ReportTransactions } from './pages/ReportTransactions';
 import { Events } from './pages/Events';
 import { EventDetails } from './pages/EventDetails';
 import { EventForm } from './pages/EventForm';
+import { LogForm } from './pages/LogForm';
+import { ReportSources } from './pages/ReportSources';
 import { Settings } from './pages/Settings';
 import { AuditTrail } from './pages/AuditTrail';
 import { Categories } from './pages/Categories';
 import { Mandates } from './pages/Mandates';
+import { BackupConfiguration } from './pages/BackupConfiguration';
 import { useFinanceStore } from './store/useFinanceStore';
 import { useBackupScheduler } from './hooks/useBackupScheduler';
 
@@ -59,6 +62,10 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/audit-trail" element={<AuditTrail />} />
           <Route path="/mandates" element={<Mandates />} />
+          <Route path="/settings/backup" element={<BackupConfiguration />} />
+          <Route path="/logs/new" element={<LogForm />} />
+          <Route path="/logs/edit/:id" element={<LogForm />} />
+          <Route path="/settings/report-sources" element={<ReportSources />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -1,15 +1,16 @@
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableAccountItem } from '../components/SortableAccountItem';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Calendar, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react';
 
 export function Accounts() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -299,6 +300,21 @@ export function Accounts() {
         }
     };
 
+    // Trigger edit mode if editAccountId is present in URL
+    useEffect(() => {
+        const editId = searchParams.get('editAccountId');
+        if (editId && accounts.length > 0) {
+            const accountToEdit = accounts.find(a => a.id === editId);
+            if (accountToEdit) {
+                handleEdit(accountToEdit);
+                // Clear the parameter so it doesn't re-trigger
+                const newParams = new URLSearchParams(searchParams);
+                newParams.delete('editAccountId');
+                setSearchParams(newParams, { replace: true });
+            }
+        }
+    }, [searchParams, accounts, handleEdit, setSearchParams]);
+
     const cancelSelectMode = () => {
         setIsSelectMode(false);
         setSelectedAccounts(new Set());
@@ -317,13 +333,6 @@ export function Accounts() {
                                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
                                 >
                                     Select
-                                </button>
-                                <button
-                                    onClick={() => navigate('/events')}
-                                    className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors"
-                                    title="Manage Events"
-                                >
-                                    <Calendar size={24} />
                                 </button>
                                 <button
                                     onClick={toggleAccountsBalanceHidden}
@@ -733,7 +742,14 @@ export function Accounts() {
                                                     )}
                                                 </button>
                                             </div>
-                                            <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-lg">
+                                            <span className={cn(
+                                                "text-[15px] font-extrabold px-3 py-1.5 rounded-xl border shadow-sm transition-all",
+                                                type === 'credit' ? "text-purple-700 bg-purple-50 border-purple-100" :
+                                                    type === 'cash' ? "text-green-700 bg-green-50 border-green-100" :
+                                                        type === 'loan' ? "text-orange-700 bg-orange-50 border-orange-100" :
+                                                            type === 'savings' ? "text-teal-700 bg-teal-50 border-teal-100" :
+                                                                "text-blue-700 bg-blue-50 border-blue-100"
+                                            )}>
                                                 {isAccountsBalanceHidden
                                                     ? '•••••'
                                                     : formatCurrency(
@@ -785,7 +801,6 @@ export function Accounts() {
                                                             isSelectMode={isSelectMode}
                                                             isSelected={isSelected}
                                                             toggleSelectAccount={toggleSelectAccount}
-                                                            handleEdit={handleEdit}
                                                             navigate={navigate}
                                                             isBalanceHidden={isAccountsBalanceHidden}
                                                             formatCurrency={formatCurrency}

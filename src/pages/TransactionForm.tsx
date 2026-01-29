@@ -25,8 +25,14 @@ export function TransactionForm() {
     useEffect(() => {
         // Pre-fill eventId from URL parameter (when navigating from event details)
         const eventIdParam = searchParams.get('eventId');
+        const accountIdParam = searchParams.get('accountId');
+
         if (eventIdParam) {
             setSelectedEventId(eventIdParam);
+        }
+
+        if (accountIdParam && !id) {
+            setSelectedAccountId(accountIdParam);
         }
 
         if (id) {

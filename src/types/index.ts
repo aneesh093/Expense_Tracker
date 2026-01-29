@@ -44,6 +44,7 @@ export interface Account {
     isPrimary?: boolean;
     order?: number;
     includeInNetWorth?: boolean;
+    includeInReports?: boolean;
     group?: 'banking' | 'investment';
 }
 
@@ -80,6 +81,7 @@ export interface Event {
     color: string;
     icon: string;
     order?: number;
+    includeInReports?: boolean;
 }
 
 export interface Mandate {
@@ -115,4 +117,12 @@ export interface InvestmentLog {
     type: 'value' | 'profit';
     amount: number;
     note?: string;
+}
+export interface EventLog {
+    id: string;
+    eventId: string;
+    amount: number;
+    type: 'expense' | 'income';
+    description: string;
+    date: string;
 }

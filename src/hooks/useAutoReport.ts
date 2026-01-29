@@ -4,7 +4,7 @@ import { generateReportPDF } from '../lib/pdfGenerator';
 import { endOfMonth, format, isSameDay, startOfMonth } from 'date-fns';
 
 export function useAutoReport() {
-    const { transactions, accounts, categories, events } = useFinanceStore();
+    const { transactions, accounts, categories, events, eventLogs } = useFinanceStore();
 
     useEffect(() => {
         const checkAndRunAutoReport = async () => {
@@ -42,7 +42,12 @@ export function useAutoReport() {
                         return d >= monthStart && d <= lastDayOfMonth;
                     });
 
-                    if (relevantTransactions.length === 0) {
+                    const relevantEventLogs = eventLogs.filter(l => {
+                        const d = new Date(l.date);
+                        return d >= monthStart && d <= lastDayOfMonth;
+                    });
+
+                    if (relevantTransactions.length === 0 && relevantEventLogs.length === 0) {
                         // Don't export empty report? Or do? Let's skip if empty to avoid spam, or maybe user wants it. 
                         // Let's print it anyway so they know it worked.
                     }
@@ -53,7 +58,7 @@ export function useAutoReport() {
                         return toAccount?.type === 'stock' || toAccount?.type === 'mutual-fund';
                     };
 
-                    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense } = relevantTransactions.reduce((acc, t) => {
+                    const totals = relevantTransactions.reduce((acc, t) => {
                         if (t.type === 'income') acc.totalIncome += t.amount;
                         else if (t.type === 'expense') {
                             if (t.excludeFromBalance) acc.manualTotalExpense += t.amount;
@@ -62,6 +67,14 @@ export function useAutoReport() {
                         else if (isInvestment(t)) acc.totalInvestment += t.amount;
                         return acc;
                     }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0 });
+
+                    // Add event logs to manual totals
+                    relevantEventLogs.forEach(l => {
+                        if (l.type === 'expense') totals.manualTotalExpense += l.amount;
+                        else if (l.type === 'income') totals.totalIncome += l.amount;
+                    });
+
+                    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense } = totals;
 
                     // Calculate Chart Data
                     const expenseMap = new Map<string, number>();
@@ -139,6 +152,7 @@ export function useAutoReport() {
                         totalInvestment,
                         manualTotalExpense,
                         transactions: relevantTransactions,
+                        eventLogs: relevantEventLogs,
                         accounts,
                         categories,
                         events,
@@ -160,5 +174,5 @@ export function useAutoReport() {
             checkAndRunAutoReport();
         }
 
-    }, [transactions, accounts, categories, events]);
+    }, [transactions, accounts, categories, events, eventLogs]);
 }
