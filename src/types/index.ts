@@ -120,9 +120,17 @@ export interface InvestmentLog {
 }
 export interface EventLog {
     id: string;
-    eventId: string;
+    eventId?: string;
     amount: number;
     type: 'expense' | 'income';
+    description: string;
+    date: string;
+}
+
+export interface EventPlan {
+    id: string;
+    eventId: string;
+    amount: number;
     description: string;
     date: string;
 }

@@ -15,11 +15,18 @@ interface ReportData {
     transactions: Transaction[];
     eventLogs: EventLog[];
     accounts: Account[];
+    allAccounts?: Account[]; // Added for name lookup of excluded accounts
     categories: Category[]; // To look up names if needed
     events: Event[];
     chartData: { name: string; value: number; color: string }[];
     manualChartData?: { name: string; value: number; color: string }[];
     openingBalances: Record<string, number>;
+    exportOptions?: {
+        includeCharts: boolean;
+        includeAccountSummary: boolean;
+        includeTransactions: boolean;
+        includeEventSummary: boolean;
+    };
 }
 
 const drawBarChart = (doc: jsPDF, data: { name: string; value: number; color: string }[], startX: number, startY: number, width: number, title: string = 'Expense Breakdown') => {
@@ -118,9 +125,251 @@ export const generateReportPDF = (data: ReportData) => {
 
     // Core chart
     let currentY = summaryEndY + 10;
-    if (data.chartData && data.chartData.length > 0) {
+    if (data.exportOptions?.includeCharts !== false && data.chartData && data.chartData.length > 0) {
         currentY = drawBarChart(doc, data.chartData, 14, currentY, 180, 'Expense Breakdown');
     }
+
+    // Account Summary Table (New Section)
+    if (data.exportOptions?.includeAccountSummary) {
+        if (currentY > 240) {
+            doc.addPage();
+            currentY = 20;
+        } else {
+            currentY += 10;
+        }
+
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(31, 41, 55);
+        doc.text('Account Summary', 14, currentY);
+        currentY += 10;
+
+        const accountSummaryBody = data.accounts.map(acc => {
+            // Calculate totals for this account for the period
+            const accTransactions = data.transactions.filter(t =>
+                !t.excludeFromBalance && (t.accountId === acc.id || t.toAccountId === acc.id)
+            );
+
+            const initialAmount = data.openingBalances[acc.id] || 0;
+            const income = accTransactions.reduce((sum, t) => t.accountId === acc.id && t.type === 'income' ? sum + t.amount : sum, 0);
+            const expense = accTransactions.reduce((sum, t) => t.accountId === acc.id && t.type === 'expense' ? sum + t.amount : sum, 0);
+
+            // Net calculation including transfers
+            const netTransfers = accTransactions.reduce((sum, t) => {
+                if (t.type === 'transfer') {
+                    if (t.accountId === acc.id) return sum - t.amount;
+                    if (t.toAccountId === acc.id) return sum + t.amount;
+                }
+                return sum;
+            }, 0);
+
+            const net = accTransactions.reduce((sum, t) => {
+                if (t.type === 'income' && t.accountId === acc.id) return sum + t.amount;
+                if (t.type === 'expense' && t.accountId === acc.id) return sum - t.amount;
+                return sum;
+            }, netTransfers);
+
+            return [
+                acc.name,
+                initialAmount.toLocaleString('en-IN'),
+                income > 0 ? income.toLocaleString('en-IN') : '-',
+                expense > 0 ? expense.toLocaleString('en-IN') : '-',
+                { content: netTransfers !== 0 ? netTransfers.toLocaleString('en-IN') : '-', styles: { textColor: [67, 56, 202] } as any },
+                { content: net.toLocaleString('en-IN'), styles: { textColor: net >= 0 ? [22, 101, 52] : [153, 27, 27], fontStyle: 'bold' } as any }
+            ];
+        });
+
+        // Add Total Row
+        const totalInitialSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[1] === 'string' ? parseFloat(row[1].replace(/,/g, '')) : 0), 0);
+        const totalIncomeSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[2] === 'string' && row[2] !== '-' ? parseFloat(row[2].replace(/,/g, '')) : 0), 0);
+        const totalExpenseSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[3] === 'string' && row[3] !== '-' ? parseFloat(row[3].replace(/,/g, '')) : 0), 0);
+        const totalTransfersSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[4] === 'object' && row[4].content !== '-' ? parseFloat(row[4].content.replace(/,/g, '')) : 0), 0);
+        const totalNetSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[5] === 'object' ? parseFloat(row[5].content.replace(/,/g, '')) : 0), 0);
+
+        accountSummaryBody.push([
+            { content: 'TOTAL', styles: { fontStyle: 'bold' } as any },
+            { content: totalInitialSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
+            { content: totalIncomeSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
+            { content: totalExpenseSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
+            { content: totalTransfersSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold', textColor: [67, 56, 202] } as any },
+            { content: totalNetSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold', textColor: totalNetSummary >= 0 ? [22, 101, 52] : [153, 27, 27] } as any }
+        ]);
+
+        autoTable(doc, {
+            head: [['Account', 'Initial Amount', 'Income', 'Expense', 'Transfers', 'Net Change']],
+            body: accountSummaryBody as any,
+            startY: currentY,
+            theme: 'grid',
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [55, 65, 81] },
+            columnStyles: {
+                0: { cellWidth: 40 },
+                1: { cellWidth: 30, halign: 'right' },
+                2: { cellWidth: 25, halign: 'right' },
+                3: { cellWidth: 25, halign: 'right' },
+                4: { cellWidth: 30, halign: 'right' },
+                5: { cellWidth: 30, halign: 'right' },
+            }
+        });
+
+        // @ts-ignore
+        currentY = doc.lastAutoTable.finalY + 10;
+    }
+
+    // Event Performance Summary (Independent Section)
+    if (data.exportOptions?.includeEventSummary !== false) {
+        const eventTransactions = data.transactions.filter(t => t.eventId && data.events.some(e => e.id === t.eventId));
+        const eventManualLogs = data.eventLogs.filter(l => !l.eventId || data.events.some(e => e.id === l.eventId));
+
+        if (eventTransactions.length > 0 || eventManualLogs.length > 0) {
+            // Group everything by eventId
+            const groupedEvents = {} as Record<string, { trans: Transaction[], logs: EventLog[] }>;
+
+            eventTransactions.forEach(t => {
+                if (t.eventId) {
+                    if (!groupedEvents[t.eventId]) groupedEvents[t.eventId] = { trans: [], logs: [] };
+                    groupedEvents[t.eventId].trans.push(t);
+                }
+            });
+
+            eventManualLogs.forEach(l => {
+                const key = l.eventId || 'standalone';
+                if (!groupedEvents[key]) groupedEvents[key] = { trans: [], logs: [] };
+                groupedEvents[key].logs.push(l);
+            });
+
+            // Add a new page for Event Summary
+            doc.addPage();
+            let eventSummaryY = 20;
+
+            // --- Event Performance Summary Table ---
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(156, 163, 175); // Gray-400
+            doc.text('EVENT/LOG PERFORMANCE', 14, eventSummaryY);
+            eventSummaryY += 8;
+
+            const summaryData = Object.entries(groupedEvents).map(([eventId, groupData]) => {
+                let eventName = '';
+                if (eventId === 'standalone') {
+                    eventName = 'Independent Logs';
+                } else {
+                    const event = data.events.find(e => e.id === eventId);
+                    eventName = event ? event.name : 'Unknown Event';
+                }
+
+                // Calculate totals
+                let income = 0;
+                let expense = 0;
+
+                groupData.trans.forEach(t => {
+                    if (t.type === 'income') income += t.amount;
+                    if (t.type === 'expense') expense += t.amount;
+                });
+
+                groupData.logs.forEach(l => {
+                    if (l.type === 'income') income += l.amount;
+                    if (l.type === 'expense') expense += l.amount;
+                });
+
+                const net = income - expense;
+                return { name: eventName, income, expense, net, isStandalone: eventId === 'standalone' };
+            });
+
+            // Sort summary data by net (ascending - most negative first)
+            summaryData.sort((a, b) => a.net - b.net);
+
+            const summaryTableBody = summaryData.map(item => {
+                // Build the details line with proper formatting
+                const parts = [];
+                if (item.income > 0) parts.push(`In: Rs.${item.income.toLocaleString('en-IN')}`);
+                if (item.expense > 0) parts.push(`Out: Rs.${item.expense.toLocaleString('en-IN')}`);
+                const detailsText = parts.join('  ');
+
+                return [
+                    {
+                        content: item.name,
+                        styles: {
+                            fontStyle: 'bold',
+                            textColor: item.isStandalone ? [234, 88, 12] : [31, 41, 55]
+                        } as any
+                    },
+                    detailsText,
+                    {
+                        content: `${item.net >= 0 ? '' : '-'}Rs.${Math.abs(item.net).toLocaleString('en-IN')}`,
+                        styles: {
+                            textColor: item.net >= 0 ? [22, 101, 52] : [220, 38, 38],
+                            fontStyle: 'bold',
+                            halign: 'right'
+                        } as any
+                    }
+                ];
+            });
+
+            autoTable(doc, {
+                body: summaryTableBody as any,
+                startY: eventSummaryY,
+                theme: 'plain',
+                styles: {
+                    fontSize: 9,
+                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
+                },
+                columnStyles: {
+                    0: { cellWidth: 55, fontStyle: 'bold' },
+                    1: { cellWidth: 95, fontSize: 8, textColor: [75, 85, 99] },
+                    2: { cellWidth: 35, halign: 'right' },
+                },
+                didParseCell: (data) => {
+                    if (data.section === 'body') {
+                        data.cell.styles.lineColor = [243, 244, 246];
+                        data.cell.styles.lineWidth = 0.1;
+                    }
+                },
+                didDrawCell: (data) => {
+                    // Custom color for In/Out text in column 1
+                    if (data.section === 'body' && data.column.index === 1 && data.cell.text[0]) {
+                        const text = data.cell.text[0];
+                        const xStart = data.cell.x + 4;
+                        const yPos = data.cell.y + data.cell.height / 2 + 1;
+
+                        // Clear the default text first
+                        doc.setFillColor(255, 255, 255);
+                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+
+                        // Redraw with colors
+                        doc.setFontSize(8);
+                        let xPos = xStart;
+
+                        if (text.includes('In:') && text.includes('Out:')) {
+                            const [inPart, outPart] = text.split('  ');
+                            doc.setTextColor(22, 101, 52);
+                            doc.text(inPart, xPos, yPos);
+                            xPos += doc.getTextWidth(inPart) + 4;
+                            doc.setTextColor(220, 38, 38);
+                            doc.text(outPart, xPos, yPos);
+                        } else if (text.includes('In:')) {
+                            doc.setTextColor(22, 101, 52);
+                            doc.text(text, xPos, yPos);
+                        } else if (text.includes('Out:')) {
+                            doc.setTextColor(220, 38, 38);
+                            doc.text(text, xPos, yPos);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+
+    // Stop here if detailed transactions are excluded
+    if (data.exportOptions?.includeTransactions === false) {
+        doc.save(`${data.title.replace(/\s+/g, '_')}_${data.period}.pdf`);
+        return;
+    }
+
+    // Add a new page for account transactions (Event Performance is on its own page)
+    doc.addPage();
+    currentY = 10;
 
     // Transactions Grouped by Account (Excluding Manual Transactions)
     let tableStartY = currentY + 10;
@@ -188,8 +437,9 @@ export const generateReportPDF = (data: ReportData) => {
         tableStartY += 10;
 
         const tableBody = accountTransactions.map(t => {
-            const fromAccountName = data.accounts.find(a => a.id === t.accountId)?.name || 'Unknown';
-            const toAccountName = t.toAccountId ? data.accounts.find(a => a.id === t.toAccountId)?.name : '';
+            const lookUpAccounts = data.allAccounts || data.accounts;
+            const fromAccountName = lookUpAccounts.find(a => a.id === t.accountId)?.name || 'Unknown';
+            const toAccountName = t.toAccountId ? (lookUpAccounts.find(a => a.id === t.toAccountId)?.name || 'Other Account') : '';
 
             let displayDetails = t.category;
             let displayType = t.type.toUpperCase();
@@ -292,7 +542,7 @@ export const generateReportPDF = (data: ReportData) => {
         doc.text(`INR ${data.manualTotalExpense.toLocaleString('en-IN')}`, 20, manualY + 16);
         manualY += 32;
 
-        if (data.manualChartData && data.manualChartData.length > 0) {
+        if (data.manualChartData && data.manualChartData.length > 0 && data.exportOptions?.includeCharts !== false) {
             manualY = drawBarChart(doc, data.manualChartData, 14, manualY, 180, 'Manual Expenses Breakdown');
         }
 
@@ -334,162 +584,165 @@ export const generateReportPDF = (data: ReportData) => {
         tableStartY += 10;
     }
 
-    // Event Manual Logs Section (REMOVED - now integrated into Event Breakdown)
+    // Event/Log Breakdown Details (After Account Transactions)
+    if (data.exportOptions?.includeTransactions) {
+        const eventTransactions = data.transactions.filter(t => t.eventId && data.events.some(e => e.id === t.eventId));
+        const eventManualLogs = data.eventLogs.filter(l => !l.eventId || data.events.some(e => e.id === l.eventId));
 
-    // Events Detailed Breakdown
-    const eventTransactions = data.transactions.filter(t => t.eventId && data.events.some(e => e.id === t.eventId));
-    const eventManualLogs = data.eventLogs.filter(l => l.eventId && data.events.some(e => e.id === l.eventId));
+        if (eventTransactions.length > 0 || eventManualLogs.length > 0) {
+            // Group everything by eventId
+            const groupedEvents = {} as Record<string, { trans: Transaction[], logs: EventLog[] }>;
 
-    if (eventTransactions.length > 0 || eventManualLogs.length > 0) {
-        // Group everything by eventId
-        const groupedEvents = {} as Record<string, { trans: Transaction[], logs: EventLog[] }>;
-
-        eventTransactions.forEach(t => {
-            if (t.eventId) {
-                if (!groupedEvents[t.eventId]) groupedEvents[t.eventId] = { trans: [], logs: [] };
-                groupedEvents[t.eventId].trans.push(t);
-            }
-        });
-
-        eventManualLogs.forEach(l => {
-            if (l.eventId) {
-                if (!groupedEvents[l.eventId]) groupedEvents[l.eventId] = { trans: [], logs: [] };
-                groupedEvents[l.eventId].logs.push(l);
-            }
-        });
-
-        // Add a new page for events if current space is tight
-        if (tableStartY > 220) {
-            doc.addPage();
-            tableStartY = 20;
-        } else {
-            tableStartY += 10;
-        }
-
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(31, 41, 55);
-        doc.text('Event Breakdown', 14, tableStartY);
-        tableStartY += 10;
-
-        const today = new Date();
-        const sortedEvents = Object.entries(groupedEvents).sort(([idA], [idB]) => {
-            const eventA = data.events.find(e => e.id === idA);
-            const eventB = data.events.find(e => e.id === idB);
-            if (!eventA || !eventB) return 0;
-
-            const isActiveA = !eventA.endDate || new Date(eventA.endDate) >= today;
-            const isActiveB = !eventB.endDate || new Date(eventB.endDate) >= today;
-
-            if (isActiveA && !isActiveB) return -1;
-            if (!isActiveA && isActiveB) return 1;
-
-            // If both same status, sort by startDate descending
-            return new Date(eventB.startDate).getTime() - new Date(eventA.startDate).getTime();
-        });
-
-        sortedEvents.forEach(([eventId]) => {
-            const event = data.events.find(e => e.id === eventId);
-            if (!event) return; // Double check
-
-            const isActive = !event.endDate || new Date(event.endDate) >= today;
-            const eventName = `${event.name}${isActive ? ' (Active)' : ' (Past)'}`;
-
-            if (tableStartY > 250) {
-                doc.addPage();
-                tableStartY = 20;
-            }
-
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(31, 41, 55);
-            doc.text(eventName, 14, tableStartY);
-            tableStartY += 10;
-            doc.setTextColor(31, 41, 55); // Reset
-
-            const eventItems = [
-                ...groupedEvents[eventId].trans.map(t => ({
-                    date: t.date,
-                    account: data.accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-                    details: t.note || t.category,
-                    type: t.type.toUpperCase(),
-                    amount: t.amount,
-                    isLog: false
-                })),
-                ...groupedEvents[eventId].logs.map(l => ({
-                    date: l.date,
-                    account: 'Manual Log',
-                    details: `[LOG] ${l.description}`,
-                    type: l.type.toUpperCase(),
-                    amount: l.amount,
-                    isLog: true
-                }))
-            ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-            const eventTableBody = eventItems.map(item => [
-                format(new Date(item.date), 'MMM dd, yyyy'),
-                item.account,
-                item.details,
-                item.type,
-                item.amount.toLocaleString('en-IN')
-            ]);
-
-            autoTable(doc, {
-                head: [['Date', 'Account/Source', 'Details', 'Type', 'Amount (INR)']],
-                body: eventTableBody,
-                startY: tableStartY,
-                theme: 'grid',
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [44, 44, 44] },
-                didParseCell: (cellData) => {
-                    if (cellData.section === 'body') {
-                        const rowIndex = cellData.row.index;
-                        const item = eventItems[rowIndex];
-                        const type = item.type;
-
-                        // Color coding
-                        if (type === 'EXPENSE') {
-                            cellData.cell.styles.textColor = [153, 27, 27];
-                        } else if (type === 'INCOME') {
-                            cellData.cell.styles.textColor = [22, 101, 52];
-                        }
-
-                        // Bold for logs
-                        if (item.isLog) {
-                            cellData.cell.styles.fontStyle = 'bold';
-                        }
-                    }
-                },
-                columnStyles: {
-                    0: { cellWidth: 25 },
-                    1: { cellWidth: 30 },
-                    2: { cellWidth: 'auto' },
-                    3: { cellWidth: 20 },
-                    4: { cellWidth: 25, halign: 'right' },
+            eventTransactions.forEach(t => {
+                if (t.eventId) {
+                    if (!groupedEvents[t.eventId]) groupedEvents[t.eventId] = { trans: [], logs: [] };
+                    groupedEvents[t.eventId].trans.push(t);
                 }
             });
 
-            // @ts-ignore
-            tableStartY = doc.lastAutoTable.finalY;
+            eventManualLogs.forEach(l => {
+                const key = l.eventId || 'standalone';
+                if (!groupedEvents[key]) groupedEvents[key] = { trans: [], logs: [] };
+                groupedEvents[key].logs.push(l);
+            });
 
-            // Event Summary
-            const eventSum = [
-                ...groupedEvents[eventId].trans,
-                ...groupedEvents[eventId].logs
-            ].reduce((sum, item) => {
-                if (item.type === 'income') return sum + item.amount;
-                if (item.type === 'expense') return sum - item.amount;
-                return sum;
-            }, 0);
+            // Add a new page for Event Breakdown
+            doc.addPage();
+            tableStartY = 20;
 
-            doc.setFontSize(9);
+            doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.text(`Net for ${eventName}:`, 14, tableStartY + 7);
-            doc.text(`INR ${eventSum.toLocaleString('en-IN')}`, 196, tableStartY + 7, { align: 'right' });
+            doc.setTextColor(31, 41, 55);
+            doc.text('Event/Log Breakdown Details', 14, tableStartY);
+            tableStartY += 10;
 
-            tableStartY += 20;
-            doc.setFont('helvetica', 'normal');
-        });
+            const today = new Date();
+            const sortedEvents = Object.entries(groupedEvents).sort(([idA], [idB]) => {
+                const eventA = data.events.find(e => e.id === idA);
+                const eventB = data.events.find(e => e.id === idB);
+                if (!eventA || !eventB) return 0;
+
+                const isActiveA = !eventA.endDate || new Date(eventA.endDate) >= today;
+                const isActiveB = !eventB.endDate || new Date(eventB.endDate) >= today;
+
+                if (isActiveA && !isActiveB) return -1;
+                if (!isActiveA && isActiveB) return 1;
+
+                // If both same status, sort by startDate descending
+                return new Date(eventB.startDate).getTime() - new Date(eventA.startDate).getTime();
+            });
+
+            sortedEvents.forEach(([eventId]) => {
+                let event = data.events.find(e => e.id === eventId);
+                let eventName = '';
+                let isActive = false;
+
+                if (eventId === 'standalone') {
+                    eventName = 'Independent Logs';
+                    isActive = true;
+                } else if (event) {
+                    isActive = !event.endDate || new Date(event.endDate) >= today;
+                    eventName = `${event.name}${isActive ? ' (Active)' : ' (Past)'}`;
+                } else {
+                    return;
+                }
+
+                if (tableStartY > 250) {
+                    doc.addPage();
+                    tableStartY = 20;
+                }
+
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(31, 41, 55);
+                doc.text(eventName, 14, tableStartY);
+                tableStartY += 10;
+                doc.setTextColor(31, 41, 55); // Reset
+
+                const eventItems = [
+                    ...groupedEvents[eventId].trans.map(t => ({
+                        date: t.date,
+                        account: data.accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
+                        details: t.note || t.category,
+                        type: t.type.toUpperCase(),
+                        amount: t.amount,
+                        isLog: false
+                    })),
+                    ...groupedEvents[eventId].logs.map(l => ({
+                        date: l.date,
+                        account: 'Manual Log',
+                        details: `[LOG] ${l.description}`,
+                        type: l.type.toUpperCase(),
+                        amount: l.amount,
+                        isLog: true
+                    }))
+                ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                const eventTableBody = eventItems.map(item => [
+                    format(new Date(item.date), 'MMM dd, yyyy'),
+                    item.account,
+                    item.details,
+                    item.type,
+                    item.amount.toLocaleString('en-IN')
+                ]);
+
+                autoTable(doc, {
+                    head: [['Date', 'Account/Source', 'Details', 'Type', 'Amount (INR)']],
+                    body: eventTableBody,
+                    startY: tableStartY,
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [44, 44, 44] },
+                    didParseCell: (cellData) => {
+                        if (cellData.section === 'body') {
+                            const rowIndex = cellData.row.index;
+                            const item = eventItems[rowIndex];
+                            const type = item.type;
+
+                            // Color coding
+                            if (type === 'EXPENSE') {
+                                cellData.cell.styles.textColor = [153, 27, 27];
+                            } else if (type === 'INCOME') {
+                                cellData.cell.styles.textColor = [22, 101, 52];
+                            }
+
+                            // Bold for logs
+                            if (item.isLog) {
+                                cellData.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 25 },
+                        1: { cellWidth: 30 },
+                        2: { cellWidth: 'auto' },
+                        3: { cellWidth: 20 },
+                        4: { cellWidth: 25, halign: 'right' },
+                    }
+                });
+
+                // @ts-ignore
+                tableStartY = doc.lastAutoTable.finalY;
+
+                // Event Summary
+                const eventSum = [
+                    ...groupedEvents[eventId].trans,
+                    ...groupedEvents[eventId].logs
+                ].reduce((sum, item) => {
+                    if (item.type === 'income') return sum + item.amount;
+                    if (item.type === 'expense') return sum - item.amount;
+                    return sum;
+                }, 0);
+
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Net for ${eventName}:`, 14, tableStartY + 7);
+                doc.text(`INR ${eventSum.toLocaleString('en-IN')}`, 196, tableStartY + 7, { align: 'right' });
+
+                tableStartY += 20;
+                doc.setFont('helvetica', 'normal');
+            });
+        }
     }
 
     doc.save(`${data.title.replace(/\s+/g, '_')}_${data.period}.pdf`);

@@ -11,21 +11,26 @@ export function ReportTransactions() {
     const { transactions, accounts, events, categories, eventLogs } = useFinanceStore();
 
     // Get filter state from navigation
-    const { start, end, title, filter, selectedAccountId: initialAccountId } = (location.state as {
+    const { start, end, title, filter, selectedAccountId: initialAccountId, selectedCategory: initialCategory, selectedEventId: initialEventId } = (location.state as {
         start: Date;
         end: Date;
         title: string;
         filter: 'all' | 'manual' | 'core' | 'transfer' | 'mandate';
         selectedAccountId?: string;
+        selectedCategory?: string;
+        selectedEventId?: string;
     }) || {
         start: new Date(),
         end: new Date(),
         title: 'Transactions',
         filter: 'all',
-        selectedAccountId: 'all'
+        selectedAccountId: 'all',
+        selectedCategory: 'all',
+        selectedEventId: 'all'
     };
 
-    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || 'all');
+    const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId || 'all');
     const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || 'all');
     const [customStart, setCustomStart] = useState<string>(format(new Date(start), 'yyyy-MM-dd'));
     const [customEnd, setCustomEnd] = useState<string>(format(new Date(end), 'yyyy-MM-dd'));
@@ -51,10 +56,14 @@ export function ReportTransactions() {
             })) return false;
 
             // Event filter
+            // Event filter
             if (t.eventId) {
                 const event = events.find(e => e.id === t.eventId);
                 if (event?.includeInReports === false) return false;
             }
+
+            // Event filter
+            if (selectedEventId !== 'all' && t.eventId !== selectedEventId) return false;
 
             // Category filter
             if (selectedCategory !== 'all' && t.category !== selectedCategory) return false;
@@ -85,6 +94,9 @@ export function ReportTransactions() {
             const event = events.find(e => e.id === l.eventId);
             if (event?.includeInReports === false) return false;
 
+            // Event filter
+            if (selectedEventId !== 'all' && l.eventId !== selectedEventId) return false;
+
             // Logs are always 'manual' style for reports
             if (filter === 'core' || filter === 'transfer' || filter === 'mandate') return false;
 
@@ -111,7 +123,7 @@ export function ReportTransactions() {
         ];
 
         return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, eventLogs, accounts, customStart, customEnd, filter, selectedCategory, selectedAccountId]);
+    }, [transactions, eventLogs, accounts, customStart, customEnd, filter, selectedCategory, selectedAccountId, selectedEventId]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -177,6 +189,20 @@ export function ReportTransactions() {
                 </div>
 
                 <div className="flex flex-col space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Event</label>
+                    <select
+                        value={selectedEventId}
+                        onChange={(e) => setSelectedEventId(e.target.value)}
+                        className="w-full p-2 text-xs bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                        <option value="all">All Events</option>
+                        {events.map(ev => (
+                            <option key={ev.id} value={ev.id}>{ev.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex flex-col space-y-2">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Account</label>
                     <select
                         value={selectedAccountId}
@@ -223,7 +249,7 @@ export function ReportTransactions() {
                                             <div className="flex items-center text-[10px] text-gray-500 space-x-1 mt-0.5">
                                                 <span>{format(new Date(l.date), 'MMM dd')}</span>
                                                 <span>•</span>
-                                                <span className="truncate max-w-[80px]">{event?.name || 'Manual Log'}</span>
+                                                <span className="truncate max-w-[80px]">{event?.name || 'Independent'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -253,13 +279,18 @@ export function ReportTransactions() {
                                     </div>
                                     <div className="min-w-0">
                                         <p className="font-semibold text-gray-900 text-sm truncate">
-                                            {t.eventId
-                                                ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
-                                                : (t.note || t.category)
-                                            }
+                                            {t.note || t.category}
                                         </p>
                                         <div className="flex items-center text-[10px] text-gray-500 space-x-1 mt-0.5">
                                             <span>{format(new Date(t.date), 'MMM dd')}</span>
+                                            {t.eventId && (
+                                                <>
+                                                    <span>•</span>
+                                                    <span className="truncate max-w-[80px]">
+                                                        {events.find(e => e.id === t.eventId)?.name || 'Event'}
+                                                    </span>
+                                                </>
+                                            )}
                                             <span>•</span>
                                             <span className="truncate max-w-[80px]">{t.category}</span>
                                             <span>•</span>

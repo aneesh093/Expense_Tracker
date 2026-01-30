@@ -52,7 +52,7 @@ export function MobileLayout() {
                         }
                     >
                         <Calendar size={24} />
-                        <span className="text-[10px] font-medium">Events</span>
+                        <span className="text-[10px] font-medium">Event/Log</span>
                     </NavLink>
 
 

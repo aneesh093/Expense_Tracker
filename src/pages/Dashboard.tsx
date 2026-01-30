@@ -204,13 +204,20 @@ export function Dashboard() {
                                             <p className="font-semibold text-gray-900 text-sm">
                                                 {isTransfer
                                                     ? `Transfer: ${fromAccount?.name || 'Unknown'} -> ${toAccount?.name || 'Unknown'}`
-                                                    : (t.eventId
-                                                        ? (events.find(e => e.id === t.eventId)?.name || t.note || t.category)
-                                                        : (t.note || t.category)
-                                                    )
+                                                    : (t.note || t.category)
                                                 }
                                             </p>
-                                            <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
+                                            <div className="flex items-center text-[10px] text-gray-500 space-x-1 mt-0.5">
+                                                <span>{format(new Date(t.date), 'MMM dd, h:mm a')}</span>
+                                                {t.eventId && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="truncate max-w-[100px]">
+                                                            {events.find(e => e.id === t.eventId)?.name || 'Event'}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <span className={cn("font-bold text-sm",

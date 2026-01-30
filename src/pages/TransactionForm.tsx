@@ -304,7 +304,7 @@ export function TransactionForm() {
 
                 {/* Event Select */}
                 <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
-                    <span className="text-gray-500 text-sm font-medium">Event</span>
+                    <span className="text-gray-500 text-sm font-medium">Event/Log</span>
                     <div className="relative">
                         <select
                             value={selectedEventId}
