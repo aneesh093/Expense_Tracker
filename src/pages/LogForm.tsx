@@ -31,7 +31,7 @@ export function LogForm() {
             if (log) {
                 setAmount(log.amount.toString());
                 setType(log.type);
-                setSelectedEventId(log.eventId);
+                setSelectedEventId(log.eventId || '');
                 setDescription(log.description);
                 setDate(log.date.split('T')[0]);
                 setIsEditing(true);
@@ -43,14 +43,10 @@ export function LogForm() {
         e.preventDefault();
         const value = parseFloat(amount);
         if (value <= 0) return;
-        if (!selectedEventId) {
-            alert("Please select an event for this log.");
-            return;
-        }
 
         const logData: EventLog = {
             id: isEditing && id ? id : generateId(),
-            eventId: selectedEventId,
+            eventId: selectedEventId || undefined,
             amount: value,
             type,
             description,
@@ -140,14 +136,13 @@ export function LogForm() {
 
                     {/* Event Select */}
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-500 uppercase tracking-wider">Event</label>
+                        <label className="text-sm font-bold text-gray-500 uppercase tracking-wider">Event/Log</label>
                         <select
                             value={selectedEventId}
                             onChange={(e) => setSelectedEventId(e.target.value)}
                             className="w-full px-4 py-4 bg-gray-50 border-none rounded-xl font-medium focus:ring-2 focus:ring-blue-500/20"
-                            required
                         >
-                            <option value="">Select an Event</option>
+                            <option value="">Select an Event/Log</option>
                             {events.map(event => (
                                 <option key={event.id} value={event.id}>{event.icon} {event.name}</option>
                             ))}

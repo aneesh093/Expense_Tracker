@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog } from '../types';
+import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog, type EventPlan } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
@@ -13,6 +13,13 @@ interface FinanceState {
     auditTrails: AuditTrail[];
     investmentLogs: InvestmentLog[];
     eventLogs: EventLog[];
+    eventPlans: EventPlan[];
+    showEventsInReport: boolean;
+    showManualInReport: boolean;
+    pdfIncludeCharts: boolean;
+    pdfIncludeAccountSummary: boolean;
+    pdfIncludeTransactions: boolean;
+    pdfIncludeEventSummary: boolean;
 
     // Initialize store from IndexedDB
     initialize: () => Promise<void>;
@@ -23,6 +30,10 @@ interface FinanceState {
     addEventLog: (log: EventLog) => void;
     updateEventLog: (id: string, updates: Partial<EventLog>) => void;
     deleteEventLog: (id: string) => void;
+
+    addEventPlan: (plan: EventPlan) => void;
+    updateEventPlan: (id: string, updates: Partial<EventPlan>) => void;
+    deleteEventPlan: (id: string) => void;
 
     toggleBalanceHidden: () => void;
     setBalanceHidden: (hidden: boolean) => void;
@@ -50,7 +61,7 @@ interface FinanceState {
 
     getCreditCardStats: (accountId: string) => { unbilled: number; billed: number; totalDue: number };
 
-    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[] }) => void;
+    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[], eventPlans?: EventPlan[] }) => void;
 
     // Mandates
     mandates: Mandate[];
@@ -67,6 +78,15 @@ interface FinanceState {
     hiddenAccountTypes: string[];
     toggleAccountTypeVisibility: (type: AccountType, group?: 'banking' | 'investment') => void;
     isAccountTypeHidden: (type: AccountType, group?: 'banking' | 'investment') => boolean;
+
+    reportSortBy: 'date' | 'amount';
+    setReportSortBy: (sortBy: 'date' | 'amount') => void;
+    setShowEventsInReport: (show: boolean) => void;
+    setShowManualInReport: (show: boolean) => void;
+    setPdfIncludeCharts: (show: boolean) => void;
+    setPdfIncludeAccountSummary: (show: boolean) => void;
+    setPdfIncludeTransactions: (show: boolean) => void;
+    setPdfIncludeEventSummary: (show: boolean) => void;
 }
 
 export const useFinanceStore = create<FinanceState>()((set, get) => ({
@@ -78,10 +98,18 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     auditTrails: [],
     investmentLogs: [],
     eventLogs: [],
+    eventPlans: [],
     isInitialized: false,
     isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false', // Default to true if not set
     isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true', // Default to false
     hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
+    reportSortBy: (localStorage.getItem('finance-report-sort-by') as 'date' | 'amount') || 'date',
+    showEventsInReport: localStorage.getItem('finance-show-events-in-report') !== 'false',
+    showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
+    pdfIncludeCharts: localStorage.getItem('finance-pdf-include-charts') !== 'false',
+    pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
+    pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
+    pdfIncludeEventSummary: localStorage.getItem('finance-pdf-include-event-summary') !== 'false',
 
     isAccountTypeHidden: (type, group) => {
         const state = get();
@@ -114,7 +142,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await migrateFromLocalStorage();
 
             // Load all data from IndexedDB
-            const [accounts, transactions, categories, events, mandates, auditTrails, investmentLogs, eventLogs] = await Promise.all([
+            const [accounts, transactions, categories, events, mandates, auditTrails, investmentLogs, eventLogs, eventPlans] = await Promise.all([
                 dbHelpers.getAllAccounts(),
                 dbHelpers.getAllTransactions(),
                 dbHelpers.getAllCategories(),
@@ -122,7 +150,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 dbHelpers.getAllMandates(),
                 dbHelpers.getAllAuditTrails(),
                 dbHelpers.getInvestmentLogs(),
-                dbHelpers.getAllEventLogs()
+                dbHelpers.getAllEventLogs(),
+                dbHelpers.getAllEventPlans()
             ]);
 
             set({
@@ -134,9 +163,11 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 auditTrails,
                 investmentLogs,
                 eventLogs,
+                eventPlans,
                 isInitialized: true,
                 isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false',
-                isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true'
+                isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true',
+                reportSortBy: (localStorage.getItem('finance-report-sort-by') as 'date' | 'amount') || 'date'
             });
 
             console.log('Store initialized from IndexedDB');
@@ -758,5 +789,57 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     deleteEventLog: (id) => {
         set((state) => ({ eventLogs: state.eventLogs.filter((log) => log.id !== id) }));
         dbHelpers.deleteEventLog(id).catch(console.error);
-    }
+    },
+
+    addEventPlan: (plan) => {
+        set((state) => ({ eventPlans: [plan, ...state.eventPlans] }));
+        dbHelpers.addEventPlan(plan).catch(console.error);
+    },
+
+    updateEventPlan: (id, updates) => {
+        set((state) => ({
+            eventPlans: state.eventPlans.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+        }));
+        dbHelpers.updateEventPlan(id, updates).catch(console.error);
+    },
+
+    deleteEventPlan: (id) => {
+        set((state) => ({ eventPlans: state.eventPlans.filter((p) => p.id !== id) }));
+        dbHelpers.deleteEventPlan(id).catch(console.error);
+    },
+
+    setReportSortBy: (sortBy) => {
+        localStorage.setItem('finance-report-sort-by', sortBy);
+        set({ reportSortBy: sortBy });
+    },
+
+    setShowEventsInReport: (show) => {
+        localStorage.setItem('finance-show-events-in-report', String(show));
+        set({ showEventsInReport: show });
+    },
+
+    setShowManualInReport: (show) => {
+        localStorage.setItem('finance-show-manual-in-report', String(show));
+        set({ showManualInReport: show });
+    },
+
+    setPdfIncludeCharts: (show) => {
+        localStorage.setItem('finance-pdf-include-charts', String(show));
+        set({ pdfIncludeCharts: show });
+    },
+
+    setPdfIncludeAccountSummary: (show) => {
+        localStorage.setItem('finance-pdf-include-account-summary', String(show));
+        set({ pdfIncludeAccountSummary: show });
+    },
+
+    setPdfIncludeTransactions: (show) => {
+        localStorage.setItem('finance-pdf-include-transactions', String(show));
+        set({ pdfIncludeTransactions: show });
+    },
+
+    setPdfIncludeEventSummary: (show) => {
+        localStorage.setItem('finance-pdf-include-event-summary', String(show));
+        set({ pdfIncludeEventSummary: show });
+    },
 }));

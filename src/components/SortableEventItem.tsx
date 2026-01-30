@@ -10,6 +10,7 @@ interface EventWithStats extends Event {
     transactionCount: number;
     totalExpense: number;
     totalIncome: number;
+    totalPlanned: number;
     netAmount: number;
 }
 
@@ -76,8 +77,15 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
 
                 {/* Amount and Menu */}
                 <div className="flex items-center space-x-3 ml-2">
-                    <div className={cn("text-sm font-bold", event.netAmount >= 0 ? "text-green-600" : "text-red-600")}>
-                        {formatCurrency(event.netAmount)}
+                    <div className="flex flex-col items-end">
+                        <div className={cn("text-sm font-bold", event.netAmount >= 0 ? "text-green-600" : "text-red-600")}>
+                            {formatCurrency(event.netAmount)}
+                        </div>
+                        {event.totalPlanned > 0 && (
+                            <div className="text-[10px] text-gray-400 font-medium">
+                                Plan: {formatCurrency(event.totalPlanned)}
+                            </div>
+                        )}
                     </div>
 
                     {/* More Menu */}
@@ -102,6 +110,28 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
                                     }}
                                 />
                                 <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/logs/new?eventId=${event.id}`);
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs text-orange-600 hover:bg-orange-50 flex items-center gap-2 border-b border-gray-50"
+                                    >
+                                        <Calendar size={12} className="text-orange-500" />
+                                        Add Log
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/plans/new?eventId=${event.id}`);
+                                            setIsMenuOpen(false);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 border-b border-gray-50"
+                                    >
+                                        <Calendar size={12} className="text-indigo-500" />
+                                        Add Plan
+                                    </button>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();

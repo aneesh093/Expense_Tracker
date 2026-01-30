@@ -31,7 +31,7 @@ export function Settings() {
                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                                     <Clock size={20} />
                                 </div>
-                                <span className="text-sm font-semibold text-gray-800">Manage Events</span>
+                                <span className="text-sm font-semibold text-gray-800">Manage Event/Log</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
@@ -95,10 +95,20 @@ export function Settings() {
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
+                        <button
+                            onClick={() => navigate('/settings/reports')}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                    <Layers size={20} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">Report Settings</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                        </button>
                     </div>
                 </section>
-
-
             </div>
         </div>
     );

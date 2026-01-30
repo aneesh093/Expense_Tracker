@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { Event } from '../types';
 
-const EVENT_ICONS = ['✈️', '🎉', '🏖️', '🎓', '💼', '🏥', '🏠', '🎂', '🎄', '🎊', '🚗', '🍽️'];
+const EVENT_ICONS = ['🏠', '🏢', '💼', '✈️', '🎉', '💳', '🏦', '🤝'];
 const EVENT_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
 export function EventForm() {
@@ -41,7 +41,7 @@ export function EventForm() {
         e.preventDefault();
 
         if (!formData.name.trim()) {
-            alert('Please enter an event name');
+            alert('Please enter an event/log name');
             return;
         }
 
@@ -75,7 +75,7 @@ export function EventForm() {
                     <ArrowLeft size={24} />
                 </button>
                 <h1 className="ml-2 text-xl font-bold text-gray-900">
-                    {isEditing ? 'Edit Event' : 'New Event'}
+                    {isEditing ? 'Edit Event/Log' : 'New Event/Log'}
                 </h1>
             </header>
 
@@ -84,7 +84,7 @@ export function EventForm() {
                 {/* Name */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Event Name *
+                        Event/Log Name *
                     </label>
                     <input
                         type="text"
@@ -150,8 +150,8 @@ export function EventForm() {
                                 type="button"
                                 onClick={() => setFormData({ ...formData, icon })}
                                 className={`p-3 text-2xl rounded-xl border-2 transition-all ${formData.icon === icon
-                                        ? 'border-blue-500 bg-blue-50'
-                                        : 'border-gray-200 hover:border-gray-300'
+                                    ? 'border-blue-500 bg-blue-50'
+                                    : 'border-gray-200 hover:border-gray-300'
                                     }`}
                             >
                                 {icon}
@@ -172,8 +172,8 @@ export function EventForm() {
                                 type="button"
                                 onClick={() => setFormData({ ...formData, color })}
                                 className={`h-12 rounded-xl border-2 transition-all ${formData.color === color
-                                        ? 'border-gray-900 scale-105'
-                                        : 'border-gray-200'
+                                    ? 'border-gray-900 scale-105'
+                                    : 'border-gray-200'
                                     }`}
                                 style={{ backgroundColor: color }}
                             />

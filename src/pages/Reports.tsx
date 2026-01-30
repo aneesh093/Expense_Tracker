@@ -7,18 +7,22 @@ import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { generateReportPDF } from '../lib/pdfGenerator';
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#387908'];
+
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events, eventLogs } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showManualInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
 
     // Filter State
     const [showMandates, setShowMandates] = useState(false);
-    const [showEvents, setShowEvents] = useState(false);
+    // showEventsInReport is used from store
     const [showTransfers, setShowTransfers] = useState(false);
     const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
+    const [selectedCategoryName, setSelectedCategoryName] = useState<string>('all');
+    const [selectedEventId, setSelectedEventId] = useState<string>('all');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
     // Close filter menu when clicking outside
@@ -58,7 +62,6 @@ export function Reports() {
             if (t.eventId) {
                 const event = events.find(e => e.id === t.eventId);
                 if (event?.includeInReports === false) return false;
-                return true;
             }
 
             // Account basic inclusion logic
@@ -71,7 +74,17 @@ export function Reports() {
 
             // Specific account filter
             if (selectedAccountId !== 'all') {
-                return t.accountId === selectedAccountId || t.toAccountId === selectedAccountId;
+                if (!(t.accountId === selectedAccountId || t.toAccountId === selectedAccountId)) return false;
+            }
+
+            // Category filter
+            if (selectedCategoryName !== 'all') {
+                if (t.category !== selectedCategoryName) return false;
+            }
+
+            // Event filter
+            if (selectedEventId !== 'all') {
+                if (t.eventId !== selectedEventId) return false;
             }
 
             return true;
@@ -79,17 +92,27 @@ export function Reports() {
 
         return relevantTransactions
             .filter(t => isWithinInterval(new Date(t.date), { start: periodStart, end: periodEnd }))
-            .sort((a, b) => b.amount - a.amount);
-    }, [transactions, currentDate, accounts, viewMode, selectedAccountId, periodStart, periodEnd]);
+            .sort((a, b) => {
+                if (reportSortBy === 'date') {
+                    return new Date(a.date).getTime() - new Date(b.date).getTime();
+                }
+                return b.amount - a.amount;
+            });
+    }, [transactions, currentDate, accounts, viewMode, selectedAccountId, selectedCategoryName, selectedEventId, periodStart, periodEnd, reportSortBy, events]);
 
     // Filter event logs for current period
     const periodEventLogs = useMemo(() => {
+        if (selectedCategoryName !== 'all') return []; // Logs don't have categories
         return eventLogs.filter(l => {
             const event = events.find(e => e.id === l.eventId);
             if (event?.includeInReports === false) return false;
+
+            // Event filter
+            if (selectedEventId !== 'all' && l.eventId !== selectedEventId) return false;
+
             return isWithinInterval(new Date(l.date), { start: periodStart, end: periodEnd });
         });
-    }, [eventLogs, periodStart, periodEnd, events]);
+    }, [eventLogs, periodStart, periodEnd, events, selectedCategoryName, selectedEventId]);
 
     const isInvestment = (t: any) => {
         if (t.type !== 'transfer' || !t.toAccountId) return false;
@@ -130,61 +153,101 @@ export function Reports() {
         return transTotals;
     }, [periodTransactions, periodEventLogs, accounts]);
 
-    // Prepare chart data (Expense by Category) - Excluding manual
+    // Prepare chart data (Expense by Category or Account or Event) - Excluding manual
     const chartData = useMemo(() => {
-        const expenseMap = new Map<string, number>();
+        const itemMap = new Map<string, number>();
+        const isCategoryFiltered = selectedCategoryName !== 'all';
+        const isEventFiltered = selectedEventId !== 'all';
 
         periodTransactions
             .forEach(t => {
                 if (t.excludeFromBalance) return;
 
-                if (t.type === 'expense') {
-                    const current = expenseMap.get(t.category) || 0;
-                    expenseMap.set(t.category, current + t.amount);
-                } else if (isInvestment(t)) {
-                    const current = expenseMap.get('Investment') || 0;
-                    expenseMap.set('Investment', current + t.amount);
+                // Priority for key:
+                // 1. If category and event filtered -> Account
+                // 2. If only category filtered -> Account
+                // 3. If only event filtered -> Category
+                // 4. Neither -> Category
+                let key = t.category;
+                if (isCategoryFiltered) {
+                    key = accounts.find(a => a.id === t.accountId)?.name || 'Unknown';
+                } else if (isEventFiltered) {
+                    key = t.category;
+                }
+
+                if (t.type === 'expense' || t.type === 'income') {
+                    const current = itemMap.get(key) || 0;
+                    itemMap.set(key, current + t.amount);
+                } else if (!isCategoryFiltered && isInvestment(t)) {
+                    const current = itemMap.get('Investment') || 0;
+                    itemMap.set('Investment', current + t.amount);
                 }
             });
 
-        return Array.from(expenseMap.entries())
-            .map(([name, value]) => {
-                const category = categories.find(c => c.name === name);
-                return {
-                    name,
-                    value,
-                    color: name === 'Investment' ? '#8b5cf6' : (category?.color || '#9ca3af')
-                };
+        return Array.from(itemMap.entries())
+            .map(([name, value], index) => {
+                let color = COLORS[index % COLORS.length];
+                if (!isCategoryFiltered) {
+                    if (name === 'Investment') color = '#8b5cf6';
+                    else {
+                        const category = categories.find(c => c.name === name);
+                        if (category) color = category.color;
+                    }
+                } else {
+                    const account = accounts.find(a => a.name === name);
+                    if (account) color = account.color;
+                }
+
+                return { name, value, color };
             })
             .sort((a, b) => b.value - a.value);
-    }, [periodTransactions, categories]);
+    }, [periodTransactions, categories, selectedCategoryName, selectedEventId, accounts]);
 
     // Prepare manual chart data
     const manualChartData = useMemo(() => {
-        const manualMap = new Map<string, number>();
+        const itemMap = new Map<string, number>();
+        const isCategoryFiltered = selectedCategoryName !== 'all';
+        const isEventFiltered = selectedEventId !== 'all';
 
         periodTransactions
             .forEach(t => {
                 if (!t.excludeFromBalance) return;
 
-                const current = manualMap.get(t.category) || 0;
-                manualMap.set(t.category, current + t.amount);
+                let key = t.category;
+                if (isCategoryFiltered) {
+                    key = accounts.find(a => a.id === t.accountId)?.name || 'Unknown';
+                } else if (isEventFiltered) {
+                    key = t.category;
+                }
+
+                const current = itemMap.get(key) || 0;
+                itemMap.set(key, current + t.amount);
             });
 
-        return Array.from(manualMap.entries())
-            .map(([name, value]) => {
-                const category = categories.find(c => c.name === name);
-                return {
-                    name,
-                    value,
-                    color: category?.color || '#9ca3af'
-                };
+        return Array.from(itemMap.entries())
+            .map(([name, value], index) => {
+                let color = COLORS[index % COLORS.length];
+                if (!isCategoryFiltered) {
+                    const category = categories.find(c => c.name === name);
+                    if (category) color = category.color;
+                } else {
+                    const account = accounts.find(a => a.name === name);
+                    if (account) color = account.color;
+                }
+                return { name, value, color };
             })
             .sort((a, b) => b.value - a.value);
-    }, [periodTransactions, categories]);
+    }, [periodTransactions, categories, selectedCategoryName, selectedEventId, accounts]);
 
     const handleExportPDF = () => {
-        const reportTitle = viewMode === 'monthly' ? 'Monthly Financial Report' : 'Yearly Financial Report';
+        let reportTitle = viewMode === 'monthly' ? 'Monthly Financial Report' : 'Yearly Financial Report';
+        if (selectedEventId !== 'all') {
+            const event = events.find(e => e.id === selectedEventId);
+            if (event) reportTitle = `${event.name} - ${reportTitle}`;
+        }
+        if (selectedCategoryName !== 'all') {
+            reportTitle = `${selectedCategoryName} - ${reportTitle}`;
+        }
 
         // Calculate Opening Balances for each account
         // Opening Balance = Current Asset Balance - Net of transactions from periodStart to today
@@ -227,11 +290,18 @@ export function Reports() {
             transactions: periodTransactions,
             eventLogs: periodEventLogs,
             accounts: accounts.filter(a => a.includeInReports !== false),
+            allAccounts: accounts,
             categories,
             events: events.filter(e => e.includeInReports !== false),
             chartData,
             manualChartData,
-            openingBalances
+            openingBalances,
+            exportOptions: {
+                includeCharts: pdfIncludeCharts,
+                includeAccountSummary: pdfIncludeAccountSummary,
+                includeTransactions: pdfIncludeTransactions,
+                includeEventSummary: pdfIncludeEventSummary
+            }
         });
     };
 
@@ -242,7 +312,6 @@ export function Reports() {
         }).format(amount);
     };
 
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#387908'];
 
     const navigateToTransactions = (filter: 'all' | 'manual' | 'core' | 'transfer' | 'mandate' = 'all') => {
         navigate('/reports/transactions', {
@@ -251,7 +320,9 @@ export function Reports() {
                 end: periodEnd,
                 title: viewMode === 'monthly' ? format(currentDate, 'MMMM yyyy') : format(currentDate, 'yyyy'),
                 filter,
-                selectedAccountId: selectedAccountId
+                selectedAccountId: selectedAccountId,
+                selectedCategory: selectedCategoryName,
+                selectedEventId: selectedEventId
             }
         });
     };
@@ -319,15 +390,6 @@ export function Reports() {
                                     <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            checked={showEvents}
-                                            onChange={(e) => setShowEvents(e.target.checked)}
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Show Events</span>
-                                    </label>
-                                    <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                                        <input
-                                            type="checkbox"
                                             checked={showTransfers}
                                             onChange={(e) => setShowTransfers(e.target.checked)}
                                             className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
@@ -345,6 +407,34 @@ export function Reports() {
                                             <option value="all">All Accounts</option>
                                             {accounts.map(acc => (
                                                 <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="border-t border-gray-100 my-1 pt-1">
+                                        <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">Event</div>
+                                        <select
+                                            value={selectedEventId}
+                                            onChange={(e) => setSelectedEventId(e.target.value)}
+                                            className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                                        >
+                                            <option value="all">All Events</option>
+                                            {events.map(ev => (
+                                                <option key={ev.id} value={ev.id}>{ev.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="border-t border-gray-100 my-1 pt-1">
+                                        <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">Category</div>
+                                        <select
+                                            value={selectedCategoryName}
+                                            onChange={(e) => setSelectedCategoryName(e.target.value)}
+                                            className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                                        >
+                                            <option value="all">All Categories</option>
+                                            {Array.from(new Set(categories.map(c => c.name))).sort().map(name => (
+                                                <option key={name} value={name}>{name}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -401,7 +491,7 @@ export function Reports() {
                             </div>
                             <span className="text-base font-bold text-purple-600">{formatCurrency(totalInvestment)}</span>
                         </div>
-                        {manualTotalExpense > 0 && (
+                        {showManualInReport && manualTotalExpense > 0 && (
                             <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
                                 <div className="flex items-center space-x-3">
                                     <div className="p-2 bg-gray-50 text-gray-600 rounded-xl">
@@ -421,7 +511,13 @@ export function Reports() {
                     className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-gray-100 cursor-pointer active:scale-[0.99] transition-transform group"
                 >
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Expense Breakdown</h3>
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">
+                            {selectedCategoryName !== 'all'
+                                ? `${selectedCategoryName} Distribution`
+                                : (selectedEventId !== 'all'
+                                    ? `${events.find(e => e.id === selectedEventId)?.name || 'Event'} Breakdown`
+                                    : 'Expense Breakdown')}
+                        </h3>
                         <span className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
                             View Details →
                         </span>
@@ -465,8 +561,8 @@ export function Reports() {
                     )}
                 </div>
 
-                {/* Manual Expenses Breakdown (if any) */}
-                {manualChartData.length > 0 && (
+                {/* Manual Expenses Breakdown (if any and enabled) */}
+                {showManualInReport && manualChartData.length > 0 && (
                     <div
                         onClick={() => navigateToTransactions('manual')}
                         className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-gray-100 cursor-pointer active:scale-[0.99] transition-transform group"
@@ -512,10 +608,10 @@ export function Reports() {
                 )}
 
                 {/* Events Section */}
-                {showEvents && (
+                {showEventsInReport && (
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Events Performance</h3>
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Event/Log Performance</h3>
                             <button
                                 onClick={() => navigateToTransactions('all')}
                                 className="text-xs font-bold text-blue-600 hover:text-blue-800"
@@ -526,10 +622,12 @@ export function Reports() {
                         <div className="divide-y divide-gray-50">
                             {(() => {
                                 const eventMap = new Map<string, { income: number; expense: number; name: string }>();
+
+                                // Group Event Transactions
                                 periodTransactions.forEach(t => {
                                     if (t.eventId) {
                                         const event = events.find(e => e.id === t.eventId);
-                                        if (!event) return; // Skip orphaned events
+                                        if (!event) return;
 
                                         const stats = eventMap.get(t.eventId) || { income: 0, expense: 0, name: event.name };
                                         if (t.type === 'income') stats.income += t.amount;
@@ -538,26 +636,48 @@ export function Reports() {
                                     }
                                 });
 
+                                // Group Event Logs
+                                periodEventLogs.forEach(l => {
+                                    const key = l.eventId || 'standalone';
+                                    const name = l.eventId
+                                        ? (events.find(e => e.id === l.eventId)?.name || 'Unknown Event')
+                                        : 'Independent Logs';
+
+                                    const stats = eventMap.get(key) || { income: 0, expense: 0, name: name };
+                                    if (l.type === 'income') stats.income += l.amount;
+                                    if (l.type === 'expense') stats.expense += l.amount;
+                                    eventMap.set(key, stats);
+                                });
+
                                 if (eventMap.size === 0) {
-                                    return <div className="px-5 py-8 text-center text-gray-400 text-sm italic">No event transactions</div>;
+                                    return <div className="px-5 py-8 text-center text-gray-400 text-sm italic">No event or log entries</div>;
                                 }
 
-                                return Array.from(eventMap.entries()).map(([id, stats]) => (
-                                    <div key={id} className="flex items-center justify-between px-5 py-4">
-                                        <div className="flex flex-col">
-                                            <span className={cn("text-sm font-semibold", stats.name === 'Unknown Event' ? "text-red-500" : "text-gray-800")}>
-                                                {stats.name}
-                                            </span>
-                                            <div className="flex space-x-2 text-[10px] font-medium">
-                                                <span className="text-green-600">In: {formatCurrency(stats.income)}</span>
-                                                <span className="text-red-500">Out: {formatCurrency(stats.expense)}</span>
+                                return Array.from(eventMap.entries())
+                                    .sort((a, b) => {
+                                        if (a[0] === 'standalone') return 1;
+                                        if (b[0] === 'standalone') return -1;
+                                        return b[1].income + b[1].expense - (a[1].income + a[1].expense);
+                                    })
+                                    .map(([id, stats]) => (
+                                        <div key={id} className="flex items-center justify-between px-5 py-4">
+                                            <div className="flex flex-col">
+                                                <span className={cn(
+                                                    "text-sm font-semibold",
+                                                    id === 'standalone' ? "text-orange-600" : (stats.name === 'Unknown Event' ? "text-red-500" : "text-gray-800")
+                                                )}>
+                                                    {stats.name}
+                                                </span>
+                                                <div className="flex space-x-2 text-[10px] font-medium">
+                                                    <span className="text-green-600">In: {formatCurrency(stats.income)}</span>
+                                                    <span className="text-red-500">Out: {formatCurrency(stats.expense)}</span>
+                                                </div>
                                             </div>
+                                            <span className={cn("text-sm font-bold", (stats.income - stats.expense) >= 0 ? "text-green-600" : "text-red-600")}>
+                                                {formatCurrency(stats.income - stats.expense)}
+                                            </span>
                                         </div>
-                                        <span className={cn("text-sm font-bold", (stats.income - stats.expense) >= 0 ? "text-green-600" : "text-red-600")}>
-                                            {formatCurrency(stats.income - stats.expense)}
-                                        </span>
-                                    </div>
-                                ));
+                                    ));
                             })()}
                         </div>
                     </div>

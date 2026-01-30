@@ -13,8 +13,10 @@ import { Events } from './pages/Events';
 import { EventDetails } from './pages/EventDetails';
 import { EventForm } from './pages/EventForm';
 import { LogForm } from './pages/LogForm';
+import { PlanForm } from './pages/PlanForm';
 import { ReportSources } from './pages/ReportSources';
 import { Settings } from './pages/Settings';
+import { ReportSettings } from './pages/ReportSettings';
 import { AuditTrail } from './pages/AuditTrail';
 import { Categories } from './pages/Categories';
 import { Mandates } from './pages/Mandates';
@@ -60,11 +62,14 @@ function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/reports/transactions" element={<ReportTransactions />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/reports" element={<ReportSettings />} />
           <Route path="/settings/audit-trail" element={<AuditTrail />} />
           <Route path="/mandates" element={<Mandates />} />
           <Route path="/settings/backup" element={<BackupConfiguration />} />
           <Route path="/logs/new" element={<LogForm />} />
           <Route path="/logs/edit/:id" element={<LogForm />} />
+          <Route path="/plans/new" element={<PlanForm />} />
+          <Route path="/plans/edit/:id" element={<PlanForm />} />
           <Route path="/settings/report-sources" element={<ReportSources />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="*" element={<Navigate to="/" replace />} />
