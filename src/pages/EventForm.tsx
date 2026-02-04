@@ -21,7 +21,10 @@ export function EventForm() {
         startDate: new Date().toISOString().split('T')[0],
         endDate: '',
         color: EVENT_COLORS[0],
-        icon: EVENT_ICONS[0]
+        icon: EVENT_ICONS[0],
+        showLogs: true,
+        showTransactions: true,
+        showPlans: true
     });
 
     useEffect(() => {
@@ -32,7 +35,10 @@ export function EventForm() {
                 startDate: existingEvent.startDate.split('T')[0],
                 endDate: existingEvent.endDate ? existingEvent.endDate.split('T')[0] : '',
                 color: existingEvent.color,
-                icon: existingEvent.icon
+                icon: existingEvent.icon,
+                showLogs: existingEvent.showLogs ?? true,
+                showTransactions: existingEvent.showTransactions ?? true,
+                showPlans: existingEvent.showPlans ?? true
             });
         }
     }, [existingEvent]);
@@ -52,7 +58,10 @@ export function EventForm() {
             startDate: new Date(formData.startDate).toISOString(),
             endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
             color: formData.color,
-            icon: formData.icon
+            icon: formData.icon,
+            showLogs: formData.showLogs,
+            showTransactions: formData.showTransactions,
+            showPlans: formData.showPlans
         };
 
         if (isEditing) {
@@ -178,6 +187,42 @@ export function EventForm() {
                                 style={{ backgroundColor: color }}
                             />
                         ))}
+                    </div>
+                </div>
+
+                {/* Section Visibility */}
+                <div className="space-y-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <label className="block text-sm font-bold text-gray-900">
+                        Enable Sections
+                    </label>
+                    <div className="grid grid-cols-1 gap-3">
+                        <label className="flex items-center space-x-3 cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                checked={formData.showTransactions}
+                                onChange={(e) => setFormData({ ...formData, showTransactions: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700 group-active:text-blue-600 transition-colors">Actual Transactions</span>
+                        </label>
+                        <label className="flex items-center space-x-3 cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                checked={formData.showLogs}
+                                onChange={(e) => setFormData({ ...formData, showLogs: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700 group-active:text-blue-600 transition-colors">Custom/Offline Logs</span>
+                        </label>
+                        <label className="flex items-center space-x-3 cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                checked={formData.showPlans}
+                                onChange={(e) => setFormData({ ...formData, showPlans: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm font-medium text-gray-700 group-active:text-blue-600 transition-colors">Trip/Event Plans</span>
+                        </label>
                     </div>
                 </div>
 

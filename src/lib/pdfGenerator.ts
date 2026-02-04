@@ -12,6 +12,7 @@ interface ReportData {
     manualTotalExpense?: number;
     totalTransferIn?: number;
     totalTransferOut?: number;
+    totalCreditCardPayment?: number;
     transactions: Transaction[];
     eventLogs: EventLog[];
     accounts: Account[];
@@ -123,6 +124,35 @@ export const generateReportPDF = (data: ReportData) => {
 
     let summaryEndY = startY + boxHeight + 5;
 
+    // Second Row for Manual Expenses & Credit Card Payments (if applicable)
+    if ((data.manualTotalExpense && data.manualTotalExpense > 0) || (data.totalCreditCardPayment && data.totalCreditCardPayment > 0)) {
+        const secondRowY = summaryEndY;
+
+        // Manual Expenses
+        if (data.manualTotalExpense && data.manualTotalExpense > 0) {
+            doc.setFillColor(243, 244, 246);
+            doc.rect(14, secondRowY, boxWidth, boxHeight, 'F');
+            doc.setTextColor(55, 65, 81);
+            doc.setFontSize(9);
+            doc.text('Manual Expense', 20, secondRowY + 7);
+            doc.setFontSize(12);
+            doc.text(`INR ${data.manualTotalExpense.toLocaleString('en-IN')}`, 20, secondRowY + 16);
+        }
+
+        // Credit Card Payments
+        if (data.totalCreditCardPayment && data.totalCreditCardPayment > 0) {
+            doc.setFillColor(238, 242, 255);
+            doc.rect(77, secondRowY, boxWidth, boxHeight, 'F');
+            doc.setTextColor(67, 56, 202);
+            doc.setFontSize(9);
+            doc.text('Credit Card Payments', 83, secondRowY + 7);
+            doc.setFontSize(12);
+            doc.text(`INR ${data.totalCreditCardPayment.toLocaleString('en-IN')}`, 83, secondRowY + 16);
+        }
+
+        summaryEndY = secondRowY + boxHeight + 5;
+    }
+
     // Core chart
     let currentY = summaryEndY + 10;
     if (data.exportOptions?.includeCharts !== false && data.chartData && data.chartData.length > 0) {
@@ -144,82 +174,106 @@ export const generateReportPDF = (data: ReportData) => {
         doc.text('Account Summary', 14, currentY);
         currentY += 10;
 
-        const accountSummaryBody = data.accounts.map(acc => {
-            // Calculate totals for this account for the period
-            const accTransactions = data.transactions.filter(t =>
-                !t.excludeFromBalance && (t.accountId === acc.id || t.toAccountId === acc.id)
-            );
+        const groups = ['banking', 'investment'] as const;
+        groups.forEach(groupName => {
+            const groupAccounts = data.accounts.filter(acc => {
+                if (acc.group) return acc.group === groupName;
+                const isInvestmentType = ['stock', 'mutual-fund', 'land', 'insurance'].includes(acc.type);
+                const derivedGroup = isInvestmentType ? 'investment' : 'banking';
+                return derivedGroup === groupName;
+            });
 
-            const initialAmount = data.openingBalances[acc.id] || 0;
-            const income = accTransactions.reduce((sum, t) => t.accountId === acc.id && t.type === 'income' ? sum + t.amount : sum, 0);
-            const expense = accTransactions.reduce((sum, t) => t.accountId === acc.id && t.type === 'expense' ? sum + t.amount : sum, 0);
+            if (groupAccounts.length === 0) return;
 
-            // Net calculation including transfers
-            const netTransfers = accTransactions.reduce((sum, t) => {
-                if (t.type === 'transfer') {
-                    if (t.accountId === acc.id) return sum - t.amount;
-                    if (t.toAccountId === acc.id) return sum + t.amount;
-                }
-                return sum;
-            }, 0);
-
-            const net = accTransactions.reduce((sum, t) => {
-                if (t.type === 'income' && t.accountId === acc.id) return sum + t.amount;
-                if (t.type === 'expense' && t.accountId === acc.id) return sum - t.amount;
-                return sum;
-            }, netTransfers);
-
-            return [
-                acc.name,
-                initialAmount.toLocaleString('en-IN'),
-                income > 0 ? income.toLocaleString('en-IN') : '-',
-                expense > 0 ? expense.toLocaleString('en-IN') : '-',
-                { content: netTransfers !== 0 ? netTransfers.toLocaleString('en-IN') : '-', styles: { textColor: [67, 56, 202] } as any },
-                { content: net.toLocaleString('en-IN'), styles: { textColor: net >= 0 ? [22, 101, 52] : [153, 27, 27], fontStyle: 'bold' } as any }
-            ];
-        });
-
-        // Add Total Row
-        const totalInitialSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[1] === 'string' ? parseFloat(row[1].replace(/,/g, '')) : 0), 0);
-        const totalIncomeSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[2] === 'string' && row[2] !== '-' ? parseFloat(row[2].replace(/,/g, '')) : 0), 0);
-        const totalExpenseSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[3] === 'string' && row[3] !== '-' ? parseFloat(row[3].replace(/,/g, '')) : 0), 0);
-        const totalTransfersSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[4] === 'object' && row[4].content !== '-' ? parseFloat(row[4].content.replace(/,/g, '')) : 0), 0);
-        const totalNetSummary = accountSummaryBody.reduce((sum, row) => sum + (typeof row[5] === 'object' ? parseFloat(row[5].content.replace(/,/g, '')) : 0), 0);
-
-        accountSummaryBody.push([
-            { content: 'TOTAL', styles: { fontStyle: 'bold' } as any },
-            { content: totalInitialSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
-            { content: totalIncomeSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
-            { content: totalExpenseSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
-            { content: totalTransfersSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold', textColor: [67, 56, 202] } as any },
-            { content: totalNetSummary.toLocaleString('en-IN'), styles: { fontStyle: 'bold', textColor: totalNetSummary >= 0 ? [22, 101, 52] : [153, 27, 27] } as any }
-        ]);
-
-        autoTable(doc, {
-            head: [['Account', 'Initial Amount', 'Income', 'Expense', 'Transfers', 'Net Change']],
-            body: accountSummaryBody as any,
-            startY: currentY,
-            theme: 'grid',
-            styles: { fontSize: 9 },
-            headStyles: { fillColor: [55, 65, 81] },
-            columnStyles: {
-                0: { cellWidth: 40 },
-                1: { cellWidth: 30, halign: 'right' },
-                2: { cellWidth: 25, halign: 'right' },
-                3: { cellWidth: 25, halign: 'right' },
-                4: { cellWidth: 30, halign: 'right' },
-                5: { cellWidth: 30, halign: 'right' },
+            if (currentY > 240) {
+                doc.addPage();
+                currentY = 20;
             }
-        });
 
-        // @ts-ignore
-        currentY = doc.lastAutoTable.finalY + 10;
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(55, 65, 81);
+            doc.text(`${groupName.charAt(0).toUpperCase() + groupName.slice(1)} Summary`, 14, currentY);
+            currentY += 5;
+
+            const groupSummaryBody = groupAccounts.map(acc => {
+                const accTransactions = data.transactions.filter(t =>
+                    !t.excludeFromBalance && (t.accountId === acc.id || t.toAccountId === acc.id)
+                );
+
+                const initialAmount = data.openingBalances[acc.id] || 0;
+                const income = accTransactions.reduce((sum, t) => t.accountId === acc.id && t.type === 'income' ? sum + t.amount : sum, 0);
+                const expense = accTransactions.reduce((sum, t) => t.accountId === acc.id && t.type === 'expense' ? sum + t.amount : sum, 0);
+                const transfers = accTransactions.reduce((sum, t) => {
+                    if (t.type === 'transfer') {
+                        if (t.accountId === acc.id) return sum - t.amount;
+                        if (t.toAccountId === acc.id) return sum + t.amount;
+                    }
+                    return sum;
+                }, 0);
+
+                const balance = initialAmount + income - expense + transfers;
+
+                return [
+                    acc.name,
+                    initialAmount.toLocaleString('en-IN'),
+                    income > 0 ? income.toLocaleString('en-IN') : '-',
+                    expense > 0 ? expense.toLocaleString('en-IN') : '-',
+                    { content: transfers !== 0 ? transfers.toLocaleString('en-IN') : '-', styles: { textColor: [67, 56, 202] } as any },
+                    { content: balance.toLocaleString('en-IN'), styles: { textColor: balance >= 0 ? [22, 101, 52] : [153, 27, 27], fontStyle: 'bold' } as any }
+                ];
+            });
+
+            // Add Total Row for Group
+            const totalInitial = groupSummaryBody.reduce((sum, row) => sum + (typeof row[1] === 'string' ? parseFloat(row[1].replace(/,/g, '')) : 0), 0);
+            const totalIncome = groupSummaryBody.reduce((sum, row) => sum + (typeof row[2] === 'string' && row[2] !== '-' ? parseFloat(row[2].replace(/,/g, '')) : 0), 0);
+            const totalExpense = groupSummaryBody.reduce((sum, row) => sum + (typeof row[3] === 'string' && row[3] !== '-' ? parseFloat(row[3].replace(/,/g, '')) : 0), 0);
+            const totalTransfers = groupSummaryBody.reduce((sum, row) => sum + (typeof row[4] === 'object' && row[4].content !== '-' ? parseFloat(row[4].content.replace(/,/g, '')) : 0), 0);
+            const totalBalance = groupSummaryBody.reduce((sum, row) => sum + (typeof row[5] === 'object' ? parseFloat(row[5].content.replace(/,/g, '')) : 0), 0);
+
+            groupSummaryBody.push([
+                { content: 'TOTAL', styles: { fontStyle: 'bold' } as any },
+                { content: totalInitial.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
+                { content: totalIncome.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
+                { content: totalExpense.toLocaleString('en-IN'), styles: { fontStyle: 'bold' } as any },
+                { content: totalTransfers.toLocaleString('en-IN'), styles: { fontStyle: 'bold', textColor: [67, 56, 202] } as any },
+                { content: totalBalance.toLocaleString('en-IN'), styles: { fontStyle: 'bold', textColor: totalBalance >= 0 ? [22, 101, 52] : [153, 27, 27] } as any }
+            ]);
+
+            autoTable(doc, {
+                head: [['Account', 'Initial Amount', 'Income', 'Expense', 'Transfer', 'Balance']],
+                body: groupSummaryBody as any,
+                startY: currentY,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [55, 65, 81] },
+                columnStyles: {
+                    0: { cellWidth: 40 },
+                    1: { cellWidth: 30, halign: 'right' },
+                    2: { cellWidth: 25, halign: 'right' },
+                    3: { cellWidth: 25, halign: 'right' },
+                    4: { cellWidth: 30, halign: 'right' },
+                    5: { cellWidth: 30, halign: 'right' },
+                }
+            });
+
+            // @ts-ignore
+            currentY = doc.lastAutoTable.finalY + 10;
+        });
     }
 
     // Event Performance Summary (Independent Section)
     if (data.exportOptions?.includeEventSummary !== false) {
-        const eventTransactions = data.transactions.filter(t => t.eventId && data.events.some(e => e.id === t.eventId));
-        const eventManualLogs = data.eventLogs.filter(l => !l.eventId || data.events.some(e => e.id === l.eventId));
+        const eventTransactions = data.transactions.filter(t => {
+            if (!t.eventId) return false;
+            const event = data.events.find(e => e.id === t.eventId);
+            return event && event.showTransactions !== false;
+        });
+        const eventManualLogs = data.eventLogs.filter(l => {
+            if (!l.eventId) return true;
+            const event = data.events.find(e => e.id === l.eventId);
+            return event && event.showLogs !== false;
+        });
 
         if (eventTransactions.length > 0 || eventManualLogs.length > 0) {
             // Group everything by eventId
@@ -394,6 +448,7 @@ export const generateReportPDF = (data: ReportData) => {
     // Sort accounts by type priority
     const typePriority: Record<string, number> = {
         'savings': 1,
+        'online-wallet': 1,
         'fixed-deposit': 1,
         'other-banking': 1,
         'credit': 2,
@@ -586,8 +641,16 @@ export const generateReportPDF = (data: ReportData) => {
 
     // Event/Log Breakdown Details (After Account Transactions)
     if (data.exportOptions?.includeTransactions) {
-        const eventTransactions = data.transactions.filter(t => t.eventId && data.events.some(e => e.id === t.eventId));
-        const eventManualLogs = data.eventLogs.filter(l => !l.eventId || data.events.some(e => e.id === l.eventId));
+        const eventTransactions = data.transactions.filter(t => {
+            if (!t.eventId) return false;
+            const event = data.events.find(e => e.id === t.eventId);
+            return event && event.showTransactions !== false;
+        });
+        const eventManualLogs = data.eventLogs.filter(l => {
+            if (!l.eventId) return true;
+            const event = data.events.find(e => e.id === l.eventId);
+            return event && event.showLogs !== false;
+        });
 
         if (eventTransactions.length > 0 || eventManualLogs.length > 0) {
             // Group everything by eventId

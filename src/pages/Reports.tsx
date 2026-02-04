@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths, startOfYear, endOfYear, addYears, subYears } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, Filter, CreditCard } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { generateReportPDF } from '../lib/pdfGenerator';
@@ -11,7 +11,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showManualInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showManualInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -51,7 +51,7 @@ export function Reports() {
         const reportAccountIds = new Set(
             accounts
                 .filter(a => {
-                    const isTypeAllowed = a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan';
+                    const isTypeAllowed = a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan' || a.type === 'online-wallet';
                     return isTypeAllowed && a.includeInReports !== false;
                 })
                 .map(a => a.id)
@@ -128,8 +128,38 @@ export function Reports() {
         setCurrentDate(prev => viewMode === 'monthly' ? addMonths(prev, 1) : addYears(prev, 1));
     };
 
+    const openingBalances = useMemo(() => {
+        const balances: Record<string, number> = {};
+        accounts.forEach(acc => {
+            const isLoan = acc.type === 'loan';
+            const currentAssetBalance = isLoan ? -acc.balance : acc.balance;
+
+            const periodAndFutureTransactions = transactions.filter(t =>
+                (t.accountId === acc.id || t.toAccountId === acc.id) &&
+                !t.excludeFromBalance &&
+                new Date(t.date) >= periodStart
+            );
+
+            const netChange = periodAndFutureTransactions.reduce((sum, t) => {
+                const isSource = t.accountId === acc.id;
+                const isDest = t.toAccountId === acc.id;
+
+                if (t.type === 'income' && isSource) return sum + t.amount;
+                if (t.type === 'expense' && isSource) return sum - t.amount;
+                if (t.type === 'transfer') {
+                    if (isSource) return sum - t.amount; // Outflow
+                    if (isDest) return sum + t.amount;   // Inflow
+                }
+                return sum;
+            }, 0);
+
+            balances[acc.id] = currentAssetBalance - netChange;
+        });
+        return balances;
+    }, [accounts, transactions, periodStart]);
+
     // Calculate totals
-    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, totalTransferIn, totalTransferOut } = useMemo(() => {
+    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, totalTransferIn, totalTransferOut, totalCreditCardPayment } = useMemo(() => {
         const transTotals = periodTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
             else if (t.type === 'expense') {
@@ -140,9 +170,17 @@ export function Reports() {
             else if (t.type === 'transfer') {
                 acc.totalTransferIn += t.amount;
                 acc.totalTransferOut += t.amount;
+
+                // Track credit card payments (transfers to credit accounts)
+                if (t.toAccountId) {
+                    const toAccount = accounts.find(a => a.id === t.toAccountId);
+                    if (toAccount?.type === 'credit') {
+                        acc.totalCreditCardPayment += t.amount;
+                    }
+                }
             }
             return acc;
-        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0 });
+        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0, totalCreditCardPayment: 0 });
 
         // Add event logs to manual totals
         periodEventLogs.forEach(l => {
@@ -178,9 +216,17 @@ export function Reports() {
                 if (t.type === 'expense' || t.type === 'income') {
                     const current = itemMap.get(key) || 0;
                     itemMap.set(key, current + t.amount);
-                } else if (!isCategoryFiltered && isInvestment(t)) {
-                    const current = itemMap.get('Investment') || 0;
-                    itemMap.set('Investment', current + t.amount);
+                } else if (!isCategoryFiltered) {
+                    if (isInvestment(t)) {
+                        const current = itemMap.get('Investment') || 0;
+                        itemMap.set('Investment', current + t.amount);
+                    } else if (t.type === 'transfer' && t.toAccountId) {
+                        const toAccount = accounts.find(a => a.id === t.toAccountId);
+                        if (toAccount?.type === 'credit') {
+                            const current = itemMap.get('Credit Card Payment') || 0;
+                            itemMap.set('Credit Card Payment', current + t.amount);
+                        }
+                    }
                 }
             });
 
@@ -189,6 +235,7 @@ export function Reports() {
                 let color = COLORS[index % COLORS.length];
                 if (!isCategoryFiltered) {
                     if (name === 'Investment') color = '#8b5cf6';
+                    else if (name === 'Credit Card Payment') color = '#6366f1'; // Indigo-500
                     else {
                         const category = categories.find(c => c.name === name);
                         if (category) color = category.color;
@@ -202,6 +249,18 @@ export function Reports() {
             })
             .sort((a, b) => b.value - a.value);
     }, [periodTransactions, categories, selectedCategoryName, selectedEventId, accounts]);
+
+    const creditCardStats = useMemo(() => {
+        return accounts
+            .filter(acc => acc.type === 'credit')
+            .reduce((acc, card) => {
+                const stats = getCreditCardStats(card.id);
+                return {
+                    billed: acc.billed + stats.billed,
+                    unbilled: acc.unbilled + stats.unbilled
+                };
+            }, { billed: 0, unbilled: 0 });
+    }, [accounts, getCreditCardStats]);
 
     // Prepare manual chart data
     const manualChartData = useMemo(() => {
@@ -249,35 +308,6 @@ export function Reports() {
             reportTitle = `${selectedCategoryName} - ${reportTitle}`;
         }
 
-        // Calculate Opening Balances for each account
-        // Opening Balance = Current Asset Balance - Net of transactions from periodStart to today
-        const openingBalances: Record<string, number> = {};
-        accounts.forEach(acc => {
-            const isLoan = acc.type === 'loan';
-            const currentAssetBalance = isLoan ? -acc.balance : acc.balance;
-
-            const periodAndFutureTransactions = transactions.filter(t =>
-                (t.accountId === acc.id || t.toAccountId === acc.id) &&
-                !t.excludeFromBalance &&
-                new Date(t.date) >= periodStart
-            );
-
-            const netChange = periodAndFutureTransactions.reduce((sum, t) => {
-                const isSource = t.accountId === acc.id;
-                const isDest = t.toAccountId === acc.id;
-
-                if (t.type === 'income' && isSource) return sum + t.amount;
-                if (t.type === 'expense' && isSource) return sum - t.amount;
-                if (t.type === 'transfer') {
-                    if (isSource) return sum - t.amount; // Outflow
-                    if (isDest) return sum + t.amount;   // Inflow
-                }
-                return sum;
-            }, 0);
-
-            openingBalances[acc.id] = currentAssetBalance - netChange;
-        });
-
         generateReportPDF({
             title: reportTitle,
             period: format(currentDate, viewMode === 'monthly' ? 'MMMM yyyy' : 'yyyy'),
@@ -287,6 +317,7 @@ export function Reports() {
             manualTotalExpense,
             totalTransferIn,
             totalTransferOut,
+            totalCreditCardPayment,
             transactions: periodTransactions,
             eventLogs: periodEventLogs,
             accounts: accounts.filter(a => a.includeInReports !== false),
@@ -311,7 +342,6 @@ export function Reports() {
             currency: 'INR',
         }).format(amount);
     };
-
 
     const navigateToTransactions = (filter: 'all' | 'manual' | 'core' | 'transfer' | 'mandate' = 'all') => {
         navigate('/reports/transactions', {
@@ -502,6 +532,35 @@ export function Reports() {
                                 <span className="text-base font-bold text-gray-600">{formatCurrency(manualTotalExpense)}</span>
                             </div>
                         )}
+                        {totalCreditCardPayment > 0 && (
+                            <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                                        <CreditCard size={18} />
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-600">Credit Card Payments</span>
+                                </div>
+                                <span className="text-base font-bold text-indigo-600">{formatCurrency(totalCreditCardPayment)}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Credit Card Spends Summary */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+                        <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Credit Card Spends</h3>
+                        <CreditCard size={16} className="text-gray-400" />
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-gray-50">
+                        <div className="px-5 py-6 flex flex-col items-center">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Billed</span>
+                            <span className="text-lg font-bold text-purple-600">{formatCurrency(creditCardStats.billed)}</span>
+                        </div>
+                        <div className="px-5 py-6 flex flex-col items-center">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Unbilled</span>
+                            <span className="text-lg font-bold text-blue-600">{formatCurrency(creditCardStats.unbilled)}</span>
+                        </div>
                     </div>
                 </div>
 

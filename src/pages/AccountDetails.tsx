@@ -200,9 +200,11 @@ function InvestmentLogsSection({ accountId }: { accountId: string }) {
 export function AccountDetails() {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { accounts, transactions, updateAccount, deleteAccount } = useFinanceStore();
+    const { accounts, transactions, investmentLogs, updateAccount, deleteAccount } = useFinanceStore();
 
     const account = accounts.find(a => a.id === id);
+
+    const [activeTab, setActiveTab] = useState<'transactions' | 'logs' | 'holdings'>('transactions');
 
     // Holding Form State
     const [isAddingHolding, setIsAddingHolding] = useState(false);
@@ -406,11 +408,46 @@ export function AccountDetails() {
                         )}
                     </div>
                 </div>
+
+                {/* Account Tabs */}
+                <div className="flex p-1 bg-gray-100/50 rounded-xl mt-4">
+                    <button
+                        onClick={() => setActiveTab('transactions')}
+                        className={cn(
+                            "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+                            activeTab === 'transactions' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                        )}
+                    >
+                        Transactions
+                    </button>
+                    {(account.type === 'stock' || account.type === 'mutual-fund') && (
+                        <button
+                            onClick={() => setActiveTab('holdings')}
+                            className={cn(
+                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+                                activeTab === 'holdings' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            Holdings
+                        </button>
+                    )}
+                    {(account.logsRequired || account.type === 'stock' || account.type === 'mutual-fund' || account.type === 'land' || account.type === 'insurance' || account.type === 'fixed-deposit' || account.group === 'investment') && (
+                        <button
+                            onClick={() => setActiveTab('logs')}
+                            className={cn(
+                                "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+                                activeTab === 'logs' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            Logs
+                        </button>
+                    )}
+                </div>
             </header>
 
             {/* Holdings Section (Only for Stock and Mutual Fund Accounts) */}
-            {(account.type === 'stock' || account.type === 'mutual-fund') && (
-                <div className="flex-1 p-4 pb-0 overflow-y-auto max-h-64 border-b border-gray-100">
+            {activeTab === 'holdings' && (account.type === 'stock' || account.type === 'mutual-fund') && (
+                <div className="flex-1 p-4 pb-0 overflow-y-auto border-b border-gray-100">
                     {/* Holdings Content (Keep existing content inside) */}
                     <div className="flex justify-between items-center mb-3 ml-1">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Holdings</h3>
@@ -509,98 +546,114 @@ export function AccountDetails() {
             )}
 
             {/* Investment Performance Logs Section */}
-            {(account.type === 'stock' || account.type === 'mutual-fund' || account.type === 'land' || account.type === 'insurance' || account.type === 'fixed-deposit' || account.group === 'investment') && (
-                <InvestmentLogsSection accountId={account.id} />
+            {activeTab === 'logs' && (account.logsRequired || account.type === 'stock' || account.type === 'mutual-fund' || account.type === 'land' || account.type === 'insurance' || account.type === 'fixed-deposit' || account.group === 'investment') && (
+                <div className="flex-1 flex flex-col min-h-0 bg-white">
+                    <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mb-1">Total Logged Value</p>
+                            <h3 className="text-xl font-bold text-gray-900">
+                                {formatCurrency(investmentLogs.filter(l => l.accountId === account.id).reduce((sum, l) => sum + l.amount, 0))}
+                            </h3>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mb-1">Entries</p>
+                            <p className="font-bold text-gray-700">{investmentLogs.filter(l => l.accountId === account.id).length}</p>
+                        </div>
+                    </div>
+                    <InvestmentLogsSection accountId={account.id} />
+                </div>
             )}
 
             {/* Transactions List */}
-            <div className="flex-1 p-4 overflow-y-auto">
-                <div className="flex items-center justify-between mb-3 ml-1">
-                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Transactions</h3>
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
-                        <button
-                            onClick={() => setFilterType('all')}
-                            className={cn(
-                                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                                filterType === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                            )}
-                        >
-                            All
-                        </button>
-                        <button
-                            onClick={() => setFilterType('income')}
-                            className={cn(
-                                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                                filterType === 'income' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                            )}
-                        >
-                            Credit
-                        </button>
-                        <button
-                            onClick={() => setFilterType('expense')}
-                            className={cn(
-                                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                                filterType === 'expense' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                            )}
-                        >
-                            Debit
-                        </button>
+            {activeTab === 'transactions' && (
+                <div className="flex-1 p-4 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-3 ml-1">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Transactions</h3>
+                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                            <button
+                                onClick={() => setFilterType('all')}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                    filterType === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                )}
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => setFilterType('income')}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                    filterType === 'income' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                )}
+                            >
+                                Credit
+                            </button>
+                            <button
+                                onClick={() => setFilterType('expense')}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                    filterType === 'expense' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                )}
+                            >
+                                Debit
+                            </button>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {accountTransactions.length === 0 ? (
+                            <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+                                <p className="text-gray-500 text-sm">No transactions found.</p>
+                            </div>
+                        ) : (
+                            accountTransactions.map((t) => {
+                                const isTransfer = t.type === 'transfer';
+                                const isIncomingTransfer = isTransfer && t.toAccountId === id;
+                                // Effective type for this account view
+                                const effectiveType = isTransfer
+                                    ? (isIncomingTransfer ? 'income' : 'expense')
+                                    : t.type;
+
+                                // For incoming transfer, show as income with 'Transfer' label
+                                // For outgoing transfer, show as expense with 'Transfer' label or To Account name logic?
+
+                                return (
+                                    <div
+                                        key={t.id}
+                                        onClick={() => navigate(`/edit/${t.id}`)}
+                                        className={cn(
+                                            "bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border cursor-pointer active:bg-gray-50 transition-colors",
+                                            isTransfer ? "border-indigo-100 bg-indigo-50/30" : "border-gray-100"
+                                        )}
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <div className={cn(
+                                                "p-2 rounded-full",
+                                                isTransfer ? "bg-indigo-100 text-indigo-600" :
+                                                    t.type === 'expense' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500"
+                                            )}>
+                                                {isTransfer ? <ArrowRightLeft size={20} /> :
+                                                    t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-900 text-sm">
+                                                    {t.note || (isTransfer ? (isIncomingTransfer ? "Transfer In" : "Transfer Out") : t.category)}
+                                                </p>
+                                                <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
+                                            </div>
+                                        </div>
+                                        <span className={cn(
+                                            "font-bold text-sm",
+                                            effectiveType === 'expense' ? "text-gray-900" : "text-green-600"
+                                        )}>
+                                            {effectiveType === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
-                <div className="space-y-3">
-                    {accountTransactions.length === 0 ? (
-                        <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-                            <p className="text-gray-500 text-sm">No transactions found.</p>
-                        </div>
-                    ) : (
-                        accountTransactions.map((t) => {
-                            const isTransfer = t.type === 'transfer';
-                            const isIncomingTransfer = isTransfer && t.toAccountId === id;
-                            // Effective type for this account view
-                            const effectiveType = isTransfer
-                                ? (isIncomingTransfer ? 'income' : 'expense')
-                                : t.type;
-
-                            // For incoming transfer, show as income with 'Transfer' label
-                            // For outgoing transfer, show as expense with 'Transfer' label or To Account name logic?
-
-                            return (
-                                <div
-                                    key={t.id}
-                                    onClick={() => navigate(`/edit/${t.id}`)}
-                                    className={cn(
-                                        "bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border cursor-pointer active:bg-gray-50 transition-colors",
-                                        isTransfer ? "border-indigo-100 bg-indigo-50/30" : "border-gray-100"
-                                    )}
-                                >
-                                    <div className="flex items-center space-x-3">
-                                        <div className={cn(
-                                            "p-2 rounded-full",
-                                            isTransfer ? "bg-indigo-100 text-indigo-600" :
-                                                t.type === 'expense' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500"
-                                        )}>
-                                            {isTransfer ? <ArrowRightLeft size={20} /> :
-                                                t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold text-gray-900 text-sm">
-                                                {t.note || (isTransfer ? (isIncomingTransfer ? "Transfer In" : "Transfer Out") : t.category)}
-                                            </p>
-                                            <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
-                                        </div>
-                                    </div>
-                                    <span className={cn(
-                                        "font-bold text-sm",
-                                        effectiveType === 'expense' ? "text-gray-900" : "text-green-600"
-                                    )}>
-                                        {effectiveType === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                                    </span>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
+            )}
 
             {/* Account Deletion Modal */}
             {isDeletingAccount && (
