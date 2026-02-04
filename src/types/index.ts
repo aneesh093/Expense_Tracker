@@ -1,4 +1,4 @@
-export type AccountType = 'fixed-deposit' | 'savings' | 'credit' | 'cash' | 'stock' | 'mutual-fund' | 'other' | 'loan' | 'land' | 'insurance';
+export type AccountType = 'fixed-deposit' | 'savings' | 'credit' | 'cash' | 'stock' | 'mutual-fund' | 'other' | 'loan' | 'land' | 'insurance' | 'online-wallet';
 
 export interface Holding {
     id: string;
@@ -46,6 +46,7 @@ export interface Account {
     includeInNetWorth?: boolean;
     includeInReports?: boolean;
     group?: 'banking' | 'investment';
+    logsRequired?: boolean;
 }
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
@@ -82,6 +83,9 @@ export interface Event {
     icon: string;
     order?: number;
     includeInReports?: boolean;
+    showLogs?: boolean;
+    showTransactions?: boolean;
+    showPlans?: boolean;
 }
 
 export interface Mandate {

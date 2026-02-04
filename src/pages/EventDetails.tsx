@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Edit2, Trash2, Plus, ArrowUpRight, ArrowDownRight, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -10,9 +10,33 @@ export function EventDetails() {
     const { id } = useParams<{ id: string }>();
     const { events, transactions, eventLogs, eventPlans, deleteEvent, deleteEventPlan } = useFinanceStore();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [activeTab, setActiveTab] = useState<'transactions' | 'logs' | 'plans'>('transactions');
 
     const event = useMemo(() => events.find(e => e.id === id), [events, id]);
+
+    const [activeTab, setActiveTab] = useState<'transactions' | 'logs' | 'plans'>(() => {
+        if (event?.showTransactions === false) {
+            if (event?.showLogs !== false) return 'logs';
+            if (event?.showPlans !== false) return 'plans';
+        }
+        return 'transactions';
+    });
+
+    const isTransactionsVisible = event?.showTransactions !== false;
+    const isLogsVisible = event?.showLogs !== false;
+    const isPlansVisible = event?.showPlans !== false;
+
+    useEffect(() => {
+        if (!isTransactionsVisible && activeTab === 'transactions') {
+            if (isLogsVisible) setActiveTab('logs');
+            else if (isPlansVisible) setActiveTab('plans');
+        } else if (!isLogsVisible && activeTab === 'logs') {
+            if (isTransactionsVisible) setActiveTab('transactions');
+            else if (isPlansVisible) setActiveTab('plans');
+        } else if (!isPlansVisible && activeTab === 'plans') {
+            if (isTransactionsVisible) setActiveTab('transactions');
+            else if (isLogsVisible) setActiveTab('logs');
+        }
+    }, [isTransactionsVisible, isLogsVisible, isPlansVisible, activeTab]);
 
     const eventTransactions = useMemo(() => {
         return transactions.filter(t => t.eventId === id);
@@ -173,20 +197,27 @@ export function EventDetails() {
 
             {/* Custom Tabs */}
             <div className="flex p-1 bg-gray-100 rounded-xl">
-                {(['transactions', 'logs', 'plans'] as const).map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={cn(
-                            "flex-1 py-2 text-xs font-bold rounded-lg capitalize transition-all",
-                            activeTab === tab
-                                ? "bg-white text-gray-900 shadow-sm"
-                                : "text-gray-500 hover:text-gray-700"
-                        )}
-                    >
-                        {tab}
-                    </button>
-                ))}
+                {(['transactions', 'logs', 'plans'] as const)
+                    .filter(tab => {
+                        if (tab === 'transactions') return isTransactionsVisible;
+                        if (tab === 'logs') return isLogsVisible;
+                        if (tab === 'plans') return isPlansVisible;
+                        return true;
+                    })
+                    .map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={cn(
+                                "flex-1 py-2 text-xs font-bold rounded-lg capitalize transition-all",
+                                activeTab === tab
+                                    ? "bg-white text-gray-900 shadow-sm"
+                                    : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            {tab}
+                        </button>
+                    ))}
             </div>
 
             {/* Tab Content */}

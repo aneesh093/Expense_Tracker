@@ -44,6 +44,7 @@ export function Accounts() {
     // Credit Card Fields
     const [statementDate, setStatementDate] = useState('');
     const [dueDate, setDueDate] = useState('');
+    const [logsRequired, setLogsRequired] = useState(false);
 
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
 
@@ -117,7 +118,8 @@ export function Accounts() {
             balance: parseFloat(balance) || 0,
             color: 'blue',
             isPrimary,
-            group: activeTab === 'investments' ? 'investment' : 'banking'
+            group: activeTab === 'investments' ? 'investment' : 'banking',
+            logsRequired
         };
 
         if (type === 'savings') {
@@ -190,6 +192,7 @@ export function Accounts() {
             setDueDate(account.creditCardDetails.dueDate.toString());
         }
 
+        setLogsRequired(account.logsRequired || false);
         setIsAdding(true);
     };
 
@@ -214,6 +217,7 @@ export function Accounts() {
         setRenewalDate('');
         setStatementDate('');
         setDueDate('');
+        setLogsRequired(false);
     };
 
     const handleDeleteConfirm = () => {
@@ -258,6 +262,7 @@ export function Accounts() {
             case 'other': return 'Other';
             case 'land': return 'Land';
             case 'insurance': return 'Insurance';
+            case 'online-wallet': return 'Online Wallet';
             default: return type;
         }
     };
@@ -422,7 +427,7 @@ export function Accounts() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {activeTab === 'banking' ? (
-                                        ['fixed-deposit', 'savings', 'credit', 'cash', 'loan', 'other'].map((t) => (
+                                        ['fixed-deposit', 'savings', 'credit', 'cash', 'loan', 'online-wallet', 'other'].map((t) => (
                                             <button
                                                 key={t}
                                                 onClick={() => setType(t as AccountType)}
@@ -433,7 +438,7 @@ export function Accounts() {
                                                         : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
                                                 )}
                                             >
-                                                {t === 'fixed-deposit' ? 'FD' : t}
+                                                {t === 'fixed-deposit' ? 'FD' : (t === 'online-wallet' ? 'Wallet' : t)}
                                             </button>
                                         ))
                                     ) : (
@@ -636,16 +641,25 @@ export function Accounts() {
                                 </div>
                             )}
 
-                            <div className="flex items-center space-x-2 pt-2">
-                                <input
-                                    type="checkbox"
-                                    id="isPrimary"
-                                    checked={isPrimary}
-                                    onChange={(e) => setIsPrimary(e.target.checked)}
-                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                                />
-                                <label htmlFor="isPrimary" className="text-gray-900 font-medium">
-                                    Set as Primary Account
+                            <div className="flex flex-col space-y-3 pt-2">
+                                <label className="flex items-center space-x-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={isPrimary}
+                                        onChange={(e) => setIsPrimary(e.target.checked)}
+                                        className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-gray-900 font-medium group-active:text-blue-600 transition-colors">Set as Primary Account</span>
+                                </label>
+
+                                <label className="flex items-center space-x-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={logsRequired}
+                                        onChange={(e) => setLogsRequired(e.target.checked)}
+                                        className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-gray-900 font-medium group-active:text-blue-600 transition-colors">Logs Required for this Account</span>
                                 </label>
                             </div>
 

@@ -3,7 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Check, Building, Banknote, CreditCard, Wallet, TrendingUp, PieChart, MapPin, Shield, PiggyBank, Landmark, Briefcase } from 'lucide-react';
+import { Check, Building, Banknote, CreditCard, Wallet, TrendingUp, PieChart, MapPin, Shield, PiggyBank, Landmark, Briefcase, Smartphone } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 
 interface SortableAccountItemProps {
@@ -59,6 +59,7 @@ export function SortableAccountItem({
             case 'other': return <Briefcase {...iconProps} />;
             case 'land': return <MapPin {...iconProps} />;
             case 'insurance': return <Shield {...iconProps} />;
+            case 'online-wallet': return <Smartphone {...iconProps} />;
             default: return <Building {...iconProps} />;
         }
     };
@@ -99,7 +100,8 @@ export function SortableAccountItem({
                             account.type === 'loan' ? "bg-orange-100 text-orange-600" :
                                 account.type === 'stock' || account.type === 'mutual-fund' || account.type === 'land' || account.type === 'insurance' ? "bg-blue-100 text-blue-600" :
                                     account.type === 'savings' ? "bg-teal-100 text-teal-600" :
-                                        "bg-gray-100 text-gray-600"
+                                        account.type === 'online-wallet' ? "bg-indigo-100 text-indigo-600" :
+                                            "bg-gray-100 text-gray-600"
                 )}>
                     {getAccountIcon(account.type)}
                 </div>
