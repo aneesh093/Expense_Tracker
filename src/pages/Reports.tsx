@@ -262,6 +262,52 @@ export function Reports() {
             }, { billed: 0, unbilled: 0 });
     }, [accounts, getCreditCardStats]);
 
+    // Calculate per-category spending and limit status
+    const categorySpendingWithLimits = useMemo(() => {
+        const stats: Record<string, { total: number; cc: number; limit?: number; ccLimit?: number; color: string; name: string }> = {};
+
+        // Initialize with categories that have limits
+        categories.filter(c => c.type === 'expense' && (c.limit || c.ccLimit)).forEach(c => {
+            stats[c.name] = {
+                total: 0,
+                cc: 0,
+                limit: c.limit,
+                ccLimit: c.ccLimit,
+                color: c.color,
+                name: c.name
+            };
+        });
+
+        // Accumulate spending
+        periodTransactions.forEach(t => {
+            if (t.type !== 'expense' || t.excludeFromBalance) return;
+
+            if (!stats[t.category]) {
+                const category = categories.find(c => c.name === t.category);
+                if (!category) return;
+                // Only track if it has a limit or we want to show all (let's focus on limits for now)
+                if (!category.limit && !category.ccLimit) return;
+
+                stats[t.category] = {
+                    total: 0,
+                    cc: 0,
+                    limit: category.limit,
+                    ccLimit: category.ccLimit,
+                    color: category.color,
+                    name: category.name
+                };
+            }
+
+            stats[t.category].total += t.amount;
+            const account = accounts.find(a => a.id === t.accountId);
+            if (account?.type === 'credit') {
+                stats[t.category].cc += t.amount;
+            }
+        });
+
+        return Object.values(stats).sort((a, b) => b.total - a.total);
+    }, [periodTransactions, categories, accounts]);
+
     // Prepare manual chart data
     const manualChartData = useMemo(() => {
         const itemMap = new Map<string, number>();
@@ -563,6 +609,83 @@ export function Reports() {
                         </div>
                     </div>
                 </div>
+
+                {/* Budget & Limits Section */}
+                {categorySpendingWithLimits.length > 0 && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Budget & Limits</h3>
+                            <TrendingUp size={16} className="text-gray-400" />
+                        </div>
+                        <div className="p-5 space-y-6">
+                            {categorySpendingWithLimits.map((cat) => (
+                                <div key={cat.name} className="space-y-3">
+                                    <div className="flex justify-between items-end">
+                                        <div className="flex items-center space-x-2">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                                            <span className="text-sm font-bold text-gray-800">{cat.name}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-xs font-bold text-gray-900">
+                                                {formatCurrency(cat.total)}
+                                                {cat.limit && <span className="text-gray-400 font-medium"> / {formatCurrency(cat.limit)}</span>}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Global Limit Progress */}
+                                    {cat.limit && (
+                                        <div className="space-y-1">
+                                            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={cn(
+                                                        "h-full transition-all duration-500",
+                                                        cat.total > cat.limit ? "bg-red-500" : (cat.total > cat.limit * 0.8 ? "bg-orange-500" : "bg-green-500")
+                                                    )}
+                                                    style={{ width: `${Math.min(100, (cat.total / cat.limit) * 100)}%` }}
+                                                />
+                                            </div>
+                                            {cat.total > cat.limit && (
+                                                <p className="text-[9px] font-black text-red-500 uppercase tracking-tighter">
+                                                    Exceeded global limit by {formatCurrency(cat.total - cat.limit)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Credit Card Limit Progress */}
+                                    {cat.ccLimit && (
+                                        <div className="space-y-1.5 pt-1">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center space-x-1">
+                                                    <CreditCard size={10} className="text-indigo-400" />
+                                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">CC Spend</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-900">
+                                                    {formatCurrency(cat.cc)} / {formatCurrency(cat.ccLimit)}
+                                                </span>
+                                            </div>
+                                            <div className="h-1 w-full bg-indigo-50 rounded-full overflow-hidden">
+                                                <div
+                                                    className={cn(
+                                                        "h-full transition-all duration-500",
+                                                        cat.cc > cat.ccLimit ? "bg-red-500" : (cat.cc > cat.ccLimit * 0.8 ? "bg-indigo-500" : "bg-indigo-300")
+                                                    )}
+                                                    style={{ width: `${Math.min(100, (cat.cc / cat.ccLimit) * 100)}%` }}
+                                                />
+                                            </div>
+                                            {cat.cc > cat.ccLimit && (
+                                                <p className="text-[9px] font-black text-red-500 uppercase tracking-tighter">
+                                                    Exceeded CC limit by {formatCurrency(cat.cc - cat.ccLimit)}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Main Chart Section */}
                 <div

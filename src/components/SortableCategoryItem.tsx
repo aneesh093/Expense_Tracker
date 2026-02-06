@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit2, Check, X } from 'lucide-react';
+import { GripVertical, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { type Category } from '../types';
 import { useState } from 'react';
@@ -11,10 +11,14 @@ interface SortableCategoryItemProps {
     updateCategory: (id: string, updates: Partial<Category>) => void;
 }
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff7300', '#387908'];
+
 export function SortableCategoryItem({ category, deleteCategory, updateCategory }: SortableCategoryItemProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(category.name);
     const [editColor, setEditColor] = useState(category.color);
+    const [editLimit, setEditLimit] = useState(category.limit?.toString() || '');
+    const [editCCLimit, setEditCCLimit] = useState(category.ccLimit?.toString() || '');
 
     const {
         attributes,
@@ -36,7 +40,9 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
         if (editName.trim()) {
             updateCategory(category.id, {
                 name: editName.trim(),
-                color: editColor
+                color: editColor,
+                limit: editLimit ? parseFloat(editLimit) : undefined,
+                ccLimit: editCCLimit ? parseFloat(editCCLimit) : undefined
             });
             setIsEditing(false);
         }
@@ -45,6 +51,8 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
     const handleCancel = () => {
         setEditName(category.name);
         setEditColor(category.color);
+        setEditLimit(category.limit?.toString() || '');
+        setEditCCLimit(category.ccLimit?.toString() || '');
         setIsEditing(false);
     };
 
@@ -53,59 +61,117 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
             ref={setNodeRef}
             style={style}
             className={cn(
-                "p-4 flex items-center justify-between hover:bg-gray-50 transition-all border-b border-gray-100 last:border-0",
-                isDragging && "shadow-lg bg-gray-50 z-50 rounded-lg border-transparent scale-[1.02]"
+                "group relative bg-white border border-gray-100 rounded-2xl p-4 transition-all duration-200",
+                isDragging ? "shadow-xl ring-2 ring-blue-500/20 z-50 opacity-90 scale-105" : "hover:shadow-md hover:border-gray-200"
             )}
         >
             {isEditing ? (
-                <>
-                    <div className="flex items-center space-x-3 flex-1">
-                        <input
-                            type="color"
-                            value={editColor}
-                            onChange={(e) => setEditColor(e.target.value)}
-                            className="w-8 h-8 rounded cursor-pointer"
-                        />
-                        <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="flex-1 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-semibold"
-                            autoFocus
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSave();
-                                if (e.key === 'Escape') handleCancel();
-                            }}
-                        />
+                <div className="space-y-4">
+                    <div className="flex space-x-3">
+                        <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: `${editColor}15`, color: editColor }}
+                        >
+                            <span className="text-lg">#</span>
+                        </div>
+                        <div className="flex-1 space-y-3">
+                            <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="w-full bg-gray-50 border-none rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500"
+                                placeholder="Category name"
+                            />
+                            {category.type === 'expense' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Global Limit</label>
+                                        <input
+                                            type="number"
+                                            value={editLimit}
+                                            onChange={(e) => setEditLimit(e.target.value)}
+                                            className="w-full bg-gray-50 border-none rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Limit (₹)"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">CC Limit</label>
+                                        <input
+                                            type="number"
+                                            value={editCCLimit}
+                                            onChange={(e) => setEditCCLimit(e.target.value)}
+                                            className="w-full bg-gray-50 border-none rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500"
+                                            placeholder="CC Limit (₹)"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-1">
+
+                    <div className="flex flex-wrap gap-2">
+                        {COLORS.map((c) => (
+                            <button
+                                key={c}
+                                onClick={() => setEditColor(c)}
+                                className={cn(
+                                    "w-6 h-6 rounded-full transition-transform hover:scale-110",
+                                    editColor === c ? "ring-2 ring-offset-2 ring-blue-500" : ""
+                                )}
+                                style={{ backgroundColor: c }}
+                            />
+                        ))}
+                    </div>
+
+                    <div className="flex space-x-2 pt-2">
                         <button
                             onClick={handleSave}
-                            className="text-green-600 hover:text-green-700 transition-colors p-2"
-                            title="Save"
+                            className="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors"
                         >
-                            <Check size={18} />
+                            Save Changes
                         </button>
                         <button
                             onClick={handleCancel}
-                            className="text-gray-400 hover:text-gray-600 transition-colors p-2"
-                            title="Cancel"
+                            className="flex-1 bg-gray-100 text-gray-600 text-xs font-bold py-2 rounded-lg hover:bg-gray-200 transition-colors"
                         >
-                            <X size={18} />
+                            Cancel
                         </button>
                     </div>
-                </>
+                </div>
             ) : (
-                <>
+                <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                        <div {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1">
-                            <GripVertical size={16} />
-                        </div>
+                        {/* Drag Handle */}
                         <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: category.color }}
-                        />
-                        <span className="text-sm font-semibold text-gray-800">{category.name}</span>
+                            {...attributes}
+                            {...listeners}
+                            className="p-1 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition-colors"
+                        >
+                            <GripVertical size={18} />
+                        </div>
+
+                        {/* Category Info */}
+                        <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: `${category.color}15`, color: category.color }}
+                        >
+                            <span className="text-lg">#</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">{category.name}</span>
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                {category.limit && (
+                                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-tight">
+                                        Limit: ₹{new Intl.NumberFormat('en-IN').format(category.limit)}
+                                    </span>
+                                )}
+                                {category.ccLimit && (
+                                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-tight">
+                                        CC Limit: ₹{new Intl.NumberFormat('en-IN').format(category.ccLimit)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
                     <div className="flex items-center space-x-1">
                         <button
@@ -123,7 +189,7 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
                             <Trash2 size={18} />
                         </button>
                     </div>
-                </>
+                </div>
             )}
         </div>
     );

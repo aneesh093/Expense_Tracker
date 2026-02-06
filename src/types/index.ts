@@ -71,6 +71,8 @@ export interface Category {
     icon: string;
     color: string;
     order?: number;
+    limit?: number;
+    ccLimit?: number;
 }
 
 export interface Event {

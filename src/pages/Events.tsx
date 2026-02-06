@@ -142,12 +142,7 @@ export function Events() {
                     </div>
                 </div>
                 <div className="flex space-x-2">
-                    <button
-                        onClick={() => navigate('/logs/new')}
-                        className="p-3 bg-orange-100 text-orange-600 rounded-full shadow-sm hover:bg-orange-200 active:scale-95 transition-all"
-                    >
-                        <Calendar size={24} />
-                    </button>
+
                     <button
                         onClick={() => navigate('/events/new')}
                         className="p-3 bg-blue-100 text-blue-600 rounded-full shadow-sm hover:bg-blue-200 active:scale-95 transition-all"

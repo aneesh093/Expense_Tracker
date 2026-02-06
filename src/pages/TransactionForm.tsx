@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type Transaction, type TransactionType } from '../types';
@@ -62,7 +62,7 @@ export function TransactionForm() {
     const getVisibleAccounts = (currentType: TransactionType) => {
         return currentType === 'transfer'
             ? accounts
-            : accounts.filter(acc => ['fixed-deposit', 'savings', 'credit', 'cash', 'loan'].includes(acc.type));
+            : accounts.filter(acc => ['fixed-deposit', 'savings', 'credit', 'cash', 'loan', 'online-wallet', 'other', 'insurance'].includes(acc.type));
     };
 
     const visibleAccounts = getVisibleAccounts(type);
@@ -119,6 +119,42 @@ export function TransactionForm() {
         }
     };
 
+    const [showSuccess, setShowSuccess] = useState(false);
+
+    const monthlyCategorySpending = useMemo(() => {
+        if (type !== 'expense' || !selectedCategory) return { total: 0, cc: 0 };
+        const category = categories.find(c => c.id === selectedCategory);
+        if (!category) return { total: 0, cc: 0 };
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        return transactions
+            .filter(t =>
+                t.type === 'expense' &&
+                t.category === category.name &&
+                new Date(t.date) >= startOfMonth &&
+                t.id !== id
+            )
+            .reduce((acc, t) => {
+                acc.total += t.amount;
+                const account = accounts.find(a => a.id === t.accountId);
+                if (account?.type === 'credit') acc.cc += t.amount;
+                return acc;
+            }, { total: 0, cc: 0 });
+    }, [transactions, selectedCategory, type, id, categories, accounts]);
+
+    const activeCategory = categories.find(c => c.id === selectedCategory);
+    const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+    const isCreditCard = selectedAccount?.type === 'credit';
+
+    const isOverLimit = type === 'expense' && (
+        (activeCategory?.limit && (monthlyCategorySpending.total + parseFloat(amount || '0')) > activeCategory.limit) ||
+        (isCreditCard && activeCategory?.ccLimit && (monthlyCategorySpending.cc + parseFloat(amount || '0')) > activeCategory.ccLimit)
+    );
+
+    const isOverCCLimit = isCreditCard && activeCategory?.ccLimit && (monthlyCategorySpending.cc + parseFloat(amount || '0')) > activeCategory.ccLimit;
+
     const handleDelete = () => {
         if (amount.length === 1) {
             setAmount('0');
@@ -126,8 +162,6 @@ export function TransactionForm() {
             setAmount(prev => prev.slice(0, -1));
         }
     };
-
-    const [showSuccess, setShowSuccess] = useState(false);
 
     const handleSubmit = () => {
         const value = parseFloat(amount);
@@ -228,6 +262,23 @@ export function TransactionForm() {
                     <span className="text-3xl mr-1 text-gray-400">₹</span>
                     {amount}
                 </div>
+                {isOverLimit && activeCategory && (
+                    <div className={cn(
+                        "mt-4 px-4 py-2 border rounded-lg flex items-center space-x-2 animate-in fade-in zoom-in duration-200",
+                        isOverCCLimit ? "bg-indigo-50 border-indigo-100" : "bg-orange-50 border-orange-100"
+                    )}>
+                        <div className={cn(
+                            "w-2 h-2 rounded-full animate-pulse",
+                            isOverCCLimit ? "bg-indigo-500" : "bg-orange-500"
+                        )} />
+                        <p className={cn(
+                            "text-[11px] font-bold uppercase tracking-tight",
+                            isOverCCLimit ? "text-indigo-700" : "text-orange-700"
+                        )}>
+                            Warning: Exceeds {activeCategory.name} {isOverCCLimit ? 'CC' : 'global'} limit of ₹{new Intl.NumberFormat('en-IN').format(isOverCCLimit ? activeCategory.ccLimit! : activeCategory.limit!)}
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Form Fields */}

@@ -23,18 +23,7 @@ export function Settings() {
                 <section>
                     <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">General</h2>
                     <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
-                        <button
-                            onClick={() => navigate('/events')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                                    <Clock size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Manage Event/Log</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
+
                         <button
                             onClick={() => navigate('/categories')}
                             className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
