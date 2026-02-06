@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, PieChart, Layers, Clock, Database } from 'lucide-react';
+import { ArrowLeft, PieChart, Layers, Clock, Database, FileText } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { cn } from '../lib/utils';
 
@@ -8,6 +8,7 @@ export function ReportSettings() {
     const {
         reportSortBy, setReportSortBy,
         showEventsInReport, setShowEventsInReport,
+        showLogsInReport, setShowLogsInReport,
         showManualInReport, setShowManualInReport,
         pdfIncludeCharts, setPdfIncludeCharts,
         pdfIncludeAccountSummary, setPdfIncludeAccountSummary,
@@ -110,6 +111,27 @@ export function ReportSettings() {
                                         onChange={(e) => setShowManualInReport(e.target.checked)}
                                     />
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+                                </label>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                                        <FileText size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-800">Log Expenses</p>
+                                        <p className="text-[10px] text-gray-500">Show log-based expenses in reports</p>
+                                    </div>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={showLogsInReport}
+                                        onChange={(e) => setShowLogsInReport(e.target.checked)}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
                                 </label>
                             </div>
                         </div>

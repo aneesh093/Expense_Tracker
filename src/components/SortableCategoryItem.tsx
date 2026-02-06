@@ -72,7 +72,7 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
                             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                             style={{ backgroundColor: `${editColor}15`, color: editColor }}
                         >
-                            <span className="text-lg">#</span>
+                            <span className="text-lg font-bold uppercase">{category.icon?.length === 1 ? category.icon : editName.charAt(0)}</span>
                         </div>
                         <div className="flex-1 space-y-3">
                             <input
@@ -155,7 +155,7 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
                             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                             style={{ backgroundColor: `${category.color}15`, color: category.color }}
                         >
-                            <span className="text-lg">#</span>
+                            <span className="text-lg font-bold uppercase">{category.icon?.length === 1 ? category.icon : category.name.charAt(0)}</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-bold text-gray-900">{category.name}</span>

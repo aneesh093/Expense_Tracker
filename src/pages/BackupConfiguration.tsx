@@ -90,15 +90,15 @@ export function BackupConfiguration() {
                 <section>
                     <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Auto Backup</h2>
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-5">
+                        <div className="p-4">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                                        <Clock size={24} />
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                        <Clock size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-gray-800 tracking-tight">Daily Backup</h3>
-                                        <p className="text-xs text-gray-500 mt-0.5">Automatic backup at 9:00 PM IST</p>
+                                        <h3 className="text-sm font-semibold text-gray-800">Daily Backup</h3>
+                                        <p className="text-[10px] text-gray-500">Automatic backup at 9:00 PM IST</p>
                                         {(() => {
                                             const lastBackup = localStorage.getItem('last-auto-backup');
                                             if (lastBackup) {
@@ -140,15 +140,15 @@ export function BackupConfiguration() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
                         <button
                             onClick={handleExportBackup}
-                            className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
                         >
-                            <div className="flex items-center space-x-4">
-                                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                                    <Download size={24} />
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                    <Download size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-bold text-gray-800 tracking-tight">Backup Data</h3>
-                                    <p className="text-xs text-gray-500 mt-0.5">Download a JSON backup of your data</p>
+                                    <h3 className="text-sm font-semibold text-gray-800">Backup Data</h3>
+                                    <p className="text-[10px] text-gray-500">Download a JSON backup of your data</p>
                                 </div>
                             </div>
                         </button>
@@ -160,14 +160,14 @@ export function BackupConfiguration() {
                                 onChange={handleImportBackup}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
-                            <div className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                                <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
-                                        <Upload size={24} />
+                            <div className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                                        <Upload size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-gray-800 tracking-tight">Restore Data</h3>
-                                        <p className="text-xs text-gray-500 mt-0.5">Import data from a JSON backup</p>
+                                        <h3 className="text-sm font-semibold text-gray-800">Restore Data</h3>
+                                        <p className="text-[10px] text-gray-500">Import data from a JSON backup</p>
                                     </div>
                                 </div>
                             </div>

@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths, startOfYear, endOfYear, addYears, subYears } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, Filter, CreditCard } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, Filter, CreditCard, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { generateReportPDF } from '../lib/pdfGenerator';
@@ -11,7 +11,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showManualInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -159,7 +159,7 @@ export function Reports() {
     }, [accounts, transactions, periodStart]);
 
     // Calculate totals
-    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, totalTransferIn, totalTransferOut, totalCreditCardPayment } = useMemo(() => {
+    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, eventLogsTotalExpense, totalTransferIn, totalTransferOut, totalCreditCardPayment } = useMemo(() => {
         const transTotals = periodTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
             else if (t.type === 'expense') {
@@ -180,13 +180,15 @@ export function Reports() {
                 }
             }
             return acc;
-        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0, totalCreditCardPayment: 0 });
+        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, eventLogsTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0, totalCreditCardPayment: 0 });
 
-        // Add event logs to manual totals
-        periodEventLogs.forEach(l => {
-            if (l.type === 'expense') transTotals.manualTotalExpense += l.amount;
-            else if (l.type === 'income') transTotals.totalIncome += l.amount;
-        });
+        // Calculate event logs separately if enabled
+        if (showLogsInReport) {
+            periodEventLogs.forEach(l => {
+                if (l.type === 'expense') transTotals.eventLogsTotalExpense += l.amount;
+                else if (l.type === 'income') transTotals.totalIncome += l.amount;
+            });
+        }
 
         return transTotals;
     }, [periodTransactions, periodEventLogs, accounts]);
@@ -578,6 +580,17 @@ export function Reports() {
                                 <span className="text-base font-bold text-gray-600">{formatCurrency(manualTotalExpense)}</span>
                             </div>
                         )}
+                        {showLogsInReport && eventLogsTotalExpense > 0 && (
+                            <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-orange-50 text-orange-600 rounded-xl">
+                                        <FileText size={18} />
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-500">Log Expenses</span>
+                                </div>
+                                <span className="text-base font-bold text-gray-600">{formatCurrency(eventLogsTotalExpense)}</span>
+                            </div>
+                        )}
                         {totalCreditCardPayment > 0 && (
                             <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
                                 <div className="flex items-center space-x-3">
@@ -789,8 +802,8 @@ export function Reports() {
                     </div>
                 )}
 
-                {/* Events Section */}
-                {showEventsInReport && (
+                {/* Events & Logs Section */}
+                {(showEventsInReport || showLogsInReport) && (
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Event/Log Performance</h3>
@@ -805,31 +818,35 @@ export function Reports() {
                             {(() => {
                                 const eventMap = new Map<string, { income: number; expense: number; name: string }>();
 
-                                // Group Event Transactions
-                                periodTransactions.forEach(t => {
-                                    if (t.eventId) {
-                                        const event = events.find(e => e.id === t.eventId);
-                                        if (!event) return;
+                                // Group Event Transactions if enabled
+                                if (showEventsInReport) {
+                                    periodTransactions.forEach(t => {
+                                        if (t.eventId) {
+                                            const event = events.find(e => e.id === t.eventId);
+                                            if (!event) return;
 
-                                        const stats = eventMap.get(t.eventId) || { income: 0, expense: 0, name: event.name };
-                                        if (t.type === 'income') stats.income += t.amount;
-                                        if (t.type === 'expense') stats.expense += t.amount;
-                                        eventMap.set(t.eventId, stats);
-                                    }
-                                });
+                                            const stats = eventMap.get(t.eventId) || { income: 0, expense: 0, name: event.name };
+                                            if (t.type === 'income') stats.income += t.amount;
+                                            if (t.type === 'expense') stats.expense += t.amount;
+                                            eventMap.set(t.eventId, stats);
+                                        }
+                                    });
+                                }
 
-                                // Group Event Logs
-                                periodEventLogs.forEach(l => {
-                                    const key = l.eventId || 'standalone';
-                                    const name = l.eventId
-                                        ? (events.find(e => e.id === l.eventId)?.name || 'Unknown Event')
-                                        : 'Independent Logs';
+                                // Group Event Logs if enabled
+                                if (showLogsInReport) {
+                                    periodEventLogs.forEach(l => {
+                                        const key = l.eventId || 'standalone';
+                                        const name = l.eventId
+                                            ? (events.find(e => e.id === l.eventId)?.name || 'Unknown Event')
+                                            : 'Independent Logs';
 
-                                    const stats = eventMap.get(key) || { income: 0, expense: 0, name: name };
-                                    if (l.type === 'income') stats.income += l.amount;
-                                    if (l.type === 'expense') stats.expense += l.amount;
-                                    eventMap.set(key, stats);
-                                });
+                                        const stats = eventMap.get(key) || { income: 0, expense: 0, name: name };
+                                        if (l.type === 'income') stats.income += l.amount;
+                                        if (l.type === 'expense') stats.expense += l.amount;
+                                        eventMap.set(key, stats);
+                                    });
+                                }
 
                                 if (eventMap.size === 0) {
                                     return <div className="px-5 py-8 text-center text-gray-400 text-sm italic">No event or log entries</div>;

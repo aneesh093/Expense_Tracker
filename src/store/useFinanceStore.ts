@@ -15,6 +15,7 @@ interface FinanceState {
     eventLogs: EventLog[];
     eventPlans: EventPlan[];
     showEventsInReport: boolean;
+    showLogsInReport: boolean;
     showManualInReport: boolean;
     pdfIncludeCharts: boolean;
     pdfIncludeAccountSummary: boolean;
@@ -82,6 +83,7 @@ interface FinanceState {
     reportSortBy: 'date' | 'amount';
     setReportSortBy: (sortBy: 'date' | 'amount') => void;
     setShowEventsInReport: (show: boolean) => void;
+    setShowLogsInReport: (show: boolean) => void;
     setShowManualInReport: (show: boolean) => void;
     setPdfIncludeCharts: (show: boolean) => void;
     setPdfIncludeAccountSummary: (show: boolean) => void;
@@ -105,6 +107,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
     reportSortBy: (localStorage.getItem('finance-report-sort-by') as 'date' | 'amount') || 'date',
     showEventsInReport: localStorage.getItem('finance-show-events-in-report') !== 'false',
+    showLogsInReport: localStorage.getItem('finance-show-logs-in-report') !== 'false',
     showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
     pdfIncludeCharts: localStorage.getItem('finance-pdf-include-charts') !== 'false',
     pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
@@ -816,6 +819,11 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     setShowEventsInReport: (show) => {
         localStorage.setItem('finance-show-events-in-report', String(show));
         set({ showEventsInReport: show });
+    },
+
+    setShowLogsInReport: (show) => {
+        localStorage.setItem('finance-show-logs-in-report', String(show));
+        set({ showLogsInReport: show });
     },
 
     setShowManualInReport: (show) => {
