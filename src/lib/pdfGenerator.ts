@@ -13,6 +13,7 @@ interface ReportData {
     totalTransferIn?: number;
     totalTransferOut?: number;
     totalCreditCardPayment?: number;
+    totalLoanRepayment?: number;
     transactions: Transaction[];
     eventLogs: EventLog[];
     accounts: Account[];
@@ -124,30 +125,46 @@ export const generateReportPDF = (data: ReportData) => {
 
     let summaryEndY = startY + boxHeight + 5;
 
-    // Second Row for Manual Expenses & Credit Card Payments (if applicable)
-    if ((data.manualTotalExpense && data.manualTotalExpense > 0) || (data.totalCreditCardPayment && data.totalCreditCardPayment > 0)) {
+    // Second Row for Manual Expenses, Credit Card Payments & Loan Repayments (if applicable)
+    if ((data.manualTotalExpense && data.manualTotalExpense > 0) ||
+        (data.totalCreditCardPayment && data.totalCreditCardPayment > 0) ||
+        (data.totalLoanRepayment && data.totalLoanRepayment > 0)) {
         const secondRowY = summaryEndY;
+        let currentX = 14;
 
         // Manual Expenses
         if (data.manualTotalExpense && data.manualTotalExpense > 0) {
             doc.setFillColor(243, 244, 246);
-            doc.rect(14, secondRowY, boxWidth, boxHeight, 'F');
+            doc.rect(currentX, secondRowY, boxWidth, boxHeight, 'F');
             doc.setTextColor(55, 65, 81);
             doc.setFontSize(9);
-            doc.text('Manual Expense', 20, secondRowY + 7);
+            doc.text('Manual Expense', currentX + 6, secondRowY + 7);
             doc.setFontSize(12);
-            doc.text(`INR ${data.manualTotalExpense.toLocaleString('en-IN')}`, 20, secondRowY + 16);
+            doc.text(`INR ${data.manualTotalExpense.toLocaleString('en-IN')}`, currentX + 6, secondRowY + 16);
+            currentX += boxWidth + 3;
         }
 
         // Credit Card Payments
         if (data.totalCreditCardPayment && data.totalCreditCardPayment > 0) {
             doc.setFillColor(238, 242, 255);
-            doc.rect(77, secondRowY, boxWidth, boxHeight, 'F');
+            doc.rect(currentX, secondRowY, boxWidth, boxHeight, 'F');
             doc.setTextColor(67, 56, 202);
             doc.setFontSize(9);
-            doc.text('Credit Card Payments', 83, secondRowY + 7);
+            doc.text('Credit Card Payments', currentX + 6, secondRowY + 7);
             doc.setFontSize(12);
-            doc.text(`INR ${data.totalCreditCardPayment.toLocaleString('en-IN')}`, 83, secondRowY + 16);
+            doc.text(`INR ${data.totalCreditCardPayment.toLocaleString('en-IN')}`, currentX + 6, secondRowY + 16);
+            currentX += boxWidth + 3;
+        }
+
+        // Loan Repayments
+        if (data.totalLoanRepayment && data.totalLoanRepayment > 0) {
+            doc.setFillColor(204, 251, 241); // Teal 100
+            doc.rect(currentX, secondRowY, boxWidth, boxHeight, 'F');
+            doc.setTextColor(15, 118, 110); // Teal 800
+            doc.setFontSize(9);
+            doc.text('Loan Repayments', currentX + 6, secondRowY + 7);
+            doc.setFontSize(12);
+            doc.text(`INR ${data.totalLoanRepayment.toLocaleString('en-IN')}`, currentX + 6, secondRowY + 16);
         }
 
         summaryEndY = secondRowY + boxHeight + 5;
@@ -292,16 +309,72 @@ export const generateReportPDF = (data: ReportData) => {
                 groupedEvents[key].logs.push(l);
             });
 
-            // Add a new page for Event Summary
-            doc.addPage();
-            let eventSummaryY = 20;
+            // Dynamic page break for Event Summary
+            if (currentY > 200) {
+                doc.addPage();
+                currentY = 20;
+            } else {
+                currentY += 15;
+            }
 
-            // --- Event Performance Summary Table ---
-            doc.setFontSize(10);
+            doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(156, 163, 175); // Gray-400
-            doc.text('EVENT/LOG PERFORMANCE', 14, eventSummaryY);
-            eventSummaryY += 8;
+            doc.setTextColor(31, 41, 55);
+            doc.text('Event Performance Summary', 14, currentY);
+            currentY += 10;
+
+            // Calculate Grand Totals for Events
+            let totalEventIncome = 0;
+            let totalEventExpense = 0;
+
+            Object.values(groupedEvents).forEach(group => {
+                group.trans.forEach(t => {
+                    if (t.type === 'income') totalEventIncome += t.amount;
+                    if (t.type === 'expense') totalEventExpense += t.amount;
+                });
+                group.logs.forEach(l => {
+                    if (l.type === 'income') totalEventIncome += l.amount;
+                    if (l.type === 'expense') totalEventExpense += l.amount;
+                });
+            });
+
+            const totalEventNet = totalEventIncome - totalEventExpense;
+
+            // Draw Event Summary Boxes
+            const eventBoxWidth = 55;
+            const eventBoxHeight = 20;
+
+            // Income Box
+            doc.setFillColor(240, 253, 244); // Green 50
+            doc.rect(14, currentY, eventBoxWidth, eventBoxHeight, 'F');
+            doc.setTextColor(22, 101, 52); // Green 800
+            doc.setFontSize(8);
+            doc.text('Event Income', 18, currentY + 6);
+            doc.setFontSize(11);
+            doc.text(`INR ${totalEventIncome.toLocaleString('en-IN')}`, 18, currentY + 14);
+
+            // Expense Box
+            doc.setFillColor(254, 242, 242); // Red 50
+            doc.rect(14 + eventBoxWidth + 5, currentY, eventBoxWidth, eventBoxHeight, 'F');
+            doc.setTextColor(153, 27, 27); // Red 800
+            doc.setFontSize(8);
+            doc.text('Event Expense', 18 + eventBoxWidth + 5, currentY + 6);
+            doc.setFontSize(11);
+            doc.text(`INR ${totalEventExpense.toLocaleString('en-IN')}`, 18 + eventBoxWidth + 5, currentY + 14);
+
+            // Net Box
+            const netColor = totalEventNet >= 0 ? [22, 101, 52] : [153, 27, 27];
+            const netBg = totalEventNet >= 0 ? [240, 253, 244] : [254, 242, 242];
+            doc.setFillColor(netBg[0], netBg[1], netBg[2]);
+            doc.rect(14 + (eventBoxWidth + 5) * 2, currentY, eventBoxWidth, eventBoxHeight, 'F');
+            doc.setTextColor(netColor[0], netColor[1], netColor[2]);
+            doc.setFontSize(8);
+            doc.text('Net Event Impact', 18 + (eventBoxWidth + 5) * 2, currentY + 6);
+            doc.setFontSize(11);
+            const netPrefix = totalEventNet < 0 ? '-' : '+';
+            doc.text(`${netPrefix} INR ${Math.abs(totalEventNet).toLocaleString('en-IN')}`, 18 + (eventBoxWidth + 5) * 2, currentY + 14);
+
+            currentY += eventBoxHeight + 10;
 
             const summaryData = Object.entries(groupedEvents).map(([eventId, groupData]) => {
                 let eventName = '';
@@ -312,7 +385,7 @@ export const generateReportPDF = (data: ReportData) => {
                     eventName = event ? event.name : 'Unknown Event';
                 }
 
-                // Calculate totals
+                // Calculate totals per event
                 let income = 0;
                 let expense = 0;
 
@@ -334,86 +407,91 @@ export const generateReportPDF = (data: ReportData) => {
             summaryData.sort((a, b) => a.net - b.net);
 
             const summaryTableBody = summaryData.map(item => {
-                // Build the details line with proper formatting
-                const parts = [];
-                if (item.income > 0) parts.push(`In: Rs.${item.income.toLocaleString('en-IN')}`);
-                if (item.expense > 0) parts.push(`Out: Rs.${item.expense.toLocaleString('en-IN')}`);
-                const detailsText = parts.join('  ');
-
                 return [
+                    item.name,
+                    item.income > 0 ? item.income.toLocaleString('en-IN') : '-',
+                    item.expense > 0 ? item.expense.toLocaleString('en-IN') : '-',
                     {
-                        content: item.name,
-                        styles: {
-                            fontStyle: 'bold',
-                            textColor: item.isStandalone ? [234, 88, 12] : [31, 41, 55]
-                        } as any
-                    },
-                    detailsText,
-                    {
-                        content: `${item.net >= 0 ? '' : '-'}Rs.${Math.abs(item.net).toLocaleString('en-IN')}`,
+                        content: item.net >= 0 ? `+${item.net.toLocaleString('en-IN')}` : item.net.toLocaleString('en-IN'),
                         styles: {
                             textColor: item.net >= 0 ? [22, 101, 52] : [220, 38, 38],
-                            fontStyle: 'bold',
-                            halign: 'right'
+                            fontStyle: 'bold'
                         } as any
                     }
                 ];
             });
 
             autoTable(doc, {
+                head: [['Event Name', 'Total Income', 'Total Expense', 'Net Impact']],
                 body: summaryTableBody as any,
-                startY: eventSummaryY,
-                theme: 'plain',
-                styles: {
-                    fontSize: 9,
-                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
-                },
+                startY: currentY,
+                theme: 'grid',
+                styles: { fontSize: 9, cellPadding: 4 },
+                headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] }, // Indigo 600
                 columnStyles: {
-                    0: { cellWidth: 55, fontStyle: 'bold' },
-                    1: { cellWidth: 95, fontSize: 8, textColor: [75, 85, 99] },
-                    2: { cellWidth: 35, halign: 'right' },
+                    0: { cellWidth: 'auto', fontStyle: 'bold' },
+                    1: { cellWidth: 35, halign: 'right', textColor: [22, 101, 52] },
+                    2: { cellWidth: 35, halign: 'right', textColor: [185, 28, 28] },
+                    3: { cellWidth: 40, halign: 'right' },
                 },
-                didParseCell: (data) => {
-                    if (data.section === 'body') {
-                        data.cell.styles.lineColor = [243, 244, 246];
-                        data.cell.styles.lineWidth = 0.1;
-                    }
-                },
-                didDrawCell: (data) => {
-                    // Custom color for In/Out text in column 1
-                    if (data.section === 'body' && data.column.index === 1 && data.cell.text[0]) {
-                        const text = data.cell.text[0];
-                        const xStart = data.cell.x + 4;
-                        const yPos = data.cell.y + data.cell.height / 2 + 1;
-
-                        // Clear the default text first
-                        doc.setFillColor(255, 255, 255);
-                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-
-                        // Redraw with colors
-                        doc.setFontSize(8);
-                        let xPos = xStart;
-
-                        if (text.includes('In:') && text.includes('Out:')) {
-                            const [inPart, outPart] = text.split('  ');
-                            doc.setTextColor(22, 101, 52);
-                            doc.text(inPart, xPos, yPos);
-                            xPos += doc.getTextWidth(inPart) + 4;
-                            doc.setTextColor(220, 38, 38);
-                            doc.text(outPart, xPos, yPos);
-                        } else if (text.includes('In:')) {
-                            doc.setTextColor(22, 101, 52);
-                            doc.text(text, xPos, yPos);
-                        } else if (text.includes('Out:')) {
-                            doc.setTextColor(220, 38, 38);
-                            doc.text(text, xPos, yPos);
-                        }
-                    }
-                }
+                alternateRowStyles: { fillColor: [249, 250, 251] }
             });
         }
     }
 
+
+    // Loan Repayments Breakdown (New Section)
+    if (data.totalLoanRepayment && data.totalLoanRepayment > 0) {
+        if (currentY > 240) {
+            doc.addPage();
+            currentY = 20;
+        } else {
+            currentY += 10;
+        }
+
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(31, 41, 55);
+        doc.text('Loan Repayments Breakdown', 14, currentY);
+        currentY += 10;
+
+        const loanTransactions = data.transactions.filter(t => {
+            if (t.type !== 'transfer' || !t.toAccountId) return false;
+            const toAccount = (data.allAccounts || data.accounts).find(a => a.id === t.toAccountId);
+            return toAccount?.type === 'loan';
+        });
+
+        const loanTableBody = loanTransactions.map(t => {
+            const fromAccount = (data.allAccounts || data.accounts).find(a => a.id === t.accountId);
+            const toAccount = (data.allAccounts || data.accounts).find(a => a.id === t.toAccountId);
+            return [
+                format(new Date(t.date), 'MMM dd, yyyy'),
+                fromAccount?.name || 'Unknown',
+                toAccount?.name || 'Unknown',
+                t.note || '-',
+                t.amount.toLocaleString('en-IN')
+            ];
+        });
+
+        autoTable(doc, {
+            head: [['Date', 'From Account', 'Loan Account', 'Note', 'Amount (INR)']],
+            body: loanTableBody,
+            startY: currentY,
+            theme: 'grid',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [15, 118, 110] }, // Teal 800
+            columnStyles: {
+                0: { cellWidth: 30 },
+                1: { cellWidth: 40 },
+                2: { cellWidth: 40 },
+                3: { cellWidth: 'auto' },
+                4: { cellWidth: 30, halign: 'right' },
+            }
+        });
+
+        // @ts-ignore
+        currentY = doc.lastAutoTable.finalY + 10;
+    }
 
     // Stop here if detailed transactions are excluded
     if (data.exportOptions?.includeTransactions === false) {
@@ -421,9 +499,13 @@ export const generateReportPDF = (data: ReportData) => {
         return;
     }
 
-    // Add a new page for account transactions (Event Performance is on its own page)
-    doc.addPage();
-    currentY = 10;
+    // Add a new page for account transactions
+    if (currentY > 200) {
+        doc.addPage();
+        currentY = 10;
+    } else {
+        currentY += 10;
+    }
 
     // Transactions Grouped by Account (Excluding Manual Transactions)
     let tableStartY = currentY + 10;

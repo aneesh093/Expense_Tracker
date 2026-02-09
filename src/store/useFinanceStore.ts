@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog, type EventPlan } from '../types';
+import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog, type EventPlan, type FinanceSettings } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
 interface FinanceState {
@@ -62,7 +62,7 @@ interface FinanceState {
 
     getCreditCardStats: (accountId: string) => { unbilled: number; billed: number; totalDue: number };
 
-    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[], eventPlans?: EventPlan[] }) => void;
+    importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[], eventPlans?: EventPlan[], settings?: FinanceSettings }) => void;
 
     // Mandates
     mandates: Mandate[];
@@ -584,7 +584,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         };
     },
 
-    importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[] }) => {
+    importData: async (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[], eventPlans?: EventPlan[], settings?: FinanceSettings }) => {
         try {
             // Clear existing data
             await db.accounts.clear();
@@ -595,6 +595,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             await db.auditTrails.clear();
             await db.investmentLogs.clear();
             await db.eventLogs.clear();
+            await db.eventPlans.clear();
 
             // Import new data
             if (data.accounts?.length) await db.accounts.bulkPut(data.accounts);
@@ -605,6 +606,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             if (data.auditTrails?.length) await db.auditTrails.bulkPut(data.auditTrails);
             if (data.investmentLogs?.length) await db.investmentLogs.bulkPut(data.investmentLogs);
             if (data.eventLogs?.length) await db.eventLogs.bulkPut(data.eventLogs);
+            if (data.eventPlans?.length) await db.eventPlans.bulkPut(data.eventPlans);
 
             // Update state
             set({
@@ -615,8 +617,67 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 mandates: data.mandates || [],
                 auditTrails: data.auditTrails || [],
                 investmentLogs: data.investmentLogs || [],
-                eventLogs: data.eventLogs || []
+                eventLogs: data.eventLogs || [],
+                eventPlans: data.eventPlans || []
             });
+
+            // Restore settings if present
+            if (data.settings) {
+                const settings = data.settings;
+
+                if (settings.isBalanceHidden !== undefined) {
+                    localStorage.setItem('finance-privacy-mode', settings.isBalanceHidden.toString());
+                }
+                if (settings.isAccountsBalanceHidden !== undefined) {
+                    localStorage.setItem('finance-accounts-privacy-mode', settings.isAccountsBalanceHidden.toString());
+                }
+                if (settings.hiddenAccountTypes !== undefined) {
+                    localStorage.setItem('finance-hidden-account-types', JSON.stringify(settings.hiddenAccountTypes));
+                }
+                if (settings.reportSortBy !== undefined) {
+                    localStorage.setItem('finance-report-sort-by', settings.reportSortBy);
+                }
+                if (settings.showEventsInReport !== undefined) {
+                    localStorage.setItem('finance-show-events-in-report', String(settings.showEventsInReport));
+                }
+                if (settings.showLogsInReport !== undefined) {
+                    localStorage.setItem('finance-show-logs-in-report', String(settings.showLogsInReport));
+                }
+                if (settings.showManualInReport !== undefined) {
+                    localStorage.setItem('finance-show-manual-in-report', String(settings.showManualInReport));
+                }
+                if (settings.pdfIncludeCharts !== undefined) {
+                    localStorage.setItem('finance-pdf-include-charts', String(settings.pdfIncludeCharts));
+                }
+                if (settings.pdfIncludeAccountSummary !== undefined) {
+                    localStorage.setItem('finance-pdf-include-account-summary', String(settings.pdfIncludeAccountSummary));
+                }
+                if (settings.pdfIncludeTransactions !== undefined) {
+                    localStorage.setItem('finance-pdf-include-transactions', String(settings.pdfIncludeTransactions));
+                }
+                if (settings.pdfIncludeEventSummary !== undefined) {
+                    localStorage.setItem('finance-pdf-include-event-summary', String(settings.pdfIncludeEventSummary));
+                }
+                if (settings.autoBackupEnabled !== undefined) {
+                    localStorage.setItem('auto-backup-enabled', String(settings.autoBackupEnabled));
+                }
+
+                // Update store state with new settings
+                set((state) => ({
+                    ...state,
+                    isBalanceHidden: settings.isBalanceHidden ?? state.isBalanceHidden,
+                    isAccountsBalanceHidden: settings.isAccountsBalanceHidden ?? state.isAccountsBalanceHidden,
+                    hiddenAccountTypes: settings.hiddenAccountTypes ?? state.hiddenAccountTypes,
+                    reportSortBy: settings.reportSortBy ?? state.reportSortBy,
+                    showEventsInReport: settings.showEventsInReport ?? state.showEventsInReport,
+                    showLogsInReport: settings.showLogsInReport ?? state.showLogsInReport,
+                    showManualInReport: settings.showManualInReport ?? state.showManualInReport,
+                    pdfIncludeCharts: settings.pdfIncludeCharts ?? state.pdfIncludeCharts,
+                    pdfIncludeAccountSummary: settings.pdfIncludeAccountSummary ?? state.pdfIncludeAccountSummary,
+                    pdfIncludeTransactions: settings.pdfIncludeTransactions ?? state.pdfIncludeTransactions,
+                    pdfIncludeEventSummary: settings.pdfIncludeEventSummary ?? state.pdfIncludeEventSummary,
+                }));
+            }
 
             console.log('Data imported successfully');
         } catch (error) {
