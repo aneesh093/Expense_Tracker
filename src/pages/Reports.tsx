@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths, startOfYear, endOfYear, addYears, subYears } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, Filter, CreditCard, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, Filter, CreditCard, FileText, Landmark } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { generateReportPDF } from '../lib/pdfGenerator';
@@ -159,7 +159,7 @@ export function Reports() {
     }, [accounts, transactions, periodStart]);
 
     // Calculate totals
-    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, eventLogsTotalExpense, totalTransferIn, totalTransferOut, totalCreditCardPayment } = useMemo(() => {
+    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, eventLogsTotalExpense, totalTransferIn, totalTransferOut, totalCreditCardPayment, totalLoanRepayment } = useMemo(() => {
         const transTotals = periodTransactions.reduce((acc, t) => {
             if (t.type === 'income') acc.totalIncome += t.amount;
             else if (t.type === 'expense') {
@@ -176,11 +176,13 @@ export function Reports() {
                     const toAccount = accounts.find(a => a.id === t.toAccountId);
                     if (toAccount?.type === 'credit') {
                         acc.totalCreditCardPayment += t.amount;
+                    } else if (toAccount?.type === 'loan') {
+                        acc.totalLoanRepayment += t.amount;
                     }
                 }
             }
             return acc;
-        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, eventLogsTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0, totalCreditCardPayment: 0 });
+        }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, eventLogsTotalExpense: 0, totalTransferIn: 0, totalTransferOut: 0, totalCreditCardPayment: 0, totalLoanRepayment: 0 });
 
         // Calculate event logs separately if enabled
         if (showLogsInReport) {
@@ -227,6 +229,9 @@ export function Reports() {
                         if (toAccount?.type === 'credit') {
                             const current = itemMap.get('Credit Card Payment') || 0;
                             itemMap.set('Credit Card Payment', current + t.amount);
+                        } else if (toAccount?.type === 'loan') {
+                            const current = itemMap.get('Loan Repayment') || 0;
+                            itemMap.set('Loan Repayment', current + t.amount);
                         }
                     }
                 }
@@ -238,6 +243,7 @@ export function Reports() {
                 if (!isCategoryFiltered) {
                     if (name === 'Investment') color = '#8b5cf6';
                     else if (name === 'Credit Card Payment') color = '#6366f1'; // Indigo-500
+                    else if (name === 'Loan Repayment') color = '#14b8a6'; // Teal-500
                     else {
                         const category = categories.find(c => c.name === name);
                         if (category) color = category.color;
@@ -366,6 +372,7 @@ export function Reports() {
             totalTransferIn,
             totalTransferOut,
             totalCreditCardPayment,
+            totalLoanRepayment,
             transactions: periodTransactions,
             eventLogs: periodEventLogs,
             accounts: accounts.filter(a => a.includeInReports !== false),
@@ -600,6 +607,17 @@ export function Reports() {
                                     <span className="text-sm font-semibold text-gray-600">Credit Card Payments</span>
                                 </div>
                                 <span className="text-base font-bold text-indigo-600">{formatCurrency(totalCreditCardPayment)}</span>
+                            </div>
+                        )}
+                        {totalLoanRepayment > 0 && (
+                            <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
+                                        <Landmark size={18} />
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-600">Loan Repayments</span>
+                                </div>
+                                <span className="text-base font-bold text-teal-600">{formatCurrency(totalLoanRepayment)}</span>
                             </div>
                         )}
                     </div>

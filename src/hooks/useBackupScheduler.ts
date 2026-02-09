@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 
 export function useBackupScheduler() {
-    const { accounts, transactions, categories, mandates, events, auditTrails, investmentLogs } = useFinanceStore();
+    const { accounts, transactions, categories, mandates, events, auditTrails, investmentLogs, eventLogs, eventPlans } = useFinanceStore();
 
     useEffect(() => {
         // Check if auto-backup is enabled
@@ -43,6 +43,22 @@ export function useBackupScheduler() {
                     events,
                     auditTrails,
                     investmentLogs,
+                    eventLogs,
+                    eventPlans,
+                    settings: {
+                        isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false',
+                        isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true',
+                        hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
+                        reportSortBy: localStorage.getItem('finance-report-sort-by') || 'date',
+                        showEventsInReport: localStorage.getItem('finance-show-events-in-report') !== 'false',
+                        showLogsInReport: localStorage.getItem('finance-show-logs-in-report') !== 'false',
+                        showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
+                        pdfIncludeCharts: localStorage.getItem('finance-pdf-include-charts') !== 'false',
+                        pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
+                        pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
+                        pdfIncludeEventSummary: localStorage.getItem('finance-pdf-include-event-summary') !== 'false',
+                        autoBackupEnabled: localStorage.getItem('auto-backup-enabled') !== 'false',
+                    },
                     exportDate: new Date().toISOString(),
                     version: '1.0'
                 };
@@ -88,5 +104,5 @@ export function useBackupScheduler() {
         checkBackupTime();
 
         return () => clearInterval(interval);
-    }, [accounts, transactions, categories]);
+    }, [accounts, transactions, categories, mandates, events, auditTrails, investmentLogs, eventLogs, eventPlans]);
 }

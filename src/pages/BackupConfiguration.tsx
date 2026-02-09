@@ -14,6 +14,7 @@ export function BackupConfiguration() {
         auditTrails,
         investmentLogs,
         eventLogs,
+        eventPlans,
         importData
     } = useFinanceStore();
 
@@ -30,7 +31,22 @@ export function BackupConfiguration() {
             mandates,
             auditTrails,
             investmentLogs,
-            eventLogs
+            eventLogs,
+            eventPlans,
+            settings: {
+                isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false',
+                isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true',
+                hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
+                reportSortBy: localStorage.getItem('finance-report-sort-by') || 'date',
+                showEventsInReport: localStorage.getItem('finance-show-events-in-report') !== 'false',
+                showLogsInReport: localStorage.getItem('finance-show-logs-in-report') !== 'false',
+                showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
+                pdfIncludeCharts: localStorage.getItem('finance-pdf-include-charts') !== 'false',
+                pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
+                pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
+                pdfIncludeEventSummary: localStorage.getItem('finance-pdf-include-event-summary') !== 'false',
+                autoBackupEnabled: localStorage.getItem('auto-backup-enabled') !== 'false',
+            }
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

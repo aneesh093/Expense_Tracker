@@ -65,8 +65,14 @@ export function useAutoReport() {
                             else acc.totalExpense += t.amount;
                         }
                         else if (isInvestment(t)) acc.totalInvestment += t.amount;
+                        else if (t.type === 'transfer' && t.toAccountId) {
+                            const toAccount = accounts.find(a => a.id === t.toAccountId);
+                            if (toAccount?.type === 'loan') {
+                                acc.totalLoanRepayment += t.amount;
+                            }
+                        }
                         return acc;
-                    }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0 });
+                    }, { totalIncome: 0, totalExpense: 0, totalInvestment: 0, manualTotalExpense: 0, totalLoanRepayment: 0 });
 
                     // Add event logs to manual totals
                     relevantEventLogs.forEach(l => {
@@ -74,25 +80,37 @@ export function useAutoReport() {
                         else if (l.type === 'income') totals.totalIncome += l.amount;
                     });
 
-                    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense } = totals;
+                    const { totalIncome, totalExpense, totalInvestment, manualTotalExpense, totalLoanRepayment } = totals;
 
                     // Calculate Chart Data
                     const expenseMap = new Map<string, number>();
                     relevantTransactions
-                        .filter(t => t.type === 'expense')
                         .forEach(t => {
-                            const current = expenseMap.get(t.category) || 0;
-                            expenseMap.set(t.category, current + t.amount);
+                            if (t.type === 'expense' && !t.excludeFromBalance) {
+                                const current = expenseMap.get(t.category) || 0;
+                                expenseMap.set(t.category, current + t.amount);
+                            } else if (t.type === 'transfer' && t.toAccountId) {
+                                const toAccount = accounts.find(a => a.id === t.toAccountId);
+                                if (toAccount?.type === 'credit') {
+                                    const current = expenseMap.get('Credit Card Payment') || 0;
+                                    expenseMap.set('Credit Card Payment', current + t.amount);
+                                } else if (toAccount?.type === 'loan') {
+                                    const current = expenseMap.get('Loan Repayment') || 0;
+                                    expenseMap.set('Loan Repayment', current + t.amount);
+                                }
+                            }
                         });
 
                     const chartData = Array.from(expenseMap.entries())
                         .map(([name, value]) => {
-                            const category = categories.find(c => c.name === name);
-                            return {
-                                name,
-                                value,
-                                color: category?.color || '#9ca3af'
-                            };
+                            let color = '#9ca3af';
+                            if (name === 'Credit Card Payment') color = '#6366f1';
+                            else if (name === 'Loan Repayment') color = '#14b8a6'; // Teal-500
+                            else {
+                                const category = categories.find(c => c.name === name);
+                                if (category) color = category.color;
+                            }
+                            return { name, value, color };
                         })
                         .sort((a, b) => b.value - a.value);
 
@@ -151,6 +169,7 @@ export function useAutoReport() {
                         totalExpense,
                         totalInvestment,
                         manualTotalExpense,
+                        totalLoanRepayment,
                         transactions: relevantTransactions,
                         eventLogs: relevantEventLogs,
                         accounts,

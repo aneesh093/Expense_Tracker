@@ -140,3 +140,17 @@ export interface EventPlan {
     description: string;
     date: string;
 }
+export interface FinanceSettings {
+    isBalanceHidden?: boolean;
+    isAccountsBalanceHidden?: boolean;
+    hiddenAccountTypes?: string[];
+    reportSortBy?: 'date' | 'amount';
+    showEventsInReport?: boolean;
+    showLogsInReport?: boolean;
+    showManualInReport?: boolean;
+    pdfIncludeCharts?: boolean;
+    pdfIncludeAccountSummary?: boolean;
+    pdfIncludeTransactions?: boolean;
+    pdfIncludeEventSummary?: boolean;
+    autoBackupEnabled?: boolean;
+}
