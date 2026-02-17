@@ -153,4 +153,5 @@ export interface FinanceSettings {
     pdfIncludeTransactions?: boolean;
     pdfIncludeEventSummary?: boolean;
     autoBackupEnabled?: boolean;
+    showInvestmentAccounts?: boolean;
 }

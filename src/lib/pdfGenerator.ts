@@ -436,6 +436,9 @@ export const generateReportPDF = (data: ReportData) => {
                 },
                 alternateRowStyles: { fillColor: [249, 250, 251] }
             });
+
+            // @ts-ignore
+            currentY = doc.lastAutoTable.finalY + 10;
         }
     }
 
@@ -631,33 +634,71 @@ export const generateReportPDF = (data: ReportData) => {
         tableStartY = doc.lastAutoTable.finalY + 10;
 
         // Display Account Sum
-        const accountSum = accountTransactions.reduce((sum, t) => {
-            if (t.type === 'income') return sum + t.amount;
-            if (t.type === 'expense') return sum - t.amount;
+        const stats = accountTransactions.reduce((acc, t) => {
+            if (t.type === 'income') acc.income += t.amount;
+            if (t.type === 'expense') acc.expense += t.amount;
             if (t.type === 'transfer') {
-                if (t.accountId === accountId) return sum - t.amount;
-                if (t.toAccountId === accountId) return sum + t.amount;
+                if (t.accountId === accountId) acc.transferOut += t.amount;
+                if (t.toAccountId === accountId) acc.transferIn += t.amount;
             }
-            return sum;
-        }, 0);
+            return acc;
+        }, { income: 0, expense: 0, transferIn: 0, transferOut: 0 });
+
+        const accountSum = stats.income + stats.transferIn - stats.expense - stats.transferOut;
 
         doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont('helvetica', 'normal');
         doc.setTextColor(31, 41, 55);
 
-        const sumLabel = `Net for period:`;
+        // Check if there is enough space for summary (approx 50 units for full block)
+        if (tableStartY + 50 > 280) {
+            doc.addPage();
+            tableStartY = 20;
+        }
+
+        let summaryY = tableStartY;
+
+        // Total Income
+        if (stats.income > 0) {
+            doc.text(`Total Income:`, 14, summaryY);
+            doc.text(`INR ${stats.income.toLocaleString('en-IN')}`, 196, summaryY, { align: 'right' });
+            summaryY += 5;
+        }
+
+        // Total Spent
+        doc.text(`Total Spent:`, 14, summaryY);
+        doc.text(`INR ${stats.expense.toLocaleString('en-IN')}`, 196, summaryY, { align: 'right' });
+        summaryY += 5;
+
+        // Transfer details
+        if (stats.transferIn > 0) {
+            doc.text(`Total Transferred In:`, 14, summaryY);
+            doc.text(`INR ${stats.transferIn.toLocaleString('en-IN')}`, 196, summaryY, { align: 'right' });
+            summaryY += 5;
+        }
+        if (stats.transferOut > 0) {
+            doc.text(`Total Transferred Out:`, 14, summaryY);
+            doc.text(`INR ${stats.transferOut.toLocaleString('en-IN')}`, 196, summaryY, { align: 'right' });
+            summaryY += 5;
+        }
+
+        summaryY += 2;
+        doc.setFont('helvetica', 'bold');
+
+        const sumLabel = `Net balance for the period:`;
         const sumValue = `INR ${accountSum.toLocaleString('en-IN')}`;
-        doc.text(sumLabel, 14, tableStartY - 3);
-        doc.text(sumValue, 196, tableStartY - 3, { align: 'right' });
+        doc.text(sumLabel, 14, summaryY);
+        doc.text(sumValue, 196, summaryY, { align: 'right' });
+        summaryY += 5;
 
         const closingBalance = openingBalance + accountSum;
         const closingLabel = `Ending Balance:`;
         const closingValue = `INR ${closingBalance.toLocaleString('en-IN')}`;
-        doc.text(closingLabel, 14, tableStartY + 2);
-        doc.text(closingValue, 196, tableStartY + 2, { align: 'right' });
+        doc.text(closingLabel, 14, summaryY);
+        doc.text(closingValue, 196, summaryY, { align: 'right' });
 
         doc.setFont('helvetica', 'normal');
-        tableStartY += 15;
+        tableStartY = summaryY + 15;
     });
 
     // Manual Expenses Section (NEW PAGE)

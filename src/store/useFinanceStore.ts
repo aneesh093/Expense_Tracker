@@ -21,9 +21,12 @@ interface FinanceState {
     pdfIncludeAccountSummary: boolean;
     pdfIncludeTransactions: boolean;
     pdfIncludeEventSummary: boolean;
+    showInvestmentAccounts: boolean;
 
     // Initialize store from IndexedDB
     initialize: () => Promise<void>;
+
+    setShowInvestmentAccounts: (show: boolean) => void;
 
     addInvestmentLog: (log: InvestmentLog) => void;
     deleteInvestmentLog: (id: string, reason?: string) => void;
@@ -113,6 +116,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
     pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
     pdfIncludeEventSummary: localStorage.getItem('finance-pdf-include-event-summary') !== 'false',
+    showInvestmentAccounts: localStorage.getItem('finance-show-investment-accounts') !== 'false', // Default true
+
+    setShowInvestmentAccounts: (show: boolean) => {
+        localStorage.setItem('finance-show-investment-accounts', String(show));
+        set({ showInvestmentAccounts: show });
+    },
 
     isAccountTypeHidden: (type, group) => {
         const state = get();
@@ -661,6 +670,9 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 if (settings.autoBackupEnabled !== undefined) {
                     localStorage.setItem('auto-backup-enabled', String(settings.autoBackupEnabled));
                 }
+                if (settings.showInvestmentAccounts !== undefined) {
+                    localStorage.setItem('finance-show-investment-accounts', String(settings.showInvestmentAccounts));
+                }
 
                 // Update store state with new settings
                 set((state) => ({
@@ -676,6 +688,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                     pdfIncludeAccountSummary: settings.pdfIncludeAccountSummary ?? state.pdfIncludeAccountSummary,
                     pdfIncludeTransactions: settings.pdfIncludeTransactions ?? state.pdfIncludeTransactions,
                     pdfIncludeEventSummary: settings.pdfIncludeEventSummary ?? state.pdfIncludeEventSummary,
+                    showInvestmentAccounts: settings.showInvestmentAccounts ?? state.showInvestmentAccounts,
                 }));
             }
 

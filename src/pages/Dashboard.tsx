@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { format, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, isWithinInterval, isSameDay } from 'date-fns';
+import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus, Wallet } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
@@ -59,6 +59,22 @@ export function Dashboard() {
                 return acc;
             }, { totalIncome: 0, totalExpense: 0 });
     }, [transactions]);
+
+    // Calculate daily expense (Savings + Cash + Credit)
+    const dailyExpense = useMemo(() => {
+        const today = new Date();
+        const relevantAccountTypes = new Set(['savings', 'cash', 'credit']);
+
+        return transactions
+            .filter(t => {
+                if (t.type !== 'expense' || t.excludeFromBalance) return false;
+                if (!isSameDay(new Date(t.date), today)) return false;
+
+                const account = accounts.find(a => a.id === t.accountId);
+                return account && relevantAccountTypes.has(account.type);
+            })
+            .reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions, accounts]);
 
 
     const filteredTransactions = useMemo(() => {
@@ -159,6 +175,13 @@ export function Dashboard() {
                         </div>
                         <span className="text-xs text-red-100 block mb-1">Expense</span>
                         <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(totalExpense)}</p>
+                    </div>
+                    <div className="flex-1 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                        <div className="flex items-center space-x-2 bg-purple-400/20 w-fit p-1 rounded-full mb-2">
+                            <Wallet size={16} className="text-purple-300" />
+                        </div>
+                        <span className="text-xs text-purple-100 block mb-1">Today's Spend</span>
+                        <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(dailyExpense)}</p>
                     </div>
                 </div>
             </div>
