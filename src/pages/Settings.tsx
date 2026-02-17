@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, ChevronRight, Clock, PieChart, Database } from 'lucide-react';
+import { ArrowLeft, Layers, ChevronRight, Clock, PieChart, Database, View } from 'lucide-react';
 
 export function Settings() {
     const navigate = useNavigate();
@@ -57,6 +57,18 @@ export function Settings() {
                                     <Clock size={20} />
                                 </div>
                                 <span className="text-sm font-semibold text-gray-800">Manage Mandates</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                        </button>
+                        <button
+                            onClick={() => navigate('/settings/display')}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                    <View size={20} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">Display Settings</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>

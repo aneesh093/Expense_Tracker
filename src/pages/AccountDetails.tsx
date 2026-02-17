@@ -364,7 +364,14 @@ export function AccountDetails() {
                             <Pencil size={20} />
                         </button>
                         <button
-                            onClick={() => setIsDeletingAccount(true)}
+                            onClick={() => {
+                                const hasTransactions = transactions.some(t => t.accountId === account.id || t.toAccountId === account.id);
+                                if (hasTransactions) {
+                                    alert('Cannot delete account: Already transactions present.');
+                                    return;
+                                }
+                                setIsDeletingAccount(true);
+                            }}
                             className="p-2 text-red-600 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-all shadow-sm active:scale-95"
                             title="Delete Account"
                         >

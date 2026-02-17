@@ -11,7 +11,7 @@ import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Eye, E
 export function Accounts() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden } = useFinanceStore();
+    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden, showInvestmentAccounts } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -47,6 +47,15 @@ export function Accounts() {
     const [logsRequired, setLogsRequired] = useState(false);
 
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
+
+    // Reset active tab if investments are hidden
+    useEffect(() => {
+        if (!showInvestmentAccounts && activeTab === 'investments') {
+            setActiveTab('banking');
+        }
+    }, [showInvestmentAccounts, activeTab]);
+
+    const [formGroup, setFormGroup] = useState<'banking' | 'investment'>('banking');
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -118,7 +127,7 @@ export function Accounts() {
             balance: parseFloat(balance) || 0,
             color: 'blue',
             isPrimary,
-            group: activeTab === 'investments' ? 'investment' : 'banking',
+            group: formGroup,
             logsRequired
         };
 
@@ -168,6 +177,7 @@ export function Accounts() {
         setType(account.type);
         setBalance(account.balance.toString());
         setIsPrimary(account.isPrimary || false);
+        setFormGroup(account.group || (isInvestment(account.type) ? 'investment' : 'banking'));
 
         // Populate specific fields if they exist
         if (account.accountNumber) setAccountNumber(account.accountNumber);
@@ -277,7 +287,9 @@ export function Accounts() {
         resetForm();
         setIsAdding(true);
         // Default type based on tab
-        setType(activeTab === 'banking' ? 'fixed-deposit' : 'stock');
+        const defaultGroup = activeTab === 'banking' ? 'banking' : 'investment';
+        setFormGroup(defaultGroup);
+        setType(defaultGroup === 'banking' ? 'fixed-deposit' : 'stock');
     };
 
     const toggleSelectAccount = (accountId: string) => {
@@ -293,8 +305,19 @@ export function Accounts() {
     const handleBulkDelete = () => {
         if (selectedAccounts.size === 0) return;
 
-        const accountNames = Array.from(selectedAccounts)
-            .map(id => accounts.find(acc => acc.id === id)?.name)
+        // Check if any selected account has transactions
+        const processingAccounts = accounts.filter(acc => selectedAccounts.has(acc.id));
+        const accountsWithTransactions = processingAccounts.filter(acc =>
+            transactions.some(t => t.accountId === acc.id || t.toAccountId === acc.id)
+        );
+
+        if (accountsWithTransactions.length > 0) {
+            alert(`Cannot delete the following accounts because they have associated transactions:\n${accountsWithTransactions.map(a => a.name).join(', ')}`);
+            return;
+        }
+
+        const accountNames = processingAccounts
+            .map(acc => acc.name)
             .filter(Boolean)
             .join(', ');
 
@@ -375,15 +398,17 @@ export function Accounts() {
                     >
                         Banking
                     </button>
-                    <button
-                        onClick={() => { setActiveTab('investments'); }}
-                        className={cn(
-                            "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
-                            activeTab === 'investments' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
-                        )}
-                    >
-                        Investments
-                    </button>
+                    {showInvestmentAccounts && (
+                        <button
+                            onClick={() => { setActiveTab('investments'); }}
+                            className={cn(
+                                "flex-1 py-2 text-sm font-bold rounded-lg transition-all",
+                                activeTab === 'investments' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            Investments
+                        </button>
+                    )}
                 </div>
 
             </header>
@@ -400,6 +425,40 @@ export function Accounts() {
                         </div>
 
                         <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Account Group</label>
+                                <div className="flex p-1 bg-gray-100 rounded-lg mb-3">
+                                    <button
+                                        onClick={() => {
+                                            setFormGroup('banking');
+                                            // Reset type to a valid banking type if switching
+                                            if (formGroup !== 'banking') setType('fixed-deposit');
+                                        }}
+                                        className={cn(
+                                            "flex-1 py-1.5 text-sm font-medium rounded-md transition-all",
+                                            formGroup === 'banking' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+                                        )}
+                                    >
+                                        Banking
+                                    </button>
+                                    {showInvestmentAccounts && (
+                                        <button
+                                            onClick={() => {
+                                                setFormGroup('investment');
+                                                // Reset type to a valid investment type if switching
+                                                if (formGroup !== 'investment') setType('stock');
+                                            }}
+                                            className={cn(
+                                                "flex-1 py-1.5 text-sm font-medium rounded-md transition-all",
+                                                formGroup === 'investment' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+                                            )}
+                                        >
+                                            Investment
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
                                 <input
@@ -426,7 +485,7 @@ export function Accounts() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {activeTab === 'banking' ? (
+                                    {formGroup === 'banking' ? (
                                         ['fixed-deposit', 'savings', 'credit', 'cash', 'loan', 'online-wallet', 'other'].map((t) => (
                                             <button
                                                 key={t}
