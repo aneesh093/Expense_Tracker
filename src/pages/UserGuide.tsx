@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Home, BookOpen, CreditCard, ArrowRightLeft, Calendar, FileText, Settings as InterfaceSettings, Database, Clock } from 'lucide-react';
+import { ArrowLeft, Home, BookOpen, CreditCard, ArrowRightLeft, Calendar, FileText, Settings as InterfaceSettings, Clock } from 'lucide-react';
 
 export function UserGuide() {
     const navigate = useNavigate();
