@@ -161,22 +161,22 @@ export function Dashboard() {
                         <IndianRupee size={24} />
                     </div> */}
                 </div>
-                <div className="flex space-x-4">
-                    <div className="flex-1 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                <div className="flex gap-2 md:gap-4">
+                    <div className="flex-1 bg-white/10 rounded-xl p-2 md:p-3 backdrop-blur-sm">
                         <div className="flex items-center space-x-2 bg-green-400/20 w-fit p-1 rounded-full mb-2">
                             <ArrowUpRight size={16} className="text-green-300" />
                         </div>
                         <span className="text-xs text-green-100 block mb-1">Income</span>
                         <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(totalIncome)}</p>
                     </div>
-                    <div className="flex-1 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                    <div className="flex-1 bg-white/10 rounded-xl p-2 md:p-3 backdrop-blur-sm">
                         <div className="flex items-center space-x-2 bg-red-400/20 w-fit p-1 rounded-full mb-2">
                             <ArrowDownRight size={16} className="text-red-300" />
                         </div>
                         <span className="text-xs text-red-100 block mb-1">Expense</span>
                         <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(totalExpense)}</p>
                     </div>
-                    <div className="flex-1 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                    <div className="flex-1 bg-white/10 rounded-xl p-2 md:p-3 backdrop-blur-sm">
                         <div className="flex items-center space-x-2 bg-purple-400/20 w-fit p-1 rounded-full mb-2">
                             <Wallet size={16} className="text-purple-300" />
                         </div>

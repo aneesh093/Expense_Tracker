@@ -22,6 +22,8 @@ import { AuditTrail } from './pages/AuditTrail';
 import { Categories } from './pages/Categories';
 import { Mandates } from './pages/Mandates';
 import { BackupConfiguration } from './pages/BackupConfiguration';
+import { About } from './pages/About';
+import { UserGuide } from './pages/UserGuide';
 import { useFinanceStore } from './store/useFinanceStore';
 import { useBackupScheduler } from './hooks/useBackupScheduler';
 
@@ -68,6 +70,8 @@ function App() {
           <Route path="/settings/audit-trail" element={<AuditTrail />} />
           <Route path="/mandates" element={<Mandates />} />
           <Route path="/settings/backup" element={<BackupConfiguration />} />
+          <Route path="/settings/about" element={<About />} />
+          <Route path="/settings/user-guide" element={<UserGuide />} />
           <Route path="/logs/new" element={<LogForm />} />
           <Route path="/logs/edit/:id" element={<LogForm />} />
           <Route path="/plans/new" element={<PlanForm />} />

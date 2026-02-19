@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, ChevronRight, Clock, PieChart, Database, View } from 'lucide-react';
+import { ArrowLeft, Layers, ChevronRight, Clock, PieChart, Database, View, Info, BookOpen } from 'lucide-react';
 
 export function Settings() {
     const navigate = useNavigate();
@@ -105,6 +105,30 @@ export function Settings() {
                                     <Layers size={20} />
                                 </div>
                                 <span className="text-sm font-semibold text-gray-800">Report Settings</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                        </button>
+                        <button
+                            onClick={() => navigate('/settings/user-guide')}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                    <BookOpen size={20} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">User Guide</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                        </button>
+                        <button
+                            onClick={() => navigate('/settings/about')}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                                    <Info size={20} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">About</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>

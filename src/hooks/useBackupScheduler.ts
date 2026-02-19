@@ -58,6 +58,7 @@ export function useBackupScheduler() {
                         pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
                         pdfIncludeEventSummary: localStorage.getItem('finance-pdf-include-event-summary') !== 'false',
                         autoBackupEnabled: localStorage.getItem('auto-backup-enabled') !== 'false',
+                        showInvestmentAccounts: localStorage.getItem('finance-show-investment-accounts') !== 'false',
                     },
                     exportDate: new Date().toISOString(),
                     version: '1.0'
