@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { format, startOfMonth, endOfMonth, isWithinInterval, isSameDay } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus, Wallet } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, isWithinInterval, isSameDay, startOfWeek, addDays } from 'date-fns';
+import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus, BookOpen } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
@@ -54,37 +54,80 @@ export function Dashboard() {
         return transactions
             .filter(t => !t.excludeFromBalance && isWithinInterval(new Date(t.date), { start, end }))
             .reduce((acc, t) => {
-                if (t.type === 'income') acc.totalIncome += t.amount;
-                else if (t.type === 'expense') acc.totalExpense += t.amount;
+                if (t.type === 'income') {
+                    acc.totalIncome += t.amount;
+                } else if (t.type === 'expense') {
+                    acc.totalExpense += t.amount;
+                } else if (t.type === 'transfer' && t.toAccountId) {
+                    const toAccount = accounts.find(a => a.id === t.toAccountId);
+                    if (toAccount) {
+                        if (toAccount.type === 'credit' || toAccount.type === 'loan' || toAccount.type === 'stock' || toAccount.type === 'mutual-fund') {
+                            acc.totalExpense += t.amount;
+                        }
+                    }
+                }
                 return acc;
             }, { totalIncome: 0, totalExpense: 0 });
-    }, [transactions]);
-
-    // Calculate daily expense (Savings + Cash + Credit)
-    const dailyExpense = useMemo(() => {
-        const today = new Date();
-        const relevantAccountTypes = new Set(['savings', 'cash', 'credit']);
-
-        return transactions
-            .filter(t => {
-                if (t.type !== 'expense' || t.excludeFromBalance) return false;
-                if (!isSameDay(new Date(t.date), today)) return false;
-
-                const account = accounts.find(a => a.id === t.accountId);
-                return account && relevantAccountTypes.has(account.type);
-            })
-            .reduce((sum, t) => sum + t.amount, 0);
     }, [transactions, accounts]);
 
 
-    const filteredTransactions = useMemo(() => {
-        const primaryAccountIds = new Set(accounts.filter(a => a.isPrimary).map(a => a.id));
+    const weekSpendData = useMemo(() => {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfCurrentWeek = startOfWeek(todayStart, { weekStartsOn: 1 }); // Monday is 1
+        const relevantAccountTypes = new Set(['savings', 'cash', 'credit']);
 
-        // If no primary accounts are set, maybe show all? Or show none? 
+        const days = Array.from({ length: 7 }).map((_, i) => {
+            const date = addDays(startOfCurrentWeek, i);
+            const spend = transactions
+                .filter(t => {
+                    if (t.type !== 'expense' || t.excludeFromBalance) return false;
+                    if (!isSameDay(new Date(t.date), date)) return false;
+
+                    const account = accounts.find(a => a.id === t.accountId);
+                    return account && relevantAccountTypes.has(account.type);
+                })
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            return {
+                date,
+                dayNumber: date.getDate(),
+                spend,
+                isToday: isSameDay(date, now)
+            };
+        });
+
+        let maxSpend = -Infinity;
+        let minSpend = Infinity;
+
+        days.forEach(d => {
+            if (d.date > todayStart) return;
+            if (d.spend > maxSpend) maxSpend = d.spend;
+            if (d.spend < minSpend) minSpend = d.spend;
+        });
+
+        return days.map(d => {
+            const isFuture = d.date > todayStart;
+            // Only highlight if there's a difference between max and min. If all are 0, no highlights.
+            const hasSpendVariation = maxSpend > minSpend;
+            return {
+                ...d,
+                isFuture,
+                isMost: !isFuture && hasSpendVariation && d.spend === maxSpend,
+                isLeast: !isFuture && hasSpendVariation && d.spend === minSpend
+            };
+        });
+    }, [transactions, accounts]);
+
+    const filteredTransactions = useMemo(() => {
+        const targetAccountIds = new Set(
+            accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id)
+        );
+
+        // If no primary accounts or credit cards exist, maybe show all? Or show none? 
         // User said "only display transactions from primary bank accounts".
-        // Let's assume strict filtering. If no primary, show nothing? Or show all as fallback?
-        // Let's show all if NO primary accounts exist, otherwise filter.
-        if (primaryAccountIds.size === 0) {
+        // Now adding credit cards. Let's show all if NO targets exist, otherwise filter.
+        if (targetAccountIds.size === 0) {
             return transactions
                 .filter(t => !t.excludeFromBalance)
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -93,8 +136,8 @@ export function Dashboard() {
         return transactions
             .filter(t =>
                 !t.excludeFromBalance &&
-                (primaryAccountIds.has(t.accountId) ||
-                    (t.toAccountId && primaryAccountIds.has(t.toAccountId)))
+                (targetAccountIds.has(t.accountId) ||
+                    (t.toAccountId && targetAccountIds.has(t.toAccountId)))
             )
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transactions, accounts]);
@@ -126,14 +169,22 @@ export function Dashboard() {
                 </div>
                 <div className="flex items-center space-x-2">
                     <button
-                        onClick={() => navigate('/add')}
-                        className="h-10 px-4 bg-blue-600 text-white rounded-full flex items-center justify-center space-x-1 shadow-sm active:scale-95 transition-transform font-bold text-sm"
+                        onClick={() => navigate('/settings/user-guide')}
+                        title="User Guide"
+                        className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-emerald-100"
                     >
-                        <Plus size={20} />
-                        <span>Add</span>
+                        <BookOpen size={20} />
+                    </button>
+                    <button
+                        onClick={() => navigate('/add')}
+                        title="Add Transaction"
+                        className="h-10 w-10 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-blue-700"
+                    >
+                        <Plus size={24} />
                     </button>
                     <div
                         onClick={() => navigate('/settings')}
+                        title="Settings"
                         className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold cursor-pointer hover:bg-gray-200 transition-colors"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
@@ -161,7 +212,7 @@ export function Dashboard() {
                         <IndianRupee size={24} />
                     </div> */}
                 </div>
-                <div className="flex gap-2 md:gap-4">
+                <div className="flex gap-2 md:gap-4 mb-4">
                     <div className="flex-1 bg-white/10 rounded-xl p-2 md:p-3 backdrop-blur-sm">
                         <div className="flex items-center space-x-2 bg-green-400/20 w-fit p-1 rounded-full mb-2">
                             <ArrowUpRight size={16} className="text-green-300" />
@@ -176,15 +227,54 @@ export function Dashboard() {
                         <span className="text-xs text-red-100 block mb-1">Expense</span>
                         <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(totalExpense)}</p>
                     </div>
-                    <div className="flex-1 bg-white/10 rounded-xl p-2 md:p-3 backdrop-blur-sm">
-                        <div className="flex items-center space-x-2 bg-purple-400/20 w-fit p-1 rounded-full mb-2">
-                            <Wallet size={16} className="text-purple-300" />
-                        </div>
-                        <span className="text-xs text-purple-100 block mb-1">Today's Spend</span>
-                        <p className="font-bold">{isBalanceHidden ? '•••••' : formatCurrency(dailyExpense)}</p>
-                    </div>
                 </div>
             </div>
+
+            {/* Weekly Spend Visual */}
+            <section>
+                <div className="flex justify-between items-end mb-4">
+                    <h3 className="text-lg font-bold text-gray-900">Current Week</h3>
+                </div>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center px-1 sm:px-4">
+                        {weekSpendData.map((day, idx) => (
+                            <div key={idx} className="flex flex-col items-center group">
+                                <span className="text-[10px] text-gray-400 font-semibold mb-2 uppercase tracking-widest">
+                                    {format(day.date, 'EEEEEE')}
+                                </span>
+                                <div
+                                    className={cn(
+                                        "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm font-bold relative transition-all mb-1",
+                                        day.isMost ? "bg-red-500 text-white shadow-md shadow-red-200 ring-2 ring-red-100" :
+                                            day.isLeast ? "bg-emerald-500 text-white shadow-md shadow-emerald-200 ring-2 ring-emerald-100" :
+                                                "text-gray-700 bg-gray-50 hover:bg-gray-100",
+                                        day.isToday && !day.isMost && !day.isLeast && "bg-blue-600 text-white shadow-md shadow-blue-200 ring-2 ring-blue-100",
+                                        day.isToday && (day.isMost || day.isLeast) && "ring-2 ring-blue-600 ring-offset-2",
+                                        day.isFuture && "opacity-40"
+                                    )}
+                                >
+                                    {day.dayNumber}
+                                </div>
+                                {!day.isFuture ? (
+                                    <span className={cn(
+                                        "text-[9px] font-bold tracking-tighter truncate w-12 text-center",
+                                        day.isMost ? "text-red-500" :
+                                            day.isLeast ? "text-emerald-500" : "text-gray-500"
+                                    )}>
+                                        {formatCurrency(day.spend).replace('.00', '')}
+                                    </span>
+                                ) : (
+                                    <span className="text-[9px] text-transparent tracking-tighter w-12 text-center">-</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-4 flex justify-center space-x-4 sm:space-x-6 text-[10px] text-gray-400 uppercase tracking-widest font-semibold">
+                        <div className="flex items-center space-x-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div><span>Most Spent</span></div>
+                        <div className="flex items-center space-x-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500"></div><span>Least Spent</span></div>
+                    </div>
+                </div>
+            </section>
 
             {/* Recent Activity */}
             <section>
@@ -232,6 +322,10 @@ export function Dashboard() {
                                             </p>
                                             <div className="flex items-center text-[10px] text-gray-500 space-x-1 mt-0.5">
                                                 <span>{format(new Date(t.date), 'MMM dd, h:mm a')}</span>
+                                                <span>•</span>
+                                                <span>
+                                                    {isTransfer ? 'Transfer' : accounts.find(a => a.id === t.accountId)?.name || 'Unknown Account'}
+                                                </span>
                                                 {t.eventId && (
                                                     <>
                                                         <span>•</span>

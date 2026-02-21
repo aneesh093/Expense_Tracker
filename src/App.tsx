@@ -29,11 +29,13 @@ import { useBackupScheduler } from './hooks/useBackupScheduler';
 
 import { useAutoReport } from './hooks/useAutoReport';
 
-// Placeholder pages to be implemented later
+import { SecuritySettings } from './pages/SecuritySettings';
+import { LockScreen } from './components/Security/LockScreen';
 
 function App() {
   const initialize = useFinanceStore((state) => state.initialize);
   const checkAndRunMandates = useFinanceStore((state) => state.checkAndRunMandates);
+  const isLocked = useFinanceStore((state) => state.isLocked);
 
   // Enable automatic daily backups
   useBackupScheduler();
@@ -49,8 +51,10 @@ function App() {
     };
     init();
   }, [initialize, checkAndRunMandates]);
+
   return (
     <BrowserRouter>
+      {isLocked && <LockScreen />}
       <Routes>
         <Route element={<MobileLayout />}>
           <Route path="/" element={<Dashboard />} />
@@ -67,6 +71,7 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/display" element={<DisplaySettings />} />
           <Route path="/settings/reports" element={<ReportSettings />} />
+          <Route path="/settings/security" element={<SecuritySettings />} />
           <Route path="/settings/audit-trail" element={<AuditTrail />} />
           <Route path="/mandates" element={<Mandates />} />
           <Route path="/settings/backup" element={<BackupConfiguration />} />
