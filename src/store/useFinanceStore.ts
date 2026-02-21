@@ -22,11 +22,20 @@ interface FinanceState {
     pdfIncludeTransactions: boolean;
     pdfIncludeEventSummary: boolean;
     showInvestmentAccounts: boolean;
+    showAuditTrail: boolean;
+    isLocked: boolean;
+    passcode: string | null;
+    useBiometrics: boolean;
 
     // Initialize store from IndexedDB
     initialize: () => Promise<void>;
 
     setShowInvestmentAccounts: (show: boolean) => void;
+    setShowAuditTrail: (show: boolean) => void;
+    setPasscode: (passcode: string | null) => void;
+    setUseBiometrics: (use: boolean) => void;
+    unlockApp: (passcode: string) => boolean;
+    lockApp: () => void;
 
     addInvestmentLog: (log: InvestmentLog) => void;
     deleteInvestmentLog: (id: string, reason?: string) => void;
@@ -117,10 +126,45 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
     pdfIncludeEventSummary: localStorage.getItem('finance-pdf-include-event-summary') !== 'false',
     showInvestmentAccounts: localStorage.getItem('finance-show-investment-accounts') !== 'false', // Default true
+    showAuditTrail: localStorage.getItem('finance-show-audit-trail') !== 'false', // Default true
+    isLocked: false, // Will be set in initialize
+    passcode: localStorage.getItem('finance-passcode'),
+    useBiometrics: localStorage.getItem('finance-use-biometrics') === 'true',
 
     setShowInvestmentAccounts: (show: boolean) => {
         localStorage.setItem('finance-show-investment-accounts', String(show));
         set({ showInvestmentAccounts: show });
+    },
+
+    setShowAuditTrail: (show: boolean) => {
+        localStorage.setItem('finance-show-audit-trail', String(show));
+        set({ showAuditTrail: show });
+    },
+
+    setPasscode: (passcode: string | null) => {
+        if (passcode) localStorage.setItem('finance-passcode', passcode);
+        else localStorage.removeItem('finance-passcode');
+        set({ passcode });
+    },
+
+    setUseBiometrics: (use: boolean) => {
+        localStorage.setItem('finance-use-biometrics', String(use));
+        set({ useBiometrics: use });
+    },
+
+    unlockApp: (passcode: string) => {
+        const state = get();
+        if (state.passcode === passcode) {
+            set({ isLocked: false });
+            return true;
+        }
+        return false;
+    },
+
+    lockApp: () => {
+        if (get().passcode) {
+            set({ isLocked: true });
+        }
     },
 
     isAccountTypeHidden: (type, group) => {
@@ -179,7 +223,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 isInitialized: true,
                 isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false',
                 isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true',
-                reportSortBy: (localStorage.getItem('finance-report-sort-by') as 'date' | 'amount') || 'date'
+                reportSortBy: (localStorage.getItem('finance-report-sort-by') as 'date' | 'amount') || 'date',
+                isLocked: !!localStorage.getItem('finance-passcode')
             });
 
             console.log('Store initialized from IndexedDB');
@@ -673,6 +718,9 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 if (settings.showInvestmentAccounts !== undefined) {
                     localStorage.setItem('finance-show-investment-accounts', String(settings.showInvestmentAccounts));
                 }
+                if (settings.showAuditTrail !== undefined) {
+                    localStorage.setItem('finance-show-audit-trail', String(settings.showAuditTrail));
+                }
 
                 // Update store state with new settings
                 set((state) => ({
@@ -689,6 +737,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                     pdfIncludeTransactions: settings.pdfIncludeTransactions ?? state.pdfIncludeTransactions,
                     pdfIncludeEventSummary: settings.pdfIncludeEventSummary ?? state.pdfIncludeEventSummary,
                     showInvestmentAccounts: settings.showInvestmentAccounts ?? state.showInvestmentAccounts,
+                    showAuditTrail: settings.showAuditTrail ?? state.showAuditTrail,
                 }));
             }
 

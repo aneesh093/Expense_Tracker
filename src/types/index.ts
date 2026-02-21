@@ -154,4 +154,7 @@ export interface FinanceSettings {
     pdfIncludeEventSummary?: boolean;
     autoBackupEnabled?: boolean;
     showInvestmentAccounts?: boolean;
+    showAuditTrail?: boolean;
+    passcode?: string;
+    useBiometrics?: boolean;
 }

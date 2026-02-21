@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, ChevronRight, Clock, PieChart, Database, View, Info, BookOpen } from 'lucide-react';
+import { ArrowLeft, Layers, ChevronRight, Clock, PieChart, Database, View, Info, BookOpen, Shield } from 'lucide-react';
+import { useFinanceStore } from '../store/useFinanceStore';
 
 export function Settings() {
     const navigate = useNavigate();
+    const { showAuditTrail } = useFinanceStore();
 
     return (
         <div className="flex flex-col h-screen bg-gray-50">
@@ -36,18 +38,20 @@ export function Settings() {
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
-                        <button
-                            onClick={() => navigate('/settings/audit-trail')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                                    <Clock size={20} />
+                        {showAuditTrail && (
+                            <button
+                                onClick={() => navigate('/settings/audit-trail')}
+                                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                            >
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                                        <Clock size={20} />
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-800">View Audit Trail</span>
                                 </div>
-                                <span className="text-sm font-semibold text-gray-800">View Audit Trail</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
+                                <ChevronRight size={20} className="text-gray-400" />
+                            </button>
+                        )}
                         <button
                             onClick={() => navigate('/mandates')}
                             className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
@@ -69,6 +73,18 @@ export function Settings() {
                                     <View size={20} />
                                 </div>
                                 <span className="text-sm font-semibold text-gray-800">Display Settings</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400" />
+                        </button>
+                        <button
+                            onClick={() => navigate('/settings/security')}
+                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                    <Shield size={20} />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">Security</span>
                             </div>
                             <ChevronRight size={20} className="text-gray-400" />
                         </button>
