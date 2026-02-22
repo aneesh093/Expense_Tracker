@@ -22,7 +22,7 @@ export interface InsuranceDetails {
 }
 
 export interface CreditCardDetails {
-    statementDate: number; // Day of month
+    statementDate: number; // Day of month (Billing Date)
     dueDate: number;       // Day of month
 }
 
@@ -62,6 +62,7 @@ export interface Transaction {
     note?: string;
     eventId?: string; // For event-based tracking
     excludeFromBalance?: boolean;
+    isBillPayment?: boolean; // Flag for credit card bill payments
 }
 
 export interface Category {
