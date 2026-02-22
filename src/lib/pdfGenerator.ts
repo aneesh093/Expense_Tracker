@@ -15,6 +15,7 @@ interface ReportData {
     totalCreditCardPayment?: number;
     totalLoanRepayment?: number;
     transactions: Transaction[];
+    summaryTransactions?: Transaction[]; // Added for independent account summary
     eventLogs: EventLog[];
     accounts: Account[];
     allAccounts?: Account[]; // Added for name lookup of excluded accounts
@@ -192,12 +193,29 @@ export const generateReportPDF = (data: ReportData) => {
         currentY += 10;
 
         const groups = ['banking', 'investment'] as const;
+        const allRelevantAccounts = data.allAccounts || data.accounts;
+        const summaryTrans = data.summaryTransactions || data.transactions;
+
         groups.forEach(groupName => {
-            const groupAccounts = data.accounts.filter(acc => {
+            const groupAccounts = allRelevantAccounts.filter(acc => {
+                // Strict Exclusion: Credit Cards should never be in these asset/liability summary tables
+                if (acc.type === 'credit') return false;
+
+                // Priority 1: Name-based grouping for investments (Always Investment)
+                const isInvestmentName = /PF|EPF|PPF|VPF|NPS/i.test(acc.name);
+                if (isInvestmentName) return groupName === 'investment';
+
+                // Priority 2: Explicit group setting
                 if (acc.group) return acc.group === groupName;
-                const isInvestmentType = ['stock', 'mutual-fund', 'land', 'insurance'].includes(acc.type);
-                const derivedGroup = isInvestmentType ? 'investment' : 'banking';
-                return derivedGroup === groupName;
+
+                // Priority 3: Type-based grouping
+                const isInvestmentType = ['stock', 'mutual-fund', 'land', 'insurance', 'fixed-deposit', 'other'].includes(acc.type);
+                const isBankingType = ['savings', 'cash', 'online-wallet', 'loan'].includes(acc.type);
+
+                if (isInvestmentType) return groupName === 'investment';
+                if (isBankingType) return groupName === 'banking';
+
+                return false;
             });
 
             if (groupAccounts.length === 0) return;
@@ -214,7 +232,7 @@ export const generateReportPDF = (data: ReportData) => {
             currentY += 5;
 
             const groupSummaryBody = groupAccounts.map(acc => {
-                const accTransactions = data.transactions.filter(t =>
+                const accTransactions = summaryTrans.filter(t =>
                     !t.excludeFromBalance && (t.accountId === acc.id || t.toAccountId === acc.id)
                 );
 

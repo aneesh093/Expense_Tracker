@@ -42,6 +42,11 @@ export function useAutoReport() {
                         return d >= monthStart && d <= lastDayOfMonth;
                     });
 
+                    const allRelevantTransactions = transactions.filter(t => {
+                        const d = new Date(t.date);
+                        return d >= monthStart && d <= lastDayOfMonth;
+                    });
+
                     const relevantEventLogs = eventLogs.filter(l => {
                         const d = new Date(l.date);
                         return d >= monthStart && d <= lastDayOfMonth;
@@ -177,7 +182,8 @@ export function useAutoReport() {
                         events,
                         chartData,
                         manualChartData,
-                        openingBalances
+                        openingBalances,
+                        summaryTransactions: allRelevantTransactions
                     });
 
                     // Mark as done

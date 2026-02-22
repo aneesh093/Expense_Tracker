@@ -140,7 +140,16 @@ export function SortableAccountItem({
             <div className="text-right flex flex-col items-end min-h-[44px] justify-center">
                 {account.type === 'credit' && account.creditCardDetails && (
                     <span className="text-[8px] text-gray-400 mb-1">
-                        Stmt: {account.creditCardDetails.statementDate}th
+                        Stmt: {account.creditCardDetails.statementDate}{(() => {
+                            const d = account.creditCardDetails.statementDate;
+                            if (d > 3 && d < 21) return 'th';
+                            switch (d % 10) {
+                                case 1: return "st";
+                                case 2: return "nd";
+                                case 3: return "rd";
+                                default: return "th";
+                            }
+                        })()}
                     </span>
                 )}
                 <p className={cn("text-[15px] font-bold", spentAmount < 0 && account.type !== 'credit' ? "text-red-600" : "text-gray-900")}>

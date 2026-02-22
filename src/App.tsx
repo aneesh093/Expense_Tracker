@@ -16,8 +16,7 @@ import { LogForm } from './pages/LogForm';
 import { PlanForm } from './pages/PlanForm';
 import { ReportSources } from './pages/ReportSources';
 import { Settings } from './pages/Settings';
-import { DisplaySettings } from './pages/DisplaySettings';
-import { ReportSettings } from './pages/ReportSettings';
+import { AppPreferences } from './pages/AppPreferences';
 import { AuditTrail } from './pages/AuditTrail';
 import { Categories } from './pages/Categories';
 import { Mandates } from './pages/Mandates';
@@ -69,8 +68,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/reports/transactions" element={<ReportTransactions />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/display" element={<DisplaySettings />} />
-          <Route path="/settings/reports" element={<ReportSettings />} />
+          <Route path="/settings/preferences" element={<AppPreferences />} />
           <Route path="/settings/security" element={<SecuritySettings />} />
           <Route path="/settings/audit-trail" element={<AuditTrail />} />
           <Route path="/mandates" element={<Mandates />} />

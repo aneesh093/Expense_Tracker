@@ -114,6 +114,11 @@ export function Reports() {
         });
     }, [eventLogs, periodStart, periodEnd, events, selectedCategoryName, selectedEventId]);
 
+    // All transactions for the period (ignoring report source filters) for Account Summary
+    const allPeriodTransactions = useMemo(() => {
+        return transactions.filter(t => isWithinInterval(new Date(t.date), { start: periodStart, end: periodEnd }));
+    }, [transactions, periodStart, periodEnd]);
+
     const isInvestment = (t: any) => {
         if (t.type !== 'transfer' || !t.toAccountId) return false;
         const toAccount = accounts.find(a => a.id === t.toAccountId);
@@ -260,15 +265,15 @@ export function Reports() {
 
     const creditCardStats = useMemo(() => {
         return accounts
-            .filter(acc => acc.type === 'credit')
+            .filter(acc => acc.type === 'credit' && acc.includeInReports !== false)
             .reduce((acc, card) => {
-                const stats = getCreditCardStats(card.id);
+                const stats = getCreditCardStats(card.id, periodEnd);
                 return {
                     billed: acc.billed + stats.billed,
                     unbilled: acc.unbilled + stats.unbilled
                 };
             }, { billed: 0, unbilled: 0 });
-    }, [accounts, getCreditCardStats]);
+    }, [accounts, getCreditCardStats, periodEnd]);
 
     // Calculate per-category spending and limit status
     const categorySpendingWithLimits = useMemo(() => {
@@ -382,6 +387,7 @@ export function Reports() {
             chartData,
             manualChartData,
             openingBalances,
+            summaryTransactions: allPeriodTransactions,
             exportOptions: {
                 includeCharts: pdfIncludeCharts,
                 includeAccountSummary: pdfIncludeAccountSummary,

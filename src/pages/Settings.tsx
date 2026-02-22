@@ -1,155 +1,150 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, ChevronRight, Clock, PieChart, Database, View, Info, BookOpen, Shield } from 'lucide-react';
+import {
+    ArrowLeft, Layers, ChevronRight, Clock, PieChart,
+    Settings2, Info, BookOpen, Shield,
+    HardDrive, ListTree
+} from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
+import { cn } from '../lib/utils';
 
 export function Settings() {
     const navigate = useNavigate();
     const { showAuditTrail } = useFinanceStore();
 
+    const SettingGroup = ({ title, children }: { title: string, children: React.ReactNode }) => (
+        <section>
+            <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 px-1">{title}</h2>
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
+                {children}
+            </div>
+        </section>
+    );
+
+    const SettingItem = ({ icon: Icon, title, description, path, iconBg, iconColor }: any) => (
+        <button
+            onClick={() => navigate(path)}
+            className="w-full p-4 flex items-center justify-between hover:bg-gray-50/50 active:bg-gray-100/50 transition-all text-left"
+        >
+            <div className="flex items-center space-x-4">
+                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm", iconBg, iconColor)}>
+                    <Icon size={22} />
+                </div>
+                <div className="min-w-0">
+                    <p className="font-bold text-gray-900 text-sm">{title}</p>
+                    <p className="text-xs text-gray-500 truncate">{description}</p>
+                </div>
+            </div>
+            <ChevronRight size={18} className="text-gray-300" />
+        </button>
+    );
+
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
+        <div className="flex flex-col min-h-screen bg-gray-50 pb-24">
             {/* Header */}
-            <header className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10">
+            <header className="bg-white/80 backdrop-blur-md px-4 py-6 flex items-center sticky top-0 z-10 border-b border-gray-100">
                 <button
                     onClick={() => navigate(-1)}
                     className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                 >
                     <ArrowLeft size={24} />
                 </button>
-                <h1 className="ml-2 text-xl font-bold text-gray-900">Settings</h1>
+                <div className="ml-2">
+                    <h1 className="text-2xl font-black text-gray-900">Settings</h1>
+                    <p className="text-xs text-gray-400 font-medium">Customize your experience</p>
+                </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="flex-1 p-4 space-y-8 max-w-lg mx-auto w-full">
 
-                {/* General Section */}
-                <section>
-                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">General</h2>
-                    <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
+                <SettingGroup title="Management">
+                    <SettingItem
+                        icon={Layers}
+                        title="Categories"
+                        description="Manage income and expense categories"
+                        path="/categories"
+                        iconBg="bg-purple-50"
+                        iconColor="text-purple-600"
+                    />
+                    <SettingItem
+                        icon={Clock}
+                        title="Mandates"
+                        description="View and run recurring transactions"
+                        path="/mandates"
+                        iconBg="bg-green-50"
+                        iconColor="text-green-600"
+                    />
+                    {showAuditTrail && (
+                        <SettingItem
+                            icon={ListTree}
+                            title="Audit Trail"
+                            description="History of account modifications"
+                            path="/settings/audit-trail"
+                            iconBg="bg-orange-50"
+                            iconColor="text-orange-600"
+                        />
+                    )}
+                </SettingGroup>
 
-                        <button
-                            onClick={() => navigate('/categories')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-                                    <Layers size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Manage Categories</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        {showAuditTrail && (
-                            <button
-                                onClick={() => navigate('/settings/audit-trail')}
-                                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                            >
-                                <div className="flex items-center space-x-3">
-                                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                                        <Clock size={20} />
-                                    </div>
-                                    <span className="text-sm font-semibold text-gray-800">View Audit Trail</span>
-                                </div>
-                                <ChevronRight size={20} className="text-gray-400" />
-                            </button>
-                        )}
-                        <button
-                            onClick={() => navigate('/mandates')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                                    <Clock size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Manage Mandates</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/settings/display')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                                    <View size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Display Settings</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/settings/security')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                    <Shield size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Security</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/settings/report-sources')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600">
-                                    <PieChart size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Report Sources</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/settings/backup')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600">
-                                    <Database size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Backup Configuration</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/settings/reports')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                                    <Layers size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">Report Settings</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/settings/user-guide')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                                    <BookOpen size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">User Guide</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                        <button
-                            onClick={() => navigate('/settings/about')}
-                            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                                    <Info size={20} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-800">About</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </button>
-                    </div>
-                </section>
+                <SettingGroup title="Preferences">
+                    <SettingItem
+                        icon={Settings2}
+                        title="App Preferences"
+                        description="Display and report configuration"
+                        path="/settings/preferences"
+                        iconBg="bg-blue-50"
+                        iconColor="text-blue-600"
+                    />
+                    <SettingItem
+                        icon={PieChart}
+                        title="Report Sources"
+                        description="Choose accounts included in reports"
+                        path="/settings/report-sources"
+                        iconBg="bg-pink-50"
+                        iconColor="text-pink-600"
+                    />
+                </SettingGroup>
+
+                <SettingGroup title="Security & Data">
+                    <SettingItem
+                        icon={Shield}
+                        title="Security"
+                        description="Passcode and biometric settings"
+                        path="/settings/security"
+                        iconBg="bg-indigo-50"
+                        iconColor="text-indigo-600"
+                    />
+                    <SettingItem
+                        icon={HardDrive}
+                        title="Backup & Restore"
+                        description="Import/Export your app data"
+                        path="/settings/backup"
+                        iconBg="bg-cyan-50"
+                        iconColor="text-cyan-600"
+                    />
+                </SettingGroup>
+
+                <SettingGroup title="Resources">
+                    <SettingItem
+                        icon={BookOpen}
+                        title="User Guide"
+                        description="Learn how to use it more efficiently"
+                        path="/settings/user-guide"
+                        iconBg="bg-emerald-50"
+                        iconColor="text-emerald-600"
+                    />
+                    <SettingItem
+                        icon={Info}
+                        title="About"
+                        description="App version and developer info"
+                        path="/settings/about"
+                        iconBg="bg-gray-100"
+                        iconColor="text-gray-600"
+                    />
+                </SettingGroup>
+
+                <div className="pt-8 text-center">
+                    <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.3em]">Finance Tracker v2.1.0</p>
+                </div>
             </div>
         </div>
     );

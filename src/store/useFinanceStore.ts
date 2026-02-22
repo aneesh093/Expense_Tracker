@@ -72,7 +72,7 @@ interface FinanceState {
     updateEvent: (id: string, updates: Partial<Event>) => void;
     deleteEvent: (id: string) => void;
 
-    getCreditCardStats: (accountId: string) => { unbilled: number; billed: number; totalDue: number };
+    getCreditCardStats: (accountId: string, asOfDate?: Date) => { unbilled: number; billed: number; totalDue: number };
 
     importData: (data: { accounts: Account[], transactions: Transaction[], categories: Category[], events?: Event[], mandates?: Mandate[], auditTrails?: AuditTrail[], investmentLogs?: InvestmentLog[], eventLogs?: EventLog[], eventPlans?: EventPlan[], settings?: FinanceSettings }) => void;
 
@@ -566,27 +566,29 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         });
     },
 
-    getCreditCardStats: (accountId) => {
+    getCreditCardStats: (accountId: string, asOfDate?: Date) => {
         const state = get();
         const account = state.accounts.find(a => a.id === accountId);
         if (!account || account.type !== 'credit' || !account.creditCardDetails) {
             return { unbilled: 0, billed: 0, totalDue: account?.balance || 0 };
         }
 
+        const effectiveDate = asOfDate || new Date();
         const { statementDate } = account.creditCardDetails;
-        const today = new Date();
-        const currentYear = today.getFullYear();
-        const currentMonth = today.getMonth();
+        const year = effectiveDate.getFullYear();
+        const month = effectiveDate.getMonth();
 
-        // Calculate Last Statement Date
-        let lastStatementDate = new Date(currentYear, currentMonth, statementDate, 23, 59, 59);
-        if (today.getDate() < statementDate) {
-            lastStatementDate = new Date(currentYear, currentMonth - 1, statementDate, 23, 59, 59);
+        // 1. Define Cycle Boundaries
+        // Last Statement Date relative to effectiveDate
+        let lastStatementDate = new Date(year, month, statementDate, 23, 59, 59);
+        if (effectiveDate.getDate() < statementDate) {
+            lastStatementDate = new Date(year, month - 1, statementDate, 23, 59, 59);
         }
 
+        // Previous Statement Date
         const prevStatementDate = new Date(lastStatementDate.getFullYear(), lastStatementDate.getMonth() - 1, lastStatementDate.getDate(), 23, 59, 59);
 
-        // Helper to get net impact on debt (positive = increases debt, negative = reduces debt)
+        // Helper to get net impact (positive = increases debt, negative = reduces debt)
         const getImpact = (t: Transaction) => {
             if (t.excludeFromBalance) return 0;
             if (t.accountId === accountId) {
@@ -594,47 +596,56 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 return (t.type === 'expense' || t.type === 'transfer') ? t.amount : (t.type === 'income' ? -t.amount : 0);
             }
             if (t.toAccountId === accountId) {
-                // Incoming: Transfer In reduces debt
+                // Incoming: Transfer In reduces debt (Credit Card Payment)
                 return -t.amount;
             }
             return 0;
         };
 
-        // 1. Calculate Billed Balance: Net impact of transactions in the previous statement cycle
-        const billedTransactions = state.transactions.filter(t => {
+        // 2. Calculate Billed Balance (prev to last statement)
+        // User wants to IGNORE bill payments (transfers into account) in this cycle
+        const billedCycleTransactions = state.transactions.filter(t => {
             const d = new Date(t.date);
             return d > prevStatementDate && d <= lastStatementDate;
         });
 
-        const billedBalance = billedTransactions.reduce((sum, t) => sum + getImpact(t), 0);
+        const billedSum = billedCycleTransactions.reduce((sum, t) => {
+            // Ignore transfers into the account for the billed sum calculation
+            if (t.type === 'transfer' && t.toAccountId === accountId) return sum;
+            return sum + getImpact(t);
+        }, 0);
 
-        // 2. Separate Post-Statement Credits and Debits
-        const postStatementTransactions = state.transactions.filter(t => new Date(t.date) > lastStatementDate);
+        // 3. Calculate Payments/Credits AFTER lastStatementDate
+        const postStatementTransactions = state.transactions.filter(t => {
+            const d = new Date(t.date);
+            return d > lastStatementDate && d <= effectiveDate;
+        });
 
-        // Credits (Income/Transfers In) since statement
         const postCredits = postStatementTransactions.reduce((sum, t) => {
             const impact = getImpact(t);
             return impact < 0 ? sum + Math.abs(impact) : sum;
         }, 0);
 
-        // Debits (Expenses/Transfers Out) since statement
-        const postDebts = postStatementTransactions.reduce((sum, t) => {
+        // 4. Calculate Unbilled Spends (Debits after lastStatementDate)
+        const postDebits = postStatementTransactions.reduce((sum, t) => {
             const impact = getImpact(t);
             return impact > 0 ? sum + impact : sum;
         }, 0);
 
-        // 3. Final Calculation
-        const remainingBilled = billedBalance - postCredits;
-        const billed = Math.max(0, remainingBilled);
-        const excessCredit = Math.max(0, -remainingBilled);
+        // 5. Final Calculation
+        const remainingBilled = Math.max(0, billedSum - postCredits);
+        const excessCredit = Math.max(0, postCredits - billedSum);
+        const unbilled = Math.max(0, postDebits - excessCredit);
 
-        // Apply any excess credit (overpayments or net refunds) to unbilled debits
-        const unbilled = Math.max(0, postDebts - excessCredit);
+        // Calculate total balance at asOfDate for reference
+        const futureTransactions = state.transactions.filter(t => new Date(t.date) > effectiveDate);
+        const futureImpact = futureTransactions.reduce((sum, t) => sum + getImpact(t), 0);
+        const totalDueAtDate = account.balance - futureImpact;
 
         return {
             unbilled,
-            billed,
-            totalDue: account.balance
+            billed: remainingBilled,
+            totalDue: totalDueAtDate
         };
     },
 
