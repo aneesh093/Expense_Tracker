@@ -11,7 +11,7 @@ import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Eye, E
 export function Accounts() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden, showInvestmentAccounts } = useFinanceStore();
+    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden, showInvestmentAccounts, getCreditCardStats } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -609,7 +609,7 @@ export function Accounts() {
                                 <div className="space-y-4 bg-purple-50 p-4 rounded-xl border border-purple-100">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Statement Date</label>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 px-1">Billing Date (Month Day)</label>
                                             <select
                                                 value={statementDate}
                                                 onChange={(e) => setStatementDate(e.target.value)}
@@ -828,18 +828,8 @@ export function Accounts() {
                                                     : formatCurrency(
                                                         type === 'credit'
                                                             ? accountsInGroup.reduce((total, acc) => {
-                                                                const spent = transactions
-                                                                    .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
-                                                                    .reduce((sum, t) => {
-                                                                        if (t.accountId === acc.id) {
-                                                                            return sum + (t.type === 'income' ? -t.amount : t.amount);
-                                                                        }
-                                                                        if (t.toAccountId === acc.id) {
-                                                                            return sum + (t.type === 'transfer' ? -t.amount : 0);
-                                                                        }
-                                                                        return sum;
-                                                                    }, 0);
-                                                                return total + spent;
+                                                                const stats = getCreditCardStats(acc.id);
+                                                                return total + stats.billed + stats.unbilled;
                                                             }, 0)
                                                             : groupTotal
                                                     )
@@ -854,17 +844,10 @@ export function Accounts() {
                                                     const isSelected = selectedAccounts.has(acc.id);
                                                     const isCredit = acc.type === 'credit';
                                                     const spentAmount = isCredit
-                                                        ? transactions
-                                                            .filter(t => t.accountId === acc.id || t.toAccountId === acc.id)
-                                                            .reduce((sum, t) => {
-                                                                if (t.accountId === acc.id) {
-                                                                    return sum + (t.type === 'income' ? -t.amount : t.amount);
-                                                                }
-                                                                if (t.toAccountId === acc.id) {
-                                                                    return sum + (t.type === 'transfer' ? -t.amount : 0);
-                                                                }
-                                                                return sum;
-                                                            }, 0)
+                                                        ? (() => {
+                                                            const stats = getCreditCardStats(acc.id);
+                                                            return stats.billed + stats.unbilled;
+                                                        })()
                                                         : acc.balance;
 
                                                     return (

@@ -578,15 +578,13 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         const year = effectiveDate.getFullYear();
         const month = effectiveDate.getMonth();
 
-        // 1. Define Cycle Boundaries
-        // Last Statement Date relative to effectiveDate
-        let lastStatementDate = new Date(year, month, statementDate, 23, 59, 59);
-        if (effectiveDate.getDate() < statementDate) {
-            lastStatementDate = new Date(year, month - 1, statementDate, 23, 59, 59);
-        }
+        // 1. Define Cycle Boundaries based on the provided logic
+        // Current month billing date
+        const currentMonthBillingDate = new Date(year, month, statementDate, 23, 59, 59);
 
-        // Previous Statement Date
-        const prevStatementDate = new Date(lastStatementDate.getFullYear(), lastStatementDate.getMonth() - 1, lastStatementDate.getDate(), 23, 59, 59);
+
+        // Next month billing date
+        const nextMonthBillingDate = new Date(year, month + 1, statementDate, 23, 59, 59);
 
         // Helper to get net impact (positive = increases debt, negative = reduces debt)
         const getImpact = (t: Transaction) => {
@@ -597,53 +595,56 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             }
             if (t.toAccountId === accountId) {
                 // Incoming: Transfer In reduces debt (Credit Card Payment)
-                return -t.amount;
+                // However, we only count this as debt reduction if it's a bill payment
+                // For unbilled, incomes or other transfers also reduce debt
+                if (t.type === 'transfer') {
+                    // Check explicitly for bill payment flag
+                    return t.isBillPayment === false ? 0 : -t.amount;
+                }
+                return -t.amount; // Incomes etc
             }
             return 0;
         };
 
-        // 2. Calculate Billed Balance (prev to last statement)
-        // User wants to IGNORE bill payments (transfers into account) in this cycle
-        const billedCycleTransactions = state.transactions.filter(t => {
+        // 2. Calculate Billed Amount
+        const totalBillPayments = state.transactions.filter(t =>
+            t.toAccountId === accountId &&
+            t.type === 'transfer' &&
+            t.isBillPayment !== false
+        ).reduce((sum, t) => sum + t.amount, 0);
+
+        // 3. Calculate Unbilled Amount
+        // Transactions from current month billing date + 1 day to next month billing date
+        const unbilledTransactions = state.transactions.filter(t => {
             const d = new Date(t.date);
-            return d > prevStatementDate && d <= lastStatementDate;
+            return d > currentMonthBillingDate && d <= nextMonthBillingDate;
         });
 
-        const billedSum = billedCycleTransactions.reduce((sum, t) => {
-            // Ignore transfers into the account for the billed sum calculation
-            if (t.type === 'transfer' && t.toAccountId === accountId) return sum;
+        const unbilledAmount = unbilledTransactions.reduce((sum, t) => {
+            // For Unbilled, exclude bill payments as they settle the billed amount
+            if (t.toAccountId === accountId && t.type === 'transfer' && t.isBillPayment !== false) return sum;
             return sum + getImpact(t);
         }, 0);
 
-        // 3. Calculate Payments/Credits AFTER lastStatementDate
-        const postStatementTransactions = state.transactions.filter(t => {
+        // 4. Final Remaining Billed calculation
+        // Total historical billed debt minus all bill payments
+        // We calculate this as: (All transactions up to current billing date excluding bill payments) - (All bill payments)
+        const historicalBilledSpent = state.transactions.filter(t => {
             const d = new Date(t.date);
-            return d > lastStatementDate && d <= effectiveDate;
-        });
+            // Exclude bill payments from this portion
+            if (t.toAccountId === accountId && t.type === 'transfer' && t.isBillPayment !== false) return false;
+            return d <= currentMonthBillingDate;
+        }).reduce((sum, t) => sum + getImpact(t), 0);
 
-        const postCredits = postStatementTransactions.reduce((sum, t) => {
-            const impact = getImpact(t);
-            return impact < 0 ? sum + Math.abs(impact) : sum;
-        }, 0);
+        const remainingBilled = Math.max(0, historicalBilledSpent - totalBillPayments);
 
-        // 4. Calculate Unbilled Spends (Debits after lastStatementDate)
-        const postDebits = postStatementTransactions.reduce((sum, t) => {
-            const impact = getImpact(t);
-            return impact > 0 ? sum + impact : sum;
-        }, 0);
-
-        // 5. Final Calculation
-        const remainingBilled = Math.max(0, billedSum - postCredits);
-        const excessCredit = Math.max(0, postCredits - billedSum);
-        const unbilled = Math.max(0, postDebits - excessCredit);
-
-        // Calculate total balance at asOfDate for reference
+        // Calculate total due at asOfDate for reference
         const futureTransactions = state.transactions.filter(t => new Date(t.date) > effectiveDate);
         const futureImpact = futureTransactions.reduce((sum, t) => sum + getImpact(t), 0);
         const totalDueAtDate = account.balance - futureImpact;
 
         return {
-            unbilled,
+            unbilled: unbilledAmount,
             billed: remainingBilled,
             totalDue: totalDueAtDate
         };

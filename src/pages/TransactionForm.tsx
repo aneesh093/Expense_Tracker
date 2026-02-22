@@ -19,6 +19,7 @@ export function TransactionForm() {
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [note, setNote] = useState('');
     const [excludeFromBalance, setExcludeFromBalance] = useState(false);
+    const [isBillPayment, setIsBillPayment] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showKeypad, setShowKeypad] = useState(false);
 
@@ -52,6 +53,7 @@ export function TransactionForm() {
                 setSelectedEventId(transaction.eventId || '');
                 setNote(transaction.note || '');
                 setExcludeFromBalance(!!transaction.excludeFromBalance);
+                setIsBillPayment(!!transaction.isBillPayment);
                 setIsEditing(true);
             }
         }
@@ -146,7 +148,9 @@ export function TransactionForm() {
 
     const activeCategory = categories.find(c => c.id === selectedCategory);
     const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+    const targetAccount = accounts.find(a => a.id === toAccountId);
     const isCreditCard = selectedAccount?.type === 'credit';
+    const isToCreditCard = targetAccount?.type === 'credit';
 
     const isOverLimit = type === 'expense' && (
         (activeCategory?.limit && (monthlyCategorySpending.total + parseFloat(amount || '0')) > activeCategory.limit) ||
@@ -195,7 +199,8 @@ export function TransactionForm() {
             date: isEditing && id ? (transactions.find(t => t.id === id)?.date || new Date().toISOString()) : new Date().toISOString(),
             note,
             eventId: selectedEventId || undefined,
-            excludeFromBalance
+            excludeFromBalance,
+            isBillPayment: type === 'transfer' && isToCreditCard ? isBillPayment : undefined
         };
 
         if (isEditing && id) {
@@ -337,6 +342,32 @@ export function TransactionForm() {
                                 }
                             </select>
                             <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Bill Payment Toggle for CC Transfers */}
+                {type === 'transfer' && isToCreditCard && (
+                    <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-2xl">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <span className="text-purple-900 text-sm font-bold">Bill Payment</span>
+                                <span className="text-purple-600 text-[11px] font-medium leading-tight">Mark this as a credit card bill payment</span>
+                            </div>
+                            <button
+                                onClick={() => setIsBillPayment(!isBillPayment)}
+                                className={cn(
+                                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                                    isBillPayment ? "bg-purple-600" : "bg-gray-200"
+                                )}
+                            >
+                                <span
+                                    className={cn(
+                                        "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                                        isBillPayment ? "translate-x-6" : "translate-x-1"
+                                    )}
+                                />
+                            </button>
                         </div>
                     </div>
                 )}
