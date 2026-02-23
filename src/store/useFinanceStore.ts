@@ -617,6 +617,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         // Transactions from current month billing date + 1 day to next month billing date
         const unbilledTransactions = state.transactions.filter(t => {
             const d = new Date(t.date);
+            // Adjustment transactions always go to billed, not unbilled
+            if (t.accountId === accountId && t.isAdjustment) return false;
             return d > currentMonthBillingDate && d <= nextMonthBillingDate;
         });
 
@@ -629,10 +631,13 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         // 4. Final Remaining Billed calculation
         // Total historical billed debt minus all bill payments
         // We calculate this as: (All transactions up to current billing date excluding bill payments) - (All bill payments)
+        // Adjustment transactions are also included in billed regardless of their date
         const historicalBilledSpent = state.transactions.filter(t => {
             const d = new Date(t.date);
             // Exclude bill payments from this portion
             if (t.toAccountId === accountId && t.type === 'transfer' && t.isBillPayment !== false) return false;
+            // Adjustment transactions always count as billed
+            if (t.accountId === accountId && t.isAdjustment) return true;
             return d <= currentMonthBillingDate;
         }).reduce((sum, t) => sum + getImpact(t), 0);
 

@@ -20,6 +20,7 @@ export function TransactionForm() {
     const [note, setNote] = useState('');
     const [excludeFromBalance, setExcludeFromBalance] = useState(false);
     const [isBillPayment, setIsBillPayment] = useState(false);
+    const [isAdjustment, setIsAdjustment] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showKeypad, setShowKeypad] = useState(false);
 
@@ -54,6 +55,7 @@ export function TransactionForm() {
                 setNote(transaction.note || '');
                 setExcludeFromBalance(!!transaction.excludeFromBalance);
                 setIsBillPayment(!!transaction.isBillPayment);
+                setIsAdjustment(!!transaction.isAdjustment);
                 setIsEditing(true);
             }
         }
@@ -200,7 +202,8 @@ export function TransactionForm() {
             note,
             eventId: selectedEventId || undefined,
             excludeFromBalance,
-            isBillPayment: type === 'transfer' && isToCreditCard ? isBillPayment : undefined
+            isBillPayment: type === 'transfer' && isToCreditCard ? isBillPayment : undefined,
+            isAdjustment: type === 'expense' && isCreditCard ? isAdjustment : undefined
         };
 
         if (isEditing && id) {
@@ -369,6 +372,37 @@ export function TransactionForm() {
                                 />
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Adjustment Transaction Toggle for CC Expenses */}
+                {type === 'expense' && isCreditCard && (
+                    <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <span className="text-amber-900 text-sm font-bold">Adjustment Transaction</span>
+                                <span className="text-amber-600 text-[11px] font-medium leading-tight">Add this charge to the billed amount</span>
+                            </div>
+                            <button
+                                onClick={() => setIsAdjustment(!isAdjustment)}
+                                className={cn(
+                                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                                    isAdjustment ? "bg-amber-500" : "bg-gray-200"
+                                )}
+                            >
+                                <span
+                                    className={cn(
+                                        "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                                        isAdjustment ? "translate-x-6" : "translate-x-1"
+                                    )}
+                                />
+                            </button>
+                        </div>
+                        {isAdjustment && (
+                            <p className="text-[10px] text-amber-500 italic mt-1 leading-tight">
+                                * This charge will be added to the current billed amount instead of unbilled.
+                            </p>
+                        )}
                     </div>
                 )}
 
