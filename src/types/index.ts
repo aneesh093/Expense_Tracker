@@ -63,6 +63,7 @@ export interface Transaction {
     eventId?: string; // For event-based tracking
     excludeFromBalance?: boolean;
     isBillPayment?: boolean; // Flag for credit card bill payments
+    isAdjustment?: boolean; // Flag for credit card adjustment transactions (added to billed amount)
 }
 
 export interface Category {
