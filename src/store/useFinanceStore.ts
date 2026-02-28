@@ -2,6 +2,32 @@ import { create } from 'zustand';
 import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog, type EventPlan, type FinanceSettings } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
 
+const getLocalYYYYMMDD = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getNextMandateExecutionDateStr = (mandate: Mandate): string => {
+    const now = new Date();
+    const currentDay = now.getDate();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    let execDate = new Date(currentYear, currentMonth, mandate.dayOfMonth);
+
+    const execMonthYear = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    const lastRunMonthYear = mandate.lastRunDate?.substring(0, 7);
+    const lastSkippedMonthYear = mandate.lastSkippedDate?.substring(0, 7);
+
+    if (currentDay > mandate.dayOfMonth || lastRunMonthYear === execMonthYear || lastSkippedMonthYear === execMonthYear) {
+        execDate = new Date(currentYear, currentMonth + 1, mandate.dayOfMonth);
+    }
+
+    return getLocalYYYYMMDD(execDate);
+};
+
 interface FinanceState {
     accounts: Account[];
     transactions: Transaction[];
@@ -789,7 +815,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         const state = get();
         const today = new Date();
         const currentDay = today.getDate();
-        const dateString = today.toISOString().split('T')[0];
+        const dateString = getLocalYYYYMMDD(today);
         const currentMonthYear = dateString.substring(0, 7); // YYYY-MM
 
         const mandatesToRun = state.mandates.filter(m =>
@@ -813,7 +839,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         const mandate = state.mandates.find(m => m.id === id);
         if (!mandate) return;
 
-        const dateString = new Date().toISOString().split('T')[0];
+        const targetDateString = getNextMandateExecutionDateStr(mandate);
 
         // Create transaction
         const transaction: Transaction = {
@@ -831,7 +857,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
         get().addTransaction(transaction);
 
         // Update mandate lastRunDate
-        get().updateMandate(mandate.id, { lastRunDate: dateString });
+        get().updateMandate(mandate.id, { lastRunDate: targetDateString });
 
         // If destination is a Loan account, reduce EMIs left
         const destAccount = get().accounts.find(a => a.id === mandate.destinationAccountId);
@@ -849,8 +875,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     },
 
     skipMandate: async (id) => {
-        const dateString = new Date().toISOString().split('T')[0];
-        get().updateMandate(id, { lastSkippedDate: dateString });
+        const state = get();
+        const mandate = state.mandates.find(m => m.id === id);
+        if (!mandate) return;
+
+        const targetDateString = getNextMandateExecutionDateStr(mandate);
+        get().updateMandate(id, { lastSkippedDate: targetDateString });
     },
 
     addInvestmentLog: (log) => {
