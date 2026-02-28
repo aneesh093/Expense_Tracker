@@ -13,7 +13,7 @@ interface SortableMandateItemProps {
     handleEdit: (mandate: Mandate) => void;
     handleSkip: (id: string) => void;
     handleRunNow: (id: string) => void;
-    isDoneThisMonth: (mandate: Mandate) => boolean;
+    isActionable: (mandate: Mandate) => boolean;
 }
 
 export function SortableMandateItem({
@@ -24,7 +24,7 @@ export function SortableMandateItem({
     handleEdit,
     handleSkip,
     handleRunNow,
-    isDoneThisMonth
+    isActionable
 }: SortableMandateItemProps) {
     const {
         attributes,
@@ -111,7 +111,7 @@ export function SortableMandateItem({
                                         Edit
                                     </button>
 
-                                    {!isDoneThisMonth(mandate) && mandate.isEnabled && (
+                                    {isActionable(mandate) && mandate.isEnabled && (
                                         <>
                                             <button
                                                 onClick={() => {
@@ -163,12 +163,27 @@ export function SortableMandateItem({
                     {sourceAccount?.name} <span className="mx-1 text-gray-300">→</span> {destAccount?.name}
                 </div>
                 <div className="flex items-center space-x-2">
-                    {mandate.lastRunDate && (
-                        <span className="text-[10px] text-green-600 flex items-center bg-green-50 px-1.5 py-0.5 rounded">
-                            <CheckCircle size={10} className="mr-1" />
-                            Run: {mandate.lastRunDate.split('-').slice(1).join('/')}
-                        </span>
-                    )}
+                    {(() => {
+                        const hasRun = !!mandate.lastRunDate;
+                        const hasSkipped = !!mandate.lastSkippedDate;
+
+                        if (hasRun && (!hasSkipped || mandate.lastRunDate! > mandate.lastSkippedDate!)) {
+                            return (
+                                <span className="text-[10px] text-green-600 flex items-center bg-green-50 px-1.5 py-0.5 rounded">
+                                    <CheckCircle size={10} className="mr-1" />
+                                    Run: {mandate.lastRunDate!.split('-').slice(1).join('/')}
+                                </span>
+                            );
+                        } else if (hasSkipped) {
+                            return (
+                                <span className="text-[10px] text-amber-600 flex items-center bg-amber-50 px-1.5 py-0.5 rounded">
+                                    <XCircle size={10} className="mr-1" />
+                                    Skipped: {mandate.lastSkippedDate!.split('-').slice(1).join('/')}
+                                </span>
+                            );
+                        }
+                        return null;
+                    })()}
                     <span className="font-bold text-gray-900">
                         ₹{mandate.amount.toLocaleString()}
                     </span>

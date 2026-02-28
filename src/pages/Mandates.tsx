@@ -47,11 +47,28 @@ export function Mandates() {
         }
     };
 
-    const isDoneThisMonth = (mandate: Mandate) => {
-        const currentMonthYear = new Date().toISOString().substring(0, 7);
+    const isActionable = (mandate: Mandate) => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const currentDay = now.getDate();
+
+        const currentMonthYear = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
         const lastRunMonthYear = mandate.lastRunDate?.substring(0, 7);
         const lastSkippedMonthYear = mandate.lastSkippedDate?.substring(0, 7);
-        return lastRunMonthYear === currentMonthYear || lastSkippedMonthYear === currentMonthYear;
+
+        let execDate = new Date(currentYear, currentMonth, mandate.dayOfMonth);
+
+        if (currentDay > mandate.dayOfMonth || lastRunMonthYear === currentMonthYear || lastSkippedMonthYear === currentMonthYear) {
+            execDate = new Date(currentYear, currentMonth + 1, mandate.dayOfMonth);
+        }
+
+        const nextExecMidnight = new Date(execDate.getFullYear(), execDate.getMonth(), execDate.getDate()).getTime();
+        const nowMidnight = new Date(currentYear, currentMonth, currentDay).getTime();
+
+        const diffDays = (nextExecMidnight - nowMidnight) / (1000 * 60 * 60 * 24);
+
+        return diffDays >= 0 && diffDays <= 5;
     };
 
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -272,7 +289,7 @@ export function Mandates() {
                                     handleEdit={handleEdit}
                                     handleSkip={handleSkip}
                                     handleRunNow={handleRunNow}
-                                    isDoneThisMonth={isDoneThisMonth}
+                                    isActionable={isActionable}
                                 />
                             ))}
                         </SortableContext>

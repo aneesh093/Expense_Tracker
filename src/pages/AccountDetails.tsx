@@ -25,12 +25,21 @@ function InvestmentLogsSection({ accountId }: { accountId: string }) {
     const handleAdd = () => {
         if (!amount || !date) return;
 
+        let finalAmount = parseFloat(amount);
+        let finalType = type;
+
+        if (type === 'value') {
+            const currentTotal = logs.reduce((sum, l) => sum + (l.type === 'profit' ? l.amount : 0), 0);
+            finalAmount = finalAmount - currentTotal;
+            finalType = 'profit';
+        }
+
         addInvestmentLog({
             id: generateId(),
             accountId,
             date,
-            type,
-            amount: parseFloat(amount),
+            type: finalType,
+            amount: finalAmount,
             note
         });
 
@@ -559,7 +568,7 @@ export function AccountDetails() {
                         <div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mb-1">Total Logged Value</p>
                             <h3 className="text-xl font-bold text-gray-900">
-                                {formatCurrency(investmentLogs.filter(l => l.accountId === account.id).reduce((sum, l) => sum + l.amount, 0))}
+                                {formatCurrency(investmentLogs.filter(l => l.accountId === account.id).reduce((sum, l) => sum + (l.type === 'profit' ? l.amount : 0), 0))}
                             </h3>
                         </div>
                         <div className="text-right">
