@@ -263,17 +263,26 @@ export function Reports() {
             .sort((a, b) => b.value - a.value);
     }, [periodTransactions, categories, selectedCategoryName, selectedEventId, accounts]);
 
+    const creditCardAsOfDate = useMemo(() => {
+        const today = new Date();
+        if (viewMode === 'monthly') {
+            return (currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()) ? today : periodEnd;
+        } else {
+            return (currentDate.getFullYear() === today.getFullYear()) ? today : periodEnd;
+        }
+    }, [currentDate, periodEnd, viewMode]);
+
     const creditCardStats = useMemo(() => {
         return accounts
             .filter(acc => acc.type === 'credit' && acc.includeInReports !== false)
             .reduce((acc, card) => {
-                const stats = getCreditCardStats(card.id, periodEnd);
+                const stats = getCreditCardStats(card.id, creditCardAsOfDate);
                 return {
                     billed: acc.billed + stats.billed,
                     unbilled: acc.unbilled + stats.unbilled
                 };
             }, { billed: 0, unbilled: 0 });
-    }, [accounts, getCreditCardStats, periodEnd]);
+    }, [accounts, getCreditCardStats, creditCardAsOfDate]);
 
     // Calculate per-category spending and limit status
     const categorySpendingWithLimits = useMemo(() => {
