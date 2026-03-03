@@ -50,8 +50,8 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
             onClick={() => navigate(`/events/${event.id}`)}
         >
             <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3 flex-1">
-                    <div {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1 -ml-2 mr-1" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1 -ml-2 mr-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                         <GripVertical size={20} />
                     </div>
                     {/* Icon */}
@@ -63,11 +63,11 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
                     </div>
 
                     {/* Name and Date */}
-                    <div className="flex flex-col">
-                        <h3 className="text-sm font-semibold text-gray-900">{event.name}</h3>
+                    <div className="flex flex-col flex-1 min-w-0 pr-2">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">{event.name}</h3>
                         <div className="flex items-center text-xs text-gray-500 mt-0.5">
-                            <Calendar size={12} className="mr-1" />
-                            <span>
+                            <Calendar size={12} className="mr-1 shrink-0" />
+                            <span className="truncate">
                                 {format(parseISO(event.startDate), 'MMM dd, yyyy')}
                                 {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
                             </span>
@@ -76,7 +76,7 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
                 </div>
 
                 {/* Amount and Menu */}
-                <div className="flex items-center space-x-3 ml-2">
+                <div className="flex items-center space-x-2 shrink-0">
                     <div className="flex flex-col items-end">
                         <div className={cn("text-sm font-bold", event.netAmount >= 0 ? "text-green-600" : "text-red-600")}>
                             {formatCurrency(event.netAmount)}

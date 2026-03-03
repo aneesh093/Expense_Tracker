@@ -198,7 +198,7 @@ export function Reports() {
         }
 
         return transTotals;
-    }, [periodTransactions, periodEventLogs, accounts]);
+    }, [periodTransactions, periodEventLogs, accounts, showLogsInReport]);
 
     // Prepare chart data (Expense by Category or Account or Event) - Excluding manual
     const chartData = useMemo(() => {

@@ -314,7 +314,7 @@ export function AccountDetails() {
         if (!id) return [];
         const baseTransactions = transactions
             .filter(t => t.accountId === id || t.toAccountId === id)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            .reverse();
 
         if (filterType === 'all') return baseTransactions;
 

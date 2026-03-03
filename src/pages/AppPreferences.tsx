@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, Clock, PieChart, Database, FileText, Layout, FileBarChart } from 'lucide-react';
+import { ArrowLeft, Layers, Clock, Database, FileText, Layout, FileBarChart } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { cn } from '../lib/utils';
 import { useState } from 'react';
@@ -167,7 +167,7 @@ export function AppPreferences() {
                                         <Toggle checked={showLogsInReport} onChange={setShowLogsInReport} color="bg-orange-500" />
                                     </SettingItem>
                                     <SettingItem
-                                        icon={PieChart}
+                                        icon={Clock}
                                         title="Manual Expenses"
                                         description="Show ad-hoc spend entries"
                                         iconBg="bg-pink-50"

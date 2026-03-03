@@ -9,11 +9,11 @@ export function TransactionForm() {
     const navigate = useNavigate();
     const { id } = useParams();
     const [searchParams] = useSearchParams();
-    const { accounts, categories, events, addTransaction, editTransaction, transactions, deleteTransaction } = useFinanceStore();
+    const { accounts, categories, events, addTransaction, editTransaction, transactions, deleteTransaction, incomeIncludedAccountTypes, expenseIncludedAccountTypes } = useFinanceStore();
 
     const [amount, setAmount] = useState('0');
     const [type, setType] = useState<TransactionType>('expense');
-    const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
+    const [selectedAccountId, setSelectedAccountId] = useState('');
     const [toAccountId, setToAccountId] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id || '');
     const [selectedEventId, setSelectedEventId] = useState<string>('');
@@ -25,18 +25,6 @@ export function TransactionForm() {
     const [showKeypad, setShowKeypad] = useState(false);
 
     useEffect(() => {
-        // Pre-fill eventId from URL parameter (when navigating from event details)
-        const eventIdParam = searchParams.get('eventId');
-        const accountIdParam = searchParams.get('accountId');
-
-        if (eventIdParam) {
-            setSelectedEventId(eventIdParam);
-        }
-
-        if (accountIdParam && !id) {
-            setSelectedAccountId(accountIdParam);
-        }
-
         if (id) {
             const transaction = transactions.find(t => t.id === id);
             if (transaction) {
@@ -46,9 +34,6 @@ export function TransactionForm() {
                 if (transaction.type === 'transfer') {
                     setToAccountId(transaction.toAccountId || '');
                 }
-                // Handle case where category name is stored but we need ID for select
-                // Ideally store should save category ID, but current implementation saves name
-                // Let's try to find category by name, else default
                 const category = categories.find(c => c.name === transaction.category);
                 setSelectedCategory(category ? category.id : (categories[0]?.id || ''));
                 setSelectedEventId(transaction.eventId || '');
@@ -58,21 +43,44 @@ export function TransactionForm() {
                 setIsAdjustment(!!transaction.isAdjustment);
                 setIsEditing(true);
             }
+            return; // Don't run auto-selection logic if editing
         }
-    }, [id, transactions, categories, searchParams]);
+
+        // Pre-fill from URL params
+        const eventIdParam = searchParams.get('eventId');
+        const accountIdParam = searchParams.get('accountId');
+
+        if (eventIdParam) setSelectedEventId(eventIdParam);
+
+        // Final account selection logic for NEW transactions
+        const currentVisible = getVisibleAccounts(type);
+        if (accountIdParam) {
+            setSelectedAccountId(accountIdParam);
+        } else if (currentVisible.length > 0 && (!selectedAccountId || !currentVisible.some(a => a.id === selectedAccountId))) {
+            setSelectedAccountId(currentVisible[0].id);
+        }
+    }, [id, transactions, categories, searchParams, accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes, type]);
 
     // Keypad logic
 
     const getVisibleAccounts = (currentType: TransactionType) => {
-        return currentType === 'transfer'
-            ? accounts
-            : accounts.filter(acc => ['fixed-deposit', 'savings', 'credit', 'cash', 'loan', 'online-wallet', 'other', 'insurance'].includes(acc.type));
+        if (currentType === 'transfer') {
+            return accounts;
+        }
+
+        const includedTypes = currentType === 'income'
+            ? incomeIncludedAccountTypes
+            : expenseIncludedAccountTypes;
+
+        return accounts.filter(acc =>
+            !includedTypes || includedTypes.includes(acc.type)
+        );
     };
 
     const visibleAccounts = getVisibleAccounts(type);
 
-    // Ensure selected account is visible in dropdown (for editing historical data)
-    const accountsToList = (selectedAccountId && !visibleAccounts.find(a => a.id === selectedAccountId))
+    // Ensure selected account is visible in dropdown (for editing historical data or deep links)
+    const accountsToList = (isEditing && selectedAccountId && !visibleAccounts.find(a => a.id === selectedAccountId))
         ? [accounts.find(a => a.id === selectedAccountId)!].concat(visibleAccounts).filter(Boolean)
         : visibleAccounts;
 
@@ -428,9 +436,17 @@ export function TransactionForm() {
                             className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
                         >
                             <option value="">None</option>
-                            {events.map(event => (
-                                <option key={event.id} value={event.id}>{event.name}</option>
-                            ))}
+                            {events
+                                .filter(event => {
+                                    if (event.id === selectedEventId) return true;
+                                    if (!event.endDate) return true;
+                                    const end = new Date(event.endDate);
+                                    end.setHours(23, 59, 59, 999);
+                                    return end >= new Date();
+                                })
+                                .map(event => (
+                                    <option key={event.id} value={event.id}>{event.name}</option>
+                                ))}
                         </select>
                         <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>

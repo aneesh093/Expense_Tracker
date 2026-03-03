@@ -225,19 +225,19 @@ export function Events() {
                                     onClick={() => navigate(`/logs/edit/${log.id}`)}
                                     className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition-all"
                                 >
-                                    <div className="flex items-center space-x-3">
+                                    <div className="flex items-center space-x-3 flex-1 min-w-0 pr-2">
                                         <div className={cn(
-                                            "w-10 h-10 rounded-full flex items-center justify-center text-lg",
+                                            "w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0",
                                             log.type === 'expense' ? "bg-orange-50 text-orange-500" : "bg-blue-50 text-blue-500"
                                         )}>
                                             <Calendar size={20} />
                                         </div>
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-gray-900">{log.description}</h3>
-                                            <p className="text-xs text-gray-500">{format(new Date(log.date), 'MMM dd, yyyy')}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-sm font-semibold text-gray-900 truncate">{log.description}</h3>
+                                            <p className="text-xs text-gray-500 truncate">{format(new Date(log.date), 'MMM dd, yyyy')}</p>
                                         </div>
                                     </div>
-                                    <div className={cn("text-sm font-bold", log.type === 'expense' ? "text-red-600" : "text-green-600")}>
+                                    <div className={cn("text-sm font-bold shrink-0", log.type === 'expense' ? "text-red-600" : "text-green-600")}>
                                         {log.type === 'expense' ? '-' : '+'}{formatCurrency(log.amount)}
                                     </div>
                                 </div>
