@@ -21,6 +21,7 @@ import { AuditTrail } from './pages/AuditTrail';
 import { Categories } from './pages/Categories';
 import { Mandates } from './pages/Mandates';
 import { BackupConfiguration } from './pages/BackupConfiguration';
+import { TransactionSettings } from './pages/TransactionSettings';
 import { About } from './pages/About';
 import { UserGuide } from './pages/UserGuide';
 import { useFinanceStore } from './store/useFinanceStore';
@@ -69,6 +70,7 @@ function App() {
           <Route path="/reports/transactions" element={<ReportTransactions />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/preferences" element={<AppPreferences />} />
+          <Route path="/settings/transactions" element={<TransactionSettings />} />
           <Route path="/settings/security" element={<SecuritySettings />} />
           <Route path="/settings/audit-trail" element={<AuditTrail />} />
           <Route path="/mandates" element={<Mandates />} />

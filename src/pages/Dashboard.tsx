@@ -59,6 +59,7 @@ export function Dashboard() {
                 } else if (t.type === 'expense') {
                     acc.totalExpense += t.amount;
                 } else if (t.type === 'transfer' && t.toAccountId) {
+                    // Outflow from a source account to specific "expense-like" destinations
                     const toAccount = accounts.find(a => a.id === t.toAccountId);
                     if (toAccount) {
                         if (toAccount.type === 'credit' || toAccount.type === 'loan' || toAccount.type === 'stock' || toAccount.type === 'mutual-fund') {

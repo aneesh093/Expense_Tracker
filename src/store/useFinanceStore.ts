@@ -127,6 +127,12 @@ interface FinanceState {
     setPdfIncludeAccountSummary: (show: boolean) => void;
     setPdfIncludeTransactions: (show: boolean) => void;
     setPdfIncludeEventSummary: (show: boolean) => void;
+
+    // Account Inclusion Settings
+    incomeIncludedAccountTypes: string[];
+    expenseIncludedAccountTypes: string[];
+    setIncomeIncludedAccountTypes: (types: string[]) => void;
+    setExpenseIncludedAccountTypes: (types: string[]) => void;
 }
 
 export const useFinanceStore = create<FinanceState>()((set, get) => ({
@@ -156,6 +162,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     isLocked: false, // Will be set in initialize
     passcode: localStorage.getItem('finance-passcode'),
     useBiometrics: localStorage.getItem('finance-use-biometrics') === 'true',
+    incomeIncludedAccountTypes: JSON.parse(localStorage.getItem('finance-income-included-types') || '["savings","cash","credit","fixed-deposit","stock","mutual-fund","online-wallet","land","insurance","loan","other"]'),
+    expenseIncludedAccountTypes: JSON.parse(localStorage.getItem('finance-expense-included-types') || '["savings","cash","credit","fixed-deposit","stock","mutual-fund","online-wallet","land","insurance","loan","other"]'),
 
     setShowInvestmentAccounts: (show: boolean) => {
         localStorage.setItem('finance-show-investment-accounts', String(show));
@@ -176,6 +184,16 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     setUseBiometrics: (use: boolean) => {
         localStorage.setItem('finance-use-biometrics', String(use));
         set({ useBiometrics: use });
+    },
+
+    setIncomeIncludedAccountTypes: (types: string[]) => {
+        localStorage.setItem('finance-income-included-types', JSON.stringify(types));
+        set({ incomeIncludedAccountTypes: types });
+    },
+
+    setExpenseIncludedAccountTypes: (types: string[]) => {
+        localStorage.setItem('finance-expense-included-types', JSON.stringify(types));
+        set({ expenseIncludedAccountTypes: types });
     },
 
     unlockApp: (passcode: string) => {
@@ -774,6 +792,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 if (settings.showAuditTrail !== undefined) {
                     localStorage.setItem('finance-show-audit-trail', String(settings.showAuditTrail));
                 }
+                if (settings.incomeIncludedAccountTypes !== undefined) {
+                    localStorage.setItem('finance-income-included-types', JSON.stringify(settings.incomeIncludedAccountTypes));
+                }
+                if (settings.expenseIncludedAccountTypes !== undefined) {
+                    localStorage.setItem('finance-expense-included-types', JSON.stringify(settings.expenseIncludedAccountTypes));
+                }
 
                 // Update store state with new settings
                 set((state) => ({
@@ -791,6 +815,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                     pdfIncludeEventSummary: settings.pdfIncludeEventSummary ?? state.pdfIncludeEventSummary,
                     showInvestmentAccounts: settings.showInvestmentAccounts ?? state.showInvestmentAccounts,
                     showAuditTrail: settings.showAuditTrail ?? state.showAuditTrail,
+                    incomeIncludedAccountTypes: settings.incomeIncludedAccountTypes ?? state.incomeIncludedAccountTypes,
+                    expenseIncludedAccountTypes: settings.expenseIncludedAccountTypes ?? state.expenseIncludedAccountTypes,
                 }));
             }
 

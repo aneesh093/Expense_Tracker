@@ -95,6 +95,14 @@ export function Settings() {
                         iconColor="text-blue-600"
                     />
                     <SettingItem
+                        icon={Layers}
+                        title="Transaction Settings"
+                        description="Configure account visibility during entry"
+                        path="/settings/transactions"
+                        iconBg="bg-orange-50"
+                        iconColor="text-orange-600"
+                    />
+                    <SettingItem
                         icon={PieChart}
                         title="Report Sources"
                         description="Choose accounts included in reports"
