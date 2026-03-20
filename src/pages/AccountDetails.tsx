@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, CirclePlus, X, Pencil, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, CirclePlus, X, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, subMonths, addMonths } from 'date-fns';
 import { cn, generateId } from '../lib/utils';
 import { type Holding } from '../types';
 
@@ -309,12 +309,22 @@ export function AccountDetails() {
     };
 
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+    const [viewMode, setViewMode] = useState<'all' | 'monthly'>('all');
+    const [currentDate, setCurrentDate] = useState(new Date());
+
+    const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev, 1));
+    const handleNextMonth = () => setCurrentDate(prev => addMonths(prev, 1));
 
     const accountTransactions = useMemo(() => {
         if (!id) return [];
-        const baseTransactions = transactions
+        let baseTransactions = transactions
             .filter(t => t.accountId === id || t.toAccountId === id)
-            .reverse();
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        if (viewMode === 'monthly') {
+            const monthStr = format(currentDate, 'yyyy-MM');
+            baseTransactions = baseTransactions.filter(t => t.date.startsWith(monthStr));
+        }
 
         if (filterType === 'all') return baseTransactions;
 
@@ -326,7 +336,7 @@ export function AccountDetails() {
                 : t.type;
             return effectiveType === filterType;
         });
-    }, [id, transactions, filterType]);
+    }, [id, transactions, filterType, viewMode, currentDate]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -583,36 +593,70 @@ export function AccountDetails() {
             {/* Transactions List */}
             {activeTab === 'transactions' && (
                 <div className="flex-1 p-4 overflow-y-auto">
-                    <div className="flex items-center justify-between mb-3 ml-1">
-                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Transactions</h3>
-                        <div className="flex bg-gray-100 p-1 rounded-lg">
-                            <button
-                                onClick={() => setFilterType('all')}
-                                className={cn(
-                                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                                    filterType === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                                )}
-                            >
-                                All
-                            </button>
-                            <button
-                                onClick={() => setFilterType('income')}
-                                className={cn(
-                                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                                    filterType === 'income' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                                )}
-                            >
-                                Credit
-                            </button>
-                            <button
-                                onClick={() => setFilterType('expense')}
-                                className={cn(
-                                    "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                                    filterType === 'expense' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                                )}
-                            >
-                                Debit
-                            </button>
+                    <div className="flex flex-col gap-3 mb-4">
+                        <div className="flex items-center justify-between ml-1">
+                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Transactions</h3>
+                            <div className="flex bg-gray-100 p-1 rounded-lg">
+                                <button
+                                    onClick={() => setFilterType('all')}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                        filterType === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                    )}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setFilterType('income')}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                        filterType === 'income' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                    )}
+                                >
+                                    Credit
+                                </button>
+                                <button
+                                    onClick={() => setFilterType('expense')}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                                        filterType === 'expense' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                    )}
+                                >
+                                    Debit
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* View Mode & Month Selector */}
+                        <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100 shadow-sm ml-1">
+                            <div className="flex bg-gray-100 p-1 rounded-lg">
+                                <button
+                                    onClick={() => setViewMode('all')}
+                                    className={cn("px-3 py-1.5 text-xs font-bold rounded-md transition-colors", viewMode === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}
+                                >
+                                    All Time
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('monthly')}
+                                    className={cn("px-3 py-1.5 text-xs font-bold rounded-md transition-colors", viewMode === 'monthly' ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700")}
+                                >
+                                    Monthly
+                                </button>
+                            </div>
+
+                            {viewMode === 'monthly' && (
+                                <div className="flex items-center bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+                                    <button onClick={handlePrevMonth} className="p-1 rounded-md hover:bg-white text-gray-600 transition-colors">
+                                        <ChevronLeft size={16} />
+                                    </button>
+                                    <span className="text-xs font-bold text-gray-800 w-20 text-center select-none uppercase">
+                                        {format(currentDate, 'MMM yyyy')}
+                                    </span>
+                                    <button onClick={handleNextMonth} className="p-1 rounded-md hover:bg-white text-gray-600 transition-colors">
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="space-y-3">

@@ -39,15 +39,21 @@ export function EventDetails() {
     }, [isTransactionsVisible, isLogsVisible, isPlansVisible, activeTab]);
 
     const eventTransactions = useMemo(() => {
-        return transactions.filter(t => t.eventId === id);
+        return transactions
+            .filter(t => t.eventId === id)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transactions, id]);
 
     const eventLogsList = useMemo(() => {
-        return eventLogs.filter(l => l.eventId === id);
+        return eventLogs
+            .filter(l => l.eventId === id)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [eventLogs, id]);
 
     const eventPlansList = useMemo(() => {
-        return eventPlans.filter(p => p.eventId === id);
+        return eventPlans
+            .filter(p => p.eventId === id)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [eventPlans, id]);
 
     const stats = useMemo(() => {
