@@ -32,6 +32,11 @@ export function Dashboard() {
                 return sum - acc.balance;
             }
 
+            // For stocks and mutual funds, use currentAmount if available, else fallback to balance
+            if (acc.type === 'stock' || acc.type === 'mutual-fund') {
+                return sum + (acc.currentAmount !== undefined ? acc.currentAmount : acc.balance);
+            }
+
             // All other account types (if not hidden) add to net worth
             return sum + acc.balance;
         }, 0);

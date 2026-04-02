@@ -25,6 +25,7 @@ export function Accounts() {
     const [type, setType] = useState<AccountType>('fixed-deposit');
 
     const [balance, setBalance] = useState('');
+    const [currentAmount, setCurrentAmount] = useState('');
     const [isPrimary, setIsPrimary] = useState(false);
     const [accountNumber, setAccountNumber] = useState('');
     const [customerId, setCustomerId] = useState('');
@@ -131,6 +132,14 @@ export function Accounts() {
             logsRequired
         };
 
+        if (type === 'stock' || type === 'mutual-fund') {
+            if (currentAmount.trim() !== '') {
+                accountData.currentAmount = parseFloat(currentAmount);
+            } else {
+                accountData.currentAmount = undefined;
+            }
+        }
+
         if (type === 'savings') {
             accountData.accountNumber = accountNumber;
             accountData.customerId = customerId;
@@ -176,6 +185,7 @@ export function Accounts() {
         setSubName(account.subName || '');
         setType(account.type);
         setBalance(account.balance.toString());
+        setCurrentAmount(account.currentAmount !== undefined ? account.currentAmount.toString() : '');
         setIsPrimary(account.isPrimary || false);
         setFormGroup(account.group || (isInvestment(account.type) ? 'investment' : 'banking'));
 
@@ -211,6 +221,7 @@ export function Accounts() {
         setName('');
         setSubName('');
         setBalance('');
+        setCurrentAmount('');
         setIsPrimary(false);
         setType('fixed-deposit');
         setAccountNumber('');
@@ -643,7 +654,7 @@ export function Accounts() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    {type === 'loan' ? 'Outstanding Balance' : 'Balance'}
+                                    {type === 'loan' ? 'Outstanding Balance' : (type === 'stock' || type === 'mutual-fund' ? 'Invested Amount' : 'Balance')}
                                 </label>
                                 <input
                                     type="number"
@@ -653,6 +664,21 @@ export function Accounts() {
                                     className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
+
+                            {(type === 'stock' || type === 'mutual-fund') && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Current Amount (Optional)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={currentAmount}
+                                        onChange={(e) => setCurrentAmount(e.target.value)}
+                                        placeholder="Same as invested if left blank"
+                                        className="w-full p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            )}
 
                             {type === 'savings' && (
                                 <div className="grid grid-cols-2 gap-3">

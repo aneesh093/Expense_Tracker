@@ -152,8 +152,15 @@ export function SortableAccountItem({
                         })()}
                     </span>
                 )}
+                {(account.type === 'stock' || account.type === 'mutual-fund') && account.currentAmount !== undefined && (
+                    <span className="text-[9px] text-gray-500 mb-0.5 uppercase tracking-wide">
+                        Inv: {isBalanceHidden && !account.isPrimary ? '•••••' : formatCurrency(spentAmount)}
+                    </span>
+                )}
                 <p className={cn("text-[15px] font-bold", spentAmount < 0 && account.type !== 'credit' ? "text-red-600" : "text-gray-900")}>
-                    {isBalanceHidden && !account.isPrimary ? '•••••' : formatCurrency(spentAmount)}
+                    {isBalanceHidden && !account.isPrimary 
+                        ? '•••••' 
+                        : formatCurrency((account.type === 'stock' || account.type === 'mutual-fund') && account.currentAmount !== undefined ? account.currentAmount : spentAmount)}
                 </p>
             </div>
         </div>
