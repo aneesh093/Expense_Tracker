@@ -308,7 +308,10 @@ export function TransactionForm() {
                             onChange={(e) => setSelectedAccountId(e.target.value)}
                             className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
                         >
-                            {accountsToList.map(acc => (
+                            {accountsToList
+                                .slice()
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map(acc => (
                                 <option key={acc.id} value={acc.id}>{acc.name}</option>
                             ))}
                         </select>
@@ -329,6 +332,7 @@ export function TransactionForm() {
                                 <option value="" disabled>Select Account</option>
                                 {accounts
                                     .filter(acc => acc.id !== selectedAccountId)
+                                    .sort((a, b) => a.name.localeCompare(b.name))
                                     .map(acc => (
                                         <option key={acc.id} value={acc.id}>{acc.name}</option>
                                     ))}
@@ -347,6 +351,7 @@ export function TransactionForm() {
                             >
                                 {categories
                                     .filter(cat => cat.type === type)
+                                    .sort((a, b) => a.name.localeCompare(b.name))
                                     .map(cat => (
                                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                                     ))

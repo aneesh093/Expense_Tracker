@@ -33,6 +33,7 @@ export interface Account {
     balance: number;
     color: string;
     // Specific fields
+    currentAmount?: number;
     accountNumber?: string;
     customerId?: string;
     dmatId?: string;
