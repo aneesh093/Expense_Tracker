@@ -21,6 +21,7 @@ export function Categories() {
     const [showBulkEdit, setShowBulkEdit] = useState(false);
     const [bulkEditType, setBulkEditType] = useState<TransactionType>('expense');
     const [bulkEditText, setBulkEditText] = useState('');
+    const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -190,17 +191,32 @@ export function Categories() {
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <button
+                        onClick={() => setActiveTab('expense')}
+                        className={cn("flex-1 py-2 text-sm font-medium rounded-md transition-colors", activeTab === 'expense' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}
+                    >
+                        Expense Categories
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('income')}
+                        className={cn("flex-1 py-2 text-sm font-medium rounded-md transition-colors", activeTab === 'income' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}
+                    >
+                        Income Categories
+                    </button>
+                </div>
+
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                 >
                     {/* Income Categories */}
+                    {activeTab === 'income' && (
                     <section>
                         <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-2">
-                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Income Categories</h2>
-                                <span className="text-xs text-gray-400">{incomeCategories.length}</span>
+                            <div className="text-sm font-medium text-gray-500">
+                                Total: {incomeCategories.length}
                             </div>
                             <div className="flex items-center space-x-2">
                                 <button
@@ -226,9 +242,9 @@ export function Categories() {
                                 </button>
                             </div>
                         </div>
-                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden pb-10">
                             {/* Scrollable category list */}
-                            <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                            <div className="divide-y divide-gray-100">
                                 <SortableContext items={incomeCategories} strategy={verticalListSortingStrategy}>
                                     {incomeCategories.map(category => (
                                         <SortableCategoryItem
@@ -245,13 +261,14 @@ export function Categories() {
                             </div>
                         </div>
                     </section>
+                    )}
 
                     {/* Expense Categories */}
+                    {activeTab === 'expense' && (
                     <section>
                         <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-2">
-                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Expense Categories</h2>
-                                <span className="text-xs text-gray-400">{expenseCategories.length}</span>
+                            <div className="text-sm font-medium text-gray-500">
+                                Total: {expenseCategories.length}
                             </div>
                             <div className="flex items-center space-x-2">
                                 <button
@@ -277,9 +294,9 @@ export function Categories() {
                                 </button>
                             </div>
                         </div>
-                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden pb-10">
                             {/* Scrollable category list */}
-                            <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                            <div className="divide-y divide-gray-100">
                                 <SortableContext items={expenseCategories} strategy={verticalListSortingStrategy}>
                                     {expenseCategories.map(category => (
                                         <SortableCategoryItem
@@ -296,6 +313,7 @@ export function Categories() {
                             </div>
                         </div>
                     </section>
+                    )}
                 </DndContext>
             </div>
 

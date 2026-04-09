@@ -274,7 +274,7 @@ export function Reports() {
 
     const creditCardStats = useMemo(() => {
         return accounts
-            .filter(acc => acc.type === 'credit' && acc.includeInReports !== false)
+            .filter(acc => acc.type === 'credit')
             .reduce((acc, card) => {
                 const stats = getCreditCardStats(card.id, creditCardAsOfDate);
                 return {
@@ -282,7 +282,7 @@ export function Reports() {
                     unbilled: acc.unbilled + stats.unbilled
                 };
             }, { billed: 0, unbilled: 0 });
-    }, [accounts, getCreditCardStats, creditCardAsOfDate]);
+    }, [accounts, transactions, getCreditCardStats, creditCardAsOfDate]);
 
     // Calculate per-category spending and limit status
     const categorySpendingWithLimits = useMemo(() => {
