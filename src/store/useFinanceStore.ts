@@ -301,9 +301,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
     toggleAccountReportInclusion: (id: string) => {
         set((state) => {
-            const updatedAccounts = state.accounts.map((acc) =>
-                acc.id === id ? { ...acc, includeInReports: acc.includeInReports === false } : acc
-            );
+            const updatedAccounts = state.accounts.map((acc) => {
+                if (acc.id !== id) return acc;
+                // includeInReports is true by default (undefined = included)
+                const currentlyIncluded = acc.includeInReports !== false;
+                return { ...acc, includeInReports: !currentlyIncluded };
+            });
             const account = updatedAccounts.find(a => a.id === id);
             if (account) {
                 dbHelpers.updateAccount(id, { includeInReports: account.includeInReports }).catch(console.error);
@@ -314,9 +317,11 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
     toggleEventReportInclusion: (id: string) => {
         set((state) => {
-            const updatedEvents = state.events.map((ev) =>
-                ev.id === id ? { ...ev, includeInReports: ev.includeInReports === false } : ev
-            );
+            const updatedEvents = state.events.map((ev) => {
+                if (ev.id !== id) return ev;
+                const currentlyIncluded = ev.includeInReports !== false;
+                return { ...ev, includeInReports: !currentlyIncluded };
+            });
             const event = updatedEvents.find(e => e.id === id);
             if (event) {
                 dbHelpers.updateEvent(id, { includeInReports: event.includeInReports }).catch(console.error);
@@ -673,7 +678,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
             const d = new Date(t.date);
             // Adjustment transactions always go to billed, not unbilled
             if (t.accountId === accountId && t.isAdjustment) return false;
-            return d > previousBillingDate && d <= nextBillingDate;
+            // Cap unbilled at effectiveDate so historical reports don't show future spends
+            return d > previousBillingDate && d <= nextBillingDate && d <= effectiveDate;
         });
 
         const unbilledAmount = unbilledTransactions.reduce((sum, t) => {

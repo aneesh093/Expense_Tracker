@@ -18,6 +18,13 @@ export function TransactionForm() {
     const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id || '');
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [note, setNote] = useState('');
+    const [transactionDate, setTransactionDate] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    });
     const [excludeFromBalance, setExcludeFromBalance] = useState(false);
     const [isBillPayment, setIsBillPayment] = useState(false);
     const [isAdjustment, setIsAdjustment] = useState(false);
@@ -38,6 +45,19 @@ export function TransactionForm() {
                 setSelectedCategory(category ? category.id : (categories[0]?.id || ''));
                 setSelectedEventId(transaction.eventId || '');
                 setNote(transaction.note || '');
+                if (transaction.date) {
+                    const d = new Date(transaction.date);
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    setTransactionDate(`${year}-${month}-${day}`);
+                } else {
+                    const d = new Date();
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    setTransactionDate(`${year}-${month}-${day}`);
+                }
                 setExcludeFromBalance(!!transaction.excludeFromBalance);
                 setIsBillPayment(!!transaction.isBillPayment);
                 setIsAdjustment(!!transaction.isAdjustment);
@@ -206,7 +226,7 @@ export function TransactionForm() {
             amount: value,
             type,
             category: categoryName,
-            date: isEditing && id ? (transactions.find(t => t.id === id)?.date || new Date().toISOString()) : new Date().toISOString(),
+            date: new Date(transactionDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString(),
             note,
             eventId: selectedEventId || undefined,
             excludeFromBalance,
@@ -418,6 +438,24 @@ export function TransactionForm() {
                         )}
                     </div>
                 )}
+
+                {/* Date Picker */}
+                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
+                    <span className="text-gray-500 text-sm font-medium">Date</span>
+                    <input
+                        type="date"
+                        value={transactionDate}
+                        onChange={(e) => setTransactionDate(e.target.value)}
+                        className="bg-transparent text-right font-medium text-gray-900 focus:outline-none appearance-none cursor-pointer"
+                        max={(() => {
+                            const d = new Date();
+                            const year = d.getFullYear();
+                            const month = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            return `${year}-${month}-${day}`;
+                        })()}
+                    />
+                </div>
 
                 {/* Note Input */}
                 <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">

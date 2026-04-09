@@ -71,28 +71,48 @@ export function AuditTrail() {
                                     </div>
                                 )}
 
-                                {log.action === 'update' && (
-                                    <div className="space-y-2">
-                                        <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <div className="text-gray-400 uppercase font-medium">Field</div>
-                                            <div className="text-gray-400 uppercase font-medium">Change</div>
-                                        </div>
-                                        {Object.keys(log.details.current).map(key => {
-                                            if (JSON.stringify(log.details.previous[key]) !== JSON.stringify(log.details.current[key])) {
-                                                return (
-                                                    <div key={key} className="grid grid-cols-2 gap-2 border-t border-gray-50 pt-1">
-                                                        <div className="font-medium text-gray-700 capitalize">{key}</div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-red-400 line-through truncate">{String(log.details.previous[key] || 'None')}</span>
-                                                            <span className="text-green-600 font-medium truncate">{String(log.details.current[key] || 'None')}</span>
-                                                        </div>
+                                {log.action === 'update' && (() => {
+                                    const HIDDEN_FIELDS = new Set(['id', 'eventId', 'updatedAt', 'createdAt', 'excludeFromBalance', 'isBillPayment', 'isAdjustment']);
+
+                                    const formatValue = (val: any, field: string): string => {
+                                        if (val === null || val === undefined || val === '') return 'None';
+                                        if (field === 'accountId' || field === 'toAccountId') return getAccountName(String(val));
+                                        if (field === 'amount') return `₹${Number(val).toLocaleString('en-IN')}`;
+                                        return String(val);
+                                    };
+
+                                    const fieldLabel = (key: string) => {
+                                        if (key === 'accountId') return 'Account';
+                                        if (key === 'toAccountId') return 'To Account';
+                                        return key.charAt(0).toUpperCase() + key.slice(1);
+                                    };
+
+                                    const changedFields = Object.keys(log.details.current)
+                                        .filter(key => !HIDDEN_FIELDS.has(key))
+                                        .filter(key => JSON.stringify((log.details.previous || {})[key]) !== JSON.stringify(log.details.current[key]));
+
+                                    if (changedFields.length === 0) {
+                                        return <p className="text-gray-400 italic text-xs">No meaningful changes detected.</p>;
+                                    }
+
+                                    return (
+                                        <div className="space-y-2">
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <div className="text-gray-400 uppercase font-medium">Field</div>
+                                                <div className="text-gray-400 uppercase font-medium">Change</div>
+                                            </div>
+                                            {changedFields.map(key => (
+                                                <div key={key} className="grid grid-cols-2 gap-2 border-t border-gray-50 pt-1">
+                                                    <div className="font-medium text-gray-700">{fieldLabel(key)}</div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-red-400 line-through truncate">{formatValue((log.details.previous || {})[key], key)}</span>
+                                                        <span className="text-green-600 font-medium truncate">{formatValue(log.details.current[key], key)}</span>
                                                     </div>
-                                                );
-                                            }
-                                            return null;
-                                        })}
-                                    </div>
-                                )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
 
                                 {log.action === 'delete' && (
                                     <div className="bg-red-50 p-2 rounded-lg">

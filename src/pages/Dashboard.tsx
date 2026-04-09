@@ -1,13 +1,14 @@
 import { useNavigate } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { format, startOfMonth, endOfMonth, isWithinInterval, isSameDay, startOfWeek, addDays } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus, BookOpen } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, isWithinInterval, isSameDay, startOfWeek, addDays, addWeeks } from 'date-fns';
+import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
     const navigate = useNavigate();
     const { accounts, transactions, events, isBalanceHidden, toggleBalanceHidden, isAccountTypeHidden } = useFinanceStore();
+    const [weekOffset, setWeekOffset] = useState(0);
 
     const totalBalance = useMemo(() => {
         return accounts.reduce((sum, acc) => {
@@ -80,11 +81,16 @@ export function Dashboard() {
     const weekSpendData = useMemo(() => {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const startOfCurrentWeek = startOfWeek(todayStart, { weekStartsOn: 1 }); // Monday is 1
+        let targetWeekStart = startOfWeek(todayStart, { weekStartsOn: 1 }); // Monday is 1
+        
+        if (weekOffset !== 0) {
+            targetWeekStart = addWeeks(targetWeekStart, weekOffset);
+        }
+
         const relevantAccountTypes = new Set(['savings', 'cash', 'credit']);
 
         const days = Array.from({ length: 7 }).map((_, i) => {
-            const date = addDays(startOfCurrentWeek, i);
+            const date = addDays(targetWeekStart, i);
             const spend = transactions
                 .filter(t => {
                     if (t.type !== 'expense' || t.excludeFromBalance) return false;
@@ -123,7 +129,7 @@ export function Dashboard() {
                 isLeast: !isFuture && hasSpendVariation && d.spend === minSpend
             };
         });
-    }, [transactions, accounts]);
+    }, [transactions, accounts, weekOffset]);
 
     const filteredTransactions = useMemo(() => {
         const targetAccountIds = new Set(
@@ -239,7 +245,27 @@ export function Dashboard() {
             {/* Weekly Spend Visual */}
             <section>
                 <div className="flex justify-between items-end mb-4">
-                    <h3 className="text-lg font-bold text-gray-900">Current Week</h3>
+                    <h3 className="text-lg font-bold text-gray-900">
+                        {weekOffset === 0 ? 'Current Week' : weekOffset === -1 ? 'Last Week' : `${Math.abs(weekOffset)} Weeks Ago`}
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={() => setWeekOffset(prev => prev - 1)}
+                            className="p-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                        <button
+                            onClick={() => setWeekOffset(prev => Math.min(0, prev + 1))}
+                            disabled={weekOffset === 0}
+                            className={cn(
+                                "p-1 rounded-lg transition-colors",
+                                weekOffset === 0 ? "bg-gray-50 text-gray-300 cursor-not-allowed" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            )}
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
                 </div>
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center px-1 sm:px-4">
