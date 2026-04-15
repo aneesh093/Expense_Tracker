@@ -16,12 +16,12 @@ export function Reports() {
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
 
-    // Filter State
-    const [showMandates, setShowMandates] = useState(false);
-    const [showTransfers, setShowTransfers] = useState(false);
-    const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
-    const [selectedCategoryName, setSelectedCategoryName] = useState<string>('all');
-    const [selectedEventId, setSelectedEventId] = useState<string>('all');
+    // Filter State (formerly settable, now hardcoded defaults)
+    const showMandates = false;
+    const showTransfers = false;
+    const selectedAccountId = 'all';
+    const selectedCategoryName = 'all';
+    const selectedEventId = 'all';
 
     // current date state
     const [currentDate, setCurrentDate] = useState(new Date());
