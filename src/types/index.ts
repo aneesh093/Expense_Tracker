@@ -161,6 +161,7 @@ export interface FinanceSettings {
     passcode?: string;
     useBiometrics?: boolean;
     showCategorySummaryInReport?: boolean;
+    showCategoryLimitsInReport?: boolean;
     incomeIncludedAccountTypes?: string[];
     expenseIncludedAccountTypes?: string[];
 }

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, PieChart, Calendar } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, PieChart, Wallet, CreditCard, Banknote, Landmark, TrendingUp, Calendar } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export function ReportSources() {
     const navigate = useNavigate();
@@ -11,17 +12,22 @@ export function ReportSources() {
         toggleEventReportInclusion
     } = useFinanceStore();
 
-    const getAccountIcon = (type: string) => {
-        switch (type) {
-            case 'credit': return <CreditCard size={20} className="text-white" />;
-            case 'cash': return <Banknote size={20} className="text-white" />;
-            case 'savings': return <Landmark size={20} className="text-white" />;
-            case 'investment':
-            case 'stock':
-            case 'mutual-fund': return <TrendingUp size={20} className="text-white" />;
-            default: return <Wallet size={20} className="text-white" />;
-        }
-    };
+    const SettingGroupItem = ({ icon: Icon, title, description, children, iconBg = 'bg-gray-100', iconColor = 'text-gray-600' }: any) => (
+        <div className="p-4 flex flex-col">
+            <div className="flex items-center space-x-3 mb-3">
+                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', iconBg, iconColor)}>
+                    <Icon size={20} />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{title}</p>
+                    <p className="text-[10px] text-gray-500 line-clamp-1">{description}</p>
+                </div>
+            </div>
+            <div className="pl-1 w-full">
+                {children}
+            </div>
+        </div>
+    );
 
     return (
         <div className="flex flex-col h-screen bg-gray-50">
@@ -33,85 +39,95 @@ export function ReportSources() {
                 >
                     <ArrowLeft size={24} />
                 </button>
-                <h1 className="ml-2 text-xl font-bold text-gray-900 flex items-center">
-                    <PieChart size={24} className="mr-2 text-pink-600" />
-                    Report Sources
-                </h1>
+                <div className="ml-2">
+                    <h1 className="text-xl font-bold text-gray-900">Report Sources</h1>
+                    <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Configure Report Data Sources</p>
+                </div>
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                <p className="text-sm text-gray-500 px-1">
-                    Select which accounts and event/logs should be included in your financial reports and PDF exports.
-                </p>
-
                 {/* Accounts Section */}
-                <section>
-                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Accounts</h2>
-                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-100 border border-gray-100">
-                        {accounts.map(acc => (
-                            <div key={acc.id} className="p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <div
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                        style={{ backgroundColor: acc.color }}
-                                    >
-                                        {getAccountIcon(acc.type)}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-800">{acc.name}</p>
-                                        <p className="text-[10px] text-gray-500 uppercase font-medium">{acc.type}</p>
-                                    </div>
+                <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 px-1">Accounts</h2>
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50 overflow-hidden">
+                        <SettingGroupItem
+                            icon={PieChart}
+                            title="Included Accounts"
+                            description="Toggle which accounts are included in reports and PDF exports"
+                            iconBg="bg-pink-50"
+                            iconColor="text-pink-600"
+                        >
+                            {accounts.length === 0 ? (
+                                <p className="text-xs text-gray-400 italic">No accounts defined</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {accounts.map(acc => {
+                                        const isIncluded = acc.includeInReports !== false;
+                                        return (
+                                            <button
+                                                key={acc.id}
+                                                onClick={() => toggleAccountReportInclusion(acc.id)}
+                                                className={cn(
+                                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all border',
+                                                    isIncluded
+                                                        ? 'border-2 text-white shadow-sm'
+                                                        : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                                )}
+                                                style={isIncluded ? { backgroundColor: acc.color, borderColor: acc.color } : {}}
+                                            >
+                                                {acc.name}
+                                                <span className="text-[9px] uppercase opacity-70">{acc.type}</span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={acc.includeInReports !== false}
-                                        onChange={() => toggleAccountReportInclusion(acc.id)}
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
-                        ))}
+                            )}
+                        </SettingGroupItem>
                     </div>
                 </section>
 
                 {/* Events Section */}
-                <section>
-                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Event/Log</h2>
-                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-100 border border-gray-100">
-                        {events.map(ev => (
-                            <div key={ev.id} className="p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <div
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                        style={{ backgroundColor: ev.color }}
-                                    >
-                                        <Calendar size={20} className="text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-800">{ev.name}</p>
-                                        <p className="text-[10px] text-gray-500 uppercase font-medium">Event/Log</p>
-                                    </div>
+                <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 px-1">Events / Logs</h2>
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50 overflow-hidden">
+                        <SettingGroupItem
+                            icon={Calendar}
+                            title="Included Events"
+                            description="Toggle which events are included in reports and PDF exports"
+                            iconBg="bg-blue-50"
+                            iconColor="text-blue-600"
+                        >
+                            {events.length === 0 ? (
+                                <p className="text-xs text-gray-400 italic">No events defined</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {events.map(ev => {
+                                        const isIncluded = ev.includeInReports !== false;
+                                        return (
+                                            <button
+                                                key={ev.id}
+                                                onClick={() => toggleEventReportInclusion(ev.id)}
+                                                className={cn(
+                                                    'px-3 py-1.5 text-xs font-medium rounded-full transition-all border',
+                                                    isIncluded
+                                                        ? 'border-2 text-white shadow-sm'
+                                                        : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                                )}
+                                                style={isIncluded ? { backgroundColor: ev.color, borderColor: ev.color } : {}}
+                                            >
+                                                {ev.name}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={ev.includeInReports !== false}
-                                        onChange={() => toggleEventReportInclusion(ev.id)}
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
-                        ))}
-                        {events.length === 0 && (
-                            <div className="p-8 text-center">
-                                <p className="text-sm text-gray-400 italic">No event/logs defined</p>
-                            </div>
-                        )}
+                            )}
+                        </SettingGroupItem>
                     </div>
                 </section>
+
+                <p className="px-2 text-[10px] text-gray-500 italic">
+                    * These settings control which accounts and events are included in your financial reports and PDF exports.
+                </p>
             </div>
         </div>
     );
