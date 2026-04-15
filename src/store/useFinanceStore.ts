@@ -43,6 +43,7 @@ interface FinanceState {
     showEventsInReport: boolean;
     showLogsInReport: boolean;
     showManualInReport: boolean;
+    showCategorySummaryInReport: boolean;
     pdfIncludeCharts: boolean;
     pdfIncludeAccountSummary: boolean;
     pdfIncludeTransactions: boolean;
@@ -123,6 +124,7 @@ interface FinanceState {
     setShowEventsInReport: (show: boolean) => void;
     setShowLogsInReport: (show: boolean) => void;
     setShowManualInReport: (show: boolean) => void;
+    setShowCategorySummaryInReport: (show: boolean) => void;
     setPdfIncludeCharts: (show: boolean) => void;
     setPdfIncludeAccountSummary: (show: boolean) => void;
     setPdfIncludeTransactions: (show: boolean) => void;
@@ -153,6 +155,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     showEventsInReport: localStorage.getItem('finance-show-events-in-report') !== 'false',
     showLogsInReport: localStorage.getItem('finance-show-logs-in-report') !== 'false',
     showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
+    showCategorySummaryInReport: localStorage.getItem('finance-show-category-summary') !== 'false',
     pdfIncludeCharts: localStorage.getItem('finance-pdf-include-charts') !== 'false',
     pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
     pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
@@ -777,6 +780,9 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 if (settings.showManualInReport !== undefined) {
                     localStorage.setItem('finance-show-manual-in-report', String(settings.showManualInReport));
                 }
+                if (settings.showCategorySummaryInReport !== undefined) {
+                    localStorage.setItem('finance-show-category-summary', String(settings.showCategorySummaryInReport));
+                }
                 if (settings.pdfIncludeCharts !== undefined) {
                     localStorage.setItem('finance-pdf-include-charts', String(settings.pdfIncludeCharts));
                 }
@@ -1041,6 +1047,11 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     setShowManualInReport: (show) => {
         localStorage.setItem('finance-show-manual-in-report', String(show));
         set({ showManualInReport: show });
+    },
+
+    setShowCategorySummaryInReport: (show) => {
+        localStorage.setItem('finance-show-category-summary', String(show));
+        set({ showCategorySummaryInReport: show });
     },
 
     setPdfIncludeCharts: (show) => {

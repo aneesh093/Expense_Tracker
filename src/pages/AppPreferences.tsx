@@ -17,6 +17,7 @@ export function AppPreferences() {
         showEventsInReport, setShowEventsInReport,
         showLogsInReport, setShowLogsInReport,
         showManualInReport, setShowManualInReport,
+        showCategorySummaryInReport, setShowCategorySummaryInReport,
         pdfIncludeCharts, setPdfIncludeCharts,
         pdfIncludeAccountSummary, setPdfIncludeAccountSummary,
         pdfIncludeTransactions, setPdfIncludeTransactions,
@@ -174,6 +175,15 @@ export function AppPreferences() {
                                         iconColor="text-pink-600"
                                     >
                                         <Toggle checked={showManualInReport} onChange={setShowManualInReport} color="bg-pink-500" />
+                                    </SettingItem>
+                                    <SettingItem
+                                        icon={Layers}
+                                        title="Category Summary"
+                                        description="Show combined spend amounts per category"
+                                        iconBg="bg-emerald-50"
+                                        iconColor="text-emerald-600"
+                                    >
+                                        <Toggle checked={showCategorySummaryInReport} onChange={setShowCategorySummaryInReport} color="bg-emerald-500" />
                                     </SettingItem>
                                 </div>
                             </section>
