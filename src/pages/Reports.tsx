@@ -11,7 +11,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -283,6 +283,27 @@ export function Reports() {
                 };
             }, { billed: 0, unbilled: 0 });
     }, [accounts, transactions, getCreditCardStats, creditCardAsOfDate]);
+
+    // Calculate overall per-category spending (for summary list)
+    const categorySummary = useMemo(() => {
+        const stats: Record<string, { total: number; color: string; name: string }> = {};
+
+        periodTransactions.forEach(t => {
+            if (t.type !== 'expense' || t.excludeFromBalance) return;
+
+            if (!stats[t.category]) {
+                const category = categories.find(c => c.name === t.category);
+                stats[t.category] = {
+                    total: 0,
+                    color: category?.color || '#cbd5e1',
+                    name: t.category
+                };
+            }
+            stats[t.category].total += t.amount;
+        });
+
+        return Object.values(stats).sort((a, b) => b.total - a.total);
+    }, [periodTransactions, categories]);
 
     // Calculate per-category spending and limit status
     const categorySpendingWithLimits = useMemo(() => {
@@ -712,6 +733,26 @@ export function Reports() {
                         </div>
                     )}
                 </div>
+
+                {/* Category Summary Section */}
+                {showCategorySummaryInReport && categorySummary.length > 0 && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Category Summary</h3>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                            {categorySummary.map((cat) => (
+                                <div key={cat.name} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                                        <span className="text-sm font-semibold text-gray-800">{cat.name}</span>
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-900">{formatCurrency(cat.total)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Manual Expenses Breakdown (if any and enabled) */}
                 {showManualInReport && manualChartData.length > 0 && (

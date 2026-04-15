@@ -93,13 +93,15 @@ export function Dashboard() {
             const date = addDays(targetWeekStart, i);
             const spend = transactions
                 .filter(t => {
-                    if (t.type !== 'expense' || t.excludeFromBalance) return false;
+                    if ((t.type !== 'expense' && t.type !== 'income') || t.excludeFromBalance) return false;
                     if (!isSameDay(new Date(t.date), date)) return false;
 
                     const account = accounts.find(a => a.id === t.accountId);
                     return account && relevantAccountTypes.has(account.type);
                 })
-                .reduce((sum, t) => sum + t.amount, 0);
+                .reduce((sum, t) => {
+                    return sum + (t.type === 'expense' ? t.amount : -t.amount);
+                }, 0);
 
             return {
                 date,
