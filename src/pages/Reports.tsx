@@ -1,8 +1,8 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { startOfMonth, endOfMonth, isWithinInterval, format, addMonths, subMonths, startOfYear, endOfYear, addYears, subYears } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, Filter, CreditCard, FileText, Landmark } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileDown, TrendingUp, DollarSign, ArrowDown, ArrowUp, CreditCard, FileText, Landmark } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { generateReportPDF } from '../lib/pdfGenerator';
@@ -18,26 +18,10 @@ export function Reports() {
 
     // Filter State
     const [showMandates, setShowMandates] = useState(false);
-    // showEventsInReport is used from store
     const [showTransfers, setShowTransfers] = useState(false);
     const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
     const [selectedCategoryName, setSelectedCategoryName] = useState<string>('all');
     const [selectedEventId, setSelectedEventId] = useState<string>('all');
-    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-
-    // Close filter menu when clicking outside
-    const filterMenuRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
-                setIsFilterMenuOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
 
     // current date state
     const [currentDate, setCurrentDate] = useState(new Date());
