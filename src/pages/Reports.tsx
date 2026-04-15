@@ -11,7 +11,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, setShowEventsInReport, showLogsInReport, setShowLogsInReport, showManualInReport, setShowManualInReport, showCategorySummaryInReport, setShowCategorySummaryInReport, showCategoryLimitsInReport, setShowCategoryLimitsInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -484,84 +484,6 @@ export function Reports() {
                             <FileDown size={16} />
                             <span>Export PDF</span>
                         </button>
-
-                        <div className="relative" ref={filterMenuRef}>
-                            <button
-                                onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-                                className={cn(
-                                    "p-2 rounded-xl transition-all border",
-                                    isFilterMenuOpen ? "bg-gray-100 text-gray-900 border-gray-300" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
-                                )}
-                            >
-                                <Filter size={18} />
-                            </button>
-
-                            {isFilterMenuOpen && (
-                                <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 p-2 z-50">
-                                    <div className="text-xs font-bold text-gray-400 px-2 py-1 uppercase tracking-wider mb-1">View Options</div>
-                                    <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={showMandates}
-                                            onChange={(e) => setShowMandates(e.target.checked)}
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Show Mandates</span>
-                                    </label>
-                                    <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={showTransfers}
-                                            onChange={(e) => setShowTransfers(e.target.checked)}
-                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Show Transfers</span>
-                                    </label>
-
-                                    <div className="border-t border-gray-100 my-1 pt-1">
-                                        <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">Account</div>
-                                        <select
-                                            value={selectedAccountId}
-                                            onChange={(e) => setSelectedAccountId(e.target.value)}
-                                            className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
-                                        >
-                                            <option value="all">All Accounts</option>
-                                            {accounts.map(acc => (
-                                                <option key={acc.id} value={acc.id}>{acc.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="border-t border-gray-100 my-1 pt-1">
-                                        <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">Event</div>
-                                        <select
-                                            value={selectedEventId}
-                                            onChange={(e) => setSelectedEventId(e.target.value)}
-                                            className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
-                                        >
-                                            <option value="all">All Events</option>
-                                            {events.map(ev => (
-                                                <option key={ev.id} value={ev.id}>{ev.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="border-t border-gray-100 my-1 pt-1">
-                                        <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">Category</div>
-                                        <select
-                                            value={selectedCategoryName}
-                                            onChange={(e) => setSelectedCategoryName(e.target.value)}
-                                            className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
-                                        >
-                                            <option value="all">All Categories</option>
-                                            {Array.from(new Set(categories.map(c => c.name))).sort().map(name => (
-                                                <option key={name} value={name}>{name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                     </div>
 
                     <div className="flex items-center bg-gray-100 rounded-xl p-0.5 border border-gray-200">
@@ -577,6 +499,30 @@ export function Reports() {
                     </div>
                 </div>
             </header>
+
+            {/* Section Visibility Toggle Row */}
+            <div className="px-4 py-2 bg-white border-b border-gray-100 flex gap-2 overflow-x-auto scrollbar-hide">
+                {([
+                    { label: 'Categories', active: showCategorySummaryInReport, toggle: setShowCategorySummaryInReport, color: 'bg-emerald-500 border-emerald-500' },
+                    { label: 'Event Logs', active: showLogsInReport || showEventsInReport, toggle: (v: boolean) => { setShowLogsInReport(v); setShowEventsInReport(v); }, color: 'bg-blue-500 border-blue-500' },
+                    { label: 'Manual', active: showManualInReport, toggle: setShowManualInReport, color: 'bg-pink-500 border-pink-500' },
+                    { label: 'Limits', active: showCategoryLimitsInReport, toggle: setShowCategoryLimitsInReport, color: 'bg-orange-500 border-orange-500' },
+                ] as { label: string; active: boolean; toggle: (v: boolean) => void; color: string }[]).map(item => (
+                    <button
+                        key={item.label}
+                        onClick={() => item.toggle(!item.active)}
+                        className={cn(
+                            'flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all',
+                            item.active
+                                ? `${item.color} text-white`
+                                : 'bg-white border-gray-200 text-gray-500'
+                        )}
+                    >
+                        <span className={cn('w-1.5 h-1.5 rounded-full', item.active ? 'bg-white' : 'bg-gray-300')} />
+                        {item.label}
+                    </button>
+                ))}
+            </div>
 
             <div className="flex-1 p-4 space-y-6 pb-24">
                 {/* Summary List */}
@@ -881,7 +827,7 @@ export function Reports() {
                 )}
 
                 {/* Budget & Limits Section */}
-                {categorySpendingWithLimits.length > 0 && (
+                {showCategoryLimitsInReport && categorySpendingWithLimits.length > 0 && (
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Budget & Limits</h3>

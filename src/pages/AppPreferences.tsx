@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, Clock, Database, FileText, Layout, FileBarChart } from 'lucide-react';
+import { ArrowLeft, Layers, Clock, Database, FileText, Layout, FileBarChart, TrendingUp } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { cn } from '../lib/utils';
 import { useState } from 'react';
@@ -18,6 +18,7 @@ export function AppPreferences() {
         showLogsInReport, setShowLogsInReport,
         showManualInReport, setShowManualInReport,
         showCategorySummaryInReport, setShowCategorySummaryInReport,
+        showCategoryLimitsInReport, setShowCategoryLimitsInReport,
         pdfIncludeCharts, setPdfIncludeCharts,
         pdfIncludeAccountSummary, setPdfIncludeAccountSummary,
         pdfIncludeTransactions, setPdfIncludeTransactions,
@@ -184,6 +185,15 @@ export function AppPreferences() {
                                         iconColor="text-emerald-600"
                                     >
                                         <Toggle checked={showCategorySummaryInReport} onChange={setShowCategorySummaryInReport} color="bg-emerald-500" />
+                                    </SettingItem>
+                                    <SettingItem
+                                        icon={TrendingUp}
+                                        title="Budget & Limits"
+                                        description="Show category budget usage and limits"
+                                        iconBg="bg-orange-50"
+                                        iconColor="text-orange-600"
+                                    >
+                                        <Toggle checked={showCategoryLimitsInReport} onChange={setShowCategoryLimitsInReport} color="bg-orange-500" />
                                     </SettingItem>
                                 </div>
                             </section>
