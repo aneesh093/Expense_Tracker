@@ -16,6 +16,7 @@ export function TransactionForm() {
     const [selectedAccountId, setSelectedAccountId] = useState('');
     const [toAccountId, setToAccountId] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id || '');
+    const [sectionId, setSectionId] = useState<string>('');
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [note, setNote] = useState('');
     const [transactionDate, setTransactionDate] = useState(() => {
@@ -43,6 +44,7 @@ export function TransactionForm() {
                 }
                 const category = categories.find(c => c.name === transaction.category);
                 setSelectedCategory(category ? category.id : (categories[0]?.id || ''));
+                setSectionId(transaction.sectionId || '');
                 setSelectedEventId(transaction.eventId || '');
                 setNote(transaction.note || '');
                 if (transaction.date) {
@@ -113,11 +115,14 @@ export function TransactionForm() {
         if (selectedAccountId && !newVisible.find(a => a.id === selectedAccountId)) {
             if (newVisible.length > 0) {
                 setSelectedAccountId(newVisible[0].id);
+                setSectionId('');
             } else {
                 setSelectedAccountId('');
+                setSectionId('');
             }
         } else if (!selectedAccountId && newVisible.length > 0) {
             setSelectedAccountId(newVisible[0].id);
+            setSectionId('');
         }
 
         // Validate Category
@@ -229,6 +234,7 @@ export function TransactionForm() {
             date: new Date(transactionDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString(),
             note,
             eventId: selectedEventId || undefined,
+            sectionId: sectionId || undefined,
             excludeFromBalance,
             isBillPayment: type === 'transfer' && isToCreditCard ? isBillPayment : undefined,
             isAdjustment: type === 'expense' && isCreditCard ? isAdjustment : undefined
@@ -325,7 +331,10 @@ export function TransactionForm() {
                     <div className="relative">
                         <select
                             value={selectedAccountId}
-                            onChange={(e) => setSelectedAccountId(e.target.value)}
+                            onChange={(e) => {
+                                setSelectedAccountId(e.target.value);
+                                setSectionId('');
+                            }}
                             className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
                         >
                             {accountsToList
@@ -338,6 +347,26 @@ export function TransactionForm() {
                         <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                 </div>
+
+                {/* Section Select */}
+                {selectedAccount?.sections && selectedAccount.sections.length > 0 && (
+                    <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl animate-in fade-in zoom-in duration-200">
+                        <span className="text-gray-500 text-sm font-medium">Section</span>
+                        <div className="relative">
+                            <select
+                                value={sectionId}
+                                onChange={(e) => setSectionId(e.target.value)}
+                                className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
+                            >
+                                <option value="">None</option>
+                                {selectedAccount.sections.map(sec => (
+                                    <option key={sec.id} value={sec.id}>{sec.name} (₹{sec.amount})</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                    </div>
+                )}
 
                 {/* Category Select OR To Account Select */}
                 {type === 'transfer' ? (

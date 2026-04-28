@@ -11,15 +11,13 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
+    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, setShowCategorySummaryInReport, showBudgetAndLimitsInReport, setShowBudgetAndLimitsInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
 
     // Filter State
-    const [showMandates, setShowMandates] = useState(false);
     // showEventsInReport is used from store
-    const [showTransfers, setShowTransfers] = useState(false);
     const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
     const [selectedCategoryName, setSelectedCategoryName] = useState<string>('all');
     const [selectedEventId, setSelectedEventId] = useState<string>('all');
@@ -502,20 +500,20 @@ export function Reports() {
                                     <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            checked={showMandates}
-                                            onChange={(e) => setShowMandates(e.target.checked)}
+                                            checked={showCategorySummaryInReport}
+                                            onChange={(e) => setShowCategorySummaryInReport(e.target.checked)}
                                             className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                         />
-                                        <span className="text-sm text-gray-700">Show Mandates</span>
+                                        <span className="text-sm text-gray-700">Show Category Summary</span>
                                     </label>
                                     <label className="flex items-center space-x-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            checked={showTransfers}
-                                            onChange={(e) => setShowTransfers(e.target.checked)}
+                                            checked={showBudgetAndLimitsInReport}
+                                            onChange={(e) => setShowBudgetAndLimitsInReport(e.target.checked)}
                                             className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                         />
-                                        <span className="text-sm text-gray-700">Show Transfers</span>
+                                        <span className="text-sm text-gray-700">Show Budget & Limits</span>
                                     </label>
 
                                     <div className="border-t border-gray-100 my-1 pt-1">
@@ -881,7 +879,7 @@ export function Reports() {
                 )}
 
                 {/* Budget & Limits Section */}
-                {categorySpendingWithLimits.length > 0 && (
+                {showBudgetAndLimitsInReport && categorySpendingWithLimits.length > 0 && (
                     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Budget & Limits</h3>
@@ -953,63 +951,6 @@ export function Reports() {
                                     )}
                                 </div>
                             ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Mandates Section */}
-                {showMandates && (
-                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Active Mandates</h3>
-                            <button
-                                onClick={() => navigateToTransactions('mandate')}
-                                className="text-xs font-bold text-blue-600 hover:text-blue-800"
-                            >
-                                View Payments →
-                            </button>
-                        </div>
-                        <div className="divide-y divide-gray-50">
-                            {mandates.filter(m => m.isEnabled).length === 0 ? (
-                                <div className="px-5 py-8 text-center text-gray-400 text-sm italic">
-                                    No active mandates
-                                </div>
-                            ) : (
-                                mandates.filter(m => m.isEnabled).map(m => (
-                                    <div key={m.id} className="flex items-center justify-between px-5 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-semibold text-gray-800">{m.description}</span>
-                                            <span className="text-[10px] text-gray-500 font-medium">Next: Day {m.dayOfMonth} of month</span>
-                                        </div>
-                                        <span className="text-sm font-bold text-gray-900">{formatCurrency(m.amount)}</span>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Transfers Summary */}
-                {showTransfers && (
-                    <div
-                        onClick={() => navigateToTransactions('transfer')}
-                        className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer active:scale-[0.99] transition-transform group"
-                    >
-                        <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
-                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Internal Transfers</h3>
-                            <span className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                View Details →
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-2 divide-x divide-gray-50">
-                            <div className="px-5 py-6 flex flex-col items-center">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total In</span>
-                                <span className="text-lg font-bold text-indigo-600">{formatCurrency(totalTransferIn)}</span>
-                            </div>
-                            <div className="px-5 py-6 flex flex-col items-center">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Out</span>
-                                <span className="text-lg font-bold text-indigo-600">{formatCurrency(totalTransferOut)}</span>
-                            </div>
                         </div>
                     </div>
                 )}

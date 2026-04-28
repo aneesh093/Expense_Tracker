@@ -18,6 +18,7 @@ export function AppPreferences() {
         showLogsInReport, setShowLogsInReport,
         showManualInReport, setShowManualInReport,
         showCategorySummaryInReport, setShowCategorySummaryInReport,
+        showBudgetAndLimitsInReport, setShowBudgetAndLimitsInReport,
         pdfIncludeCharts, setPdfIncludeCharts,
         pdfIncludeAccountSummary, setPdfIncludeAccountSummary,
         pdfIncludeTransactions, setPdfIncludeTransactions,
@@ -59,7 +60,7 @@ export function AppPreferences() {
     );
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
+        <div className="flex flex-col min-h-screen bg-gray-50 pb-24">
             {/* Header */}
             <header className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10">
                 <button
@@ -184,6 +185,15 @@ export function AppPreferences() {
                                         iconColor="text-emerald-600"
                                     >
                                         <Toggle checked={showCategorySummaryInReport} onChange={setShowCategorySummaryInReport} color="bg-emerald-500" />
+                                    </SettingItem>
+                                    <SettingItem
+                                        icon={FileBarChart}
+                                        title="Budget & Limits"
+                                        description="Show category budgets and limit progress"
+                                        iconBg="bg-teal-50"
+                                        iconColor="text-teal-600"
+                                    >
+                                        <Toggle checked={showBudgetAndLimitsInReport} onChange={setShowBudgetAndLimitsInReport} color="bg-teal-500" />
                                     </SettingItem>
                                 </div>
                             </section>

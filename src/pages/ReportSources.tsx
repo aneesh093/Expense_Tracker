@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, PieChart, Wallet, CreditCard, Banknote, Landmark, TrendingUp, Calendar } from 'lucide-react';
+import { ArrowLeft, PieChart, Landmark, Calendar } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export function ReportSources() {
     const navigate = useNavigate();
@@ -11,17 +12,44 @@ export function ReportSources() {
         toggleEventReportInclusion
     } = useFinanceStore();
 
-    const getAccountIcon = (type: string) => {
-        switch (type) {
-            case 'credit': return <CreditCard size={20} className="text-white" />;
-            case 'cash': return <Banknote size={20} className="text-white" />;
-            case 'savings': return <Landmark size={20} className="text-white" />;
-            case 'investment':
-            case 'stock':
-            case 'mutual-fund': return <TrendingUp size={20} className="text-white" />;
-            default: return <Wallet size={20} className="text-white" />;
-        }
-    };
+    const MultiSelectToggle = ({ options, onToggle }: { 
+        options: { label: string, value: string, isSelected: boolean }[], 
+        onToggle: (id: string) => void 
+    }) => (
+        <div className="flex flex-wrap gap-2 mt-2">
+            {options.map((option) => (
+                <button
+                    key={option.value}
+                    onClick={() => onToggle(option.value)}
+                    className={cn(
+                        "px-3 py-1 text-xs font-medium rounded-full transition-all border",
+                        option.isSelected
+                            ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
+                            : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                    )}
+                >
+                    {option.label}
+                </button>
+            ))}
+        </div>
+    );
+
+    const SettingGroupItem = ({ icon: Icon, title, description, children, iconBg = "bg-gray-100", iconColor = "text-gray-600" }: any) => (
+        <div className="p-4 flex flex-col">
+            <div className="flex items-center space-x-3 mb-2">
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", iconBg, iconColor)}>
+                    <Icon size={20} />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{title}</p>
+                    <p className="text-[10px] text-gray-500 line-clamp-1">{description}</p>
+                </div>
+            </div>
+            <div className="pl-13 w-full">
+                {children}
+            </div>
+        </div>
+    );
 
     return (
         <div className="flex flex-col h-screen bg-gray-50">
@@ -33,84 +61,57 @@ export function ReportSources() {
                 >
                     <ArrowLeft size={24} />
                 </button>
-                <h1 className="ml-2 text-xl font-bold text-gray-900 flex items-center">
-                    <PieChart size={24} className="mr-2 text-pink-600" />
-                    Report Sources
-                </h1>
+                <div className="ml-2">
+                    <h1 className="text-xl font-bold text-gray-900">Report Sources</h1>
+                    <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Configure Data Inclusion</p>
+                </div>
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                <p className="text-sm text-gray-500 px-1">
-                    Select which accounts and event/logs should be included in your financial reports and PDF exports.
-                </p>
+                <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 px-1">Source Visibility</h2>
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50 overflow-hidden">
+                        <SettingGroupItem
+                            icon={Landmark}
+                            title="Financial Accounts"
+                            description="Selected accounts are included in reports & net worth"
+                            iconBg="bg-blue-50"
+                            iconColor="text-blue-600"
+                        >
+                            <MultiSelectToggle
+                                options={accounts.map(acc => ({
+                                    label: acc.name,
+                                    value: acc.id,
+                                    isSelected: acc.includeInReports !== false
+                                }))}
+                                onToggle={toggleAccountReportInclusion}
+                            />
+                        </SettingGroupItem>
 
-                {/* Accounts Section */}
-                <section>
-                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Accounts</h2>
-                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-100 border border-gray-100">
-                        {accounts.map(acc => (
-                            <div key={acc.id} className="p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <div
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                        style={{ backgroundColor: acc.color }}
-                                    >
-                                        {getAccountIcon(acc.type)}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-800">{acc.name}</p>
-                                        <p className="text-[10px] text-gray-500 uppercase font-medium">{acc.type}</p>
-                                    </div>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={acc.includeInReports !== false}
-                                        onChange={() => toggleAccountReportInclusion(acc.id)}
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
-                        ))}
+                        <SettingGroupItem
+                            icon={Calendar}
+                            title="Events & Logs"
+                            description="Selected items appear in event summaries"
+                            iconBg="bg-pink-50"
+                            iconColor="text-pink-600"
+                        >
+                            <MultiSelectToggle
+                                options={events.map(ev => ({
+                                    label: ev.name,
+                                    value: ev.id,
+                                    isSelected: ev.includeInReports !== false
+                                }))}
+                                onToggle={toggleEventReportInclusion}
+                            />
+                            {events.length === 0 && (
+                                <p className="text-[10px] text-gray-400 italic mt-1">No events defined</p>
+                            )}
+                        </SettingGroupItem>
                     </div>
-                </section>
-
-                {/* Events Section */}
-                <section>
-                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Event/Log</h2>
-                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-100 border border-gray-100">
-                        {events.map(ev => (
-                            <div key={ev.id} className="p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <div
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                        style={{ backgroundColor: ev.color }}
-                                    >
-                                        <Calendar size={20} className="text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-800">{ev.name}</p>
-                                        <p className="text-[10px] text-gray-500 uppercase font-medium">Event/Log</p>
-                                    </div>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={ev.includeInReports !== false}
-                                        onChange={() => toggleEventReportInclusion(ev.id)}
-                                    />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
-                        ))}
-                        {events.length === 0 && (
-                            <div className="p-8 text-center">
-                                <p className="text-sm text-gray-400 italic">No event/logs defined</p>
-                            </div>
-                        )}
-                    </div>
+                    <p className="mt-3 px-2 text-[10px] text-gray-500 italic">
+                        * Note: These settings control which data sources contribute to your financial summaries. 
+                        Disabling a source will hide its transactions from all reports.
+                    </p>
                 </section>
             </div>
         </div>
