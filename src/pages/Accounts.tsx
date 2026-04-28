@@ -3,7 +3,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { SortableAccountItem } from '../components/SortableAccountItem';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import React from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
