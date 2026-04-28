@@ -11,7 +11,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, mandates, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, setShowCategorySummaryInReport, showBudgetAndLimitsInReport, setShowBudgetAndLimitsInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
+    const { transactions, categories, accounts, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, setShowCategorySummaryInReport, showBudgetAndLimitsInReport, setShowBudgetAndLimitsInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');

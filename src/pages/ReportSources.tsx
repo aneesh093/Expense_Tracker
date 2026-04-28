@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, PieChart, Landmark, Calendar } from 'lucide-react';
+import { ArrowLeft, Landmark, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function ReportSources() {

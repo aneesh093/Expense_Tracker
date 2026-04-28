@@ -170,7 +170,6 @@ export interface FinanceSettings {
     showAuditTrail?: boolean;
     passcode?: string;
     useBiometrics?: boolean;
-    showCategorySummaryInReport?: boolean;
     incomeIncludedAccountTypes?: string[];
     expenseIncludedAccountTypes?: string[];
 }
