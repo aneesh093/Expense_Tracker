@@ -3,7 +3,8 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { SortableAccountItem } from '../components/SortableAccountItem';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
 import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react';
@@ -71,29 +72,97 @@ export function Accounts() {
         useSensor(TouchSensor)
     );
 
-    const formatCurrency = (amount: number) => {
+    const resetForm = React.useCallback(() => {
+        setEditingId(null);
+        setName('');
+        setSubName('');
+        setBalance('');
+        setCurrentAmount('');
+        setIsPrimary(false);
+        setType('fixed-deposit');
+        setAccountNumber('');
+        setCustomerId('');
+        setDmatId('');
+
+        setPrincipalAmount('');
+        setInterestRate('');
+        setMonthlyEmi('');
+        setEmisLeft('');
+
+        setPolicyNumber('');
+        setPremiumAmount('');
+        setRenewalDate('');
+        setStatementDate('');
+        setDueDate('');
+        setLogsRequired(false);
+        setSections([]);
+    }, []);
+
+    const handleEdit = React.useCallback((account: Account) => {
+        setEditingId(account.id);
+        setName(account.name);
+        setSubName(account.subName || '');
+        setType(account.type);
+        setBalance(account.balance?.toString() || '');
+        setCurrentAmount(account.currentAmount !== undefined ? account.currentAmount.toString() : '');
+        setIsPrimary(account.isPrimary || false);
+        setFormGroup(account.group || (isInvestment(account.type) ? 'investment' : 'banking'));
+
+        // Populate specific fields if they exist
+        setAccountNumber(account.accountNumber || '');
+        setCustomerId(account.customerId || '');
+        setDmatId(account.dmatId || '');
+
+        if (account.type === 'loan' && account.loanDetails) {
+            setPrincipalAmount(account.loanDetails.principalAmount?.toString() || '');
+            setInterestRate(account.loanDetails.interestRate?.toString() || '');
+            setMonthlyEmi(account.loanDetails.monthlyEmi?.toString() || '');
+            setEmisLeft(account.loanDetails.emisLeft?.toString() || '');
+        } else {
+            setPrincipalAmount('');
+            setInterestRate('');
+            setMonthlyEmi('');
+            setEmisLeft('');
+        }
+
+        if (account.type === 'insurance' && account.insuranceDetails) {
+            setPolicyNumber(account.insuranceDetails.policyNumber || '');
+            setPremiumAmount(account.insuranceDetails.premiumAmount?.toString() || '');
+            setRenewalDate(account.insuranceDetails.renewalDate || '');
+        } else {
+            setPolicyNumber('');
+            setPremiumAmount('');
+            setRenewalDate('');
+        }
+
+        if (account.type === 'credit' && account.creditCardDetails) {
+            setStatementDate(account.creditCardDetails.statementDate?.toString() || '');
+            setDueDate(account.creditCardDetails.dueDate?.toString() || '');
+        } else {
+            setStatementDate('');
+            setDueDate('');
+        }
+
+        setLogsRequired(account.logsRequired || false);
+        setSections(account.sections || []);
+        setIsAdding(true);
+    }, []);
+
+    const formatCurrency = React.useCallback((amount: number) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
         }).format(amount);
-    };
+    }, []);
 
-    const handleDragEnd = (event: any) => {
+    const handleDragEnd = React.useCallback((event: any) => {
         const { active, over } = event;
 
         if (active.id !== over.id) {
-            // Find which group the active item belongs to
-            // We can infer the group from the active item's type, but we must use the filtered list logic
-            // Actually, we can just find the item in our local 'groupedAccounts' derived state, 
-            // but we don't have access to 'groupedAccounts' inside this callback easily unless we define it before,
-            // or we re-derive.
-            // Better: find the type of the account.
             const activeAccount = accounts.find(a => a.id === active.id);
             const overAccount = accounts.find(a => a.id === over.id);
 
             if (activeAccount && overAccount && activeAccount.type === overAccount.type) {
-                // Get all accounts of this type, sorted by current order
-                // IMPORTANT: We must use the same sorting logic as the UI (which is by order)
                 const groupItems = accounts
                     .filter(a => a.type === activeAccount.type)
                     .sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -107,12 +176,11 @@ export function Accounts() {
                 }
             }
         }
-    };
+    }, [accounts, reorderList]);
 
-    const handleSave = () => {
+    const handleSave = React.useCallback(() => {
         if (!name.trim()) return;
 
-        // Check for duplicate account name, excluding current account if editing
         const isDuplicate = accounts.some(
             acc => acc.name.toLowerCase() === name.trim().toLowerCase() && acc.id !== editingId
         );
@@ -179,78 +247,14 @@ export function Accounts() {
 
         setIsAdding(false);
         resetForm();
-    };
+    }, [name, subName, type, balance, editingId, accounts, isPrimary, formGroup, logsRequired, sections, currentAmount, accountNumber, customerId, dmatId, policyNumber, premiumAmount, renewalDate, principalAmount, interestRate, monthlyEmi, emisLeft, statementDate, dueDate, updateAccount, addAccount, resetForm]);
 
-    const handleEdit = (account: Account) => {
-        setEditingId(account.id);
-        setName(account.name);
-        setSubName(account.subName || '');
-        setType(account.type);
-        setBalance(account.balance.toString());
-        setCurrentAmount(account.currentAmount !== undefined ? account.currentAmount.toString() : '');
-        setIsPrimary(account.isPrimary || false);
-        setFormGroup(account.group || (isInvestment(account.type) ? 'investment' : 'banking'));
-
-        // Populate specific fields if they exist
-        if (account.accountNumber) setAccountNumber(account.accountNumber);
-        if (account.customerId) setCustomerId(account.customerId);
-        if (account.dmatId) setDmatId(account.dmatId);
-
-        if (account.type === 'loan' && account.loanDetails) {
-            setPrincipalAmount(account.loanDetails.principalAmount.toString());
-            setInterestRate(account.loanDetails.interestRate.toString());
-            setMonthlyEmi(account.loanDetails.monthlyEmi.toString());
-            setEmisLeft(account.loanDetails.emisLeft.toString());
-        }
-
-        if (account.type === 'insurance' && account.insuranceDetails) {
-            setPolicyNumber(account.insuranceDetails.policyNumber);
-            setPremiumAmount(account.insuranceDetails.premiumAmount.toString());
-            setRenewalDate(account.insuranceDetails.renewalDate);
-        }
-
-        if (account.type === 'credit' && account.creditCardDetails) {
-            setStatementDate(account.creditCardDetails.statementDate.toString());
-            setDueDate(account.creditCardDetails.dueDate.toString());
-        }
-
-        setLogsRequired(account.logsRequired || false);
-        setSections(account.sections || []);
-        setIsAdding(true);
-    };
-
-    const resetForm = () => {
-        setEditingId(null);
-        setName('');
-        setSubName('');
-        setBalance('');
-        setCurrentAmount('');
-        setIsPrimary(false);
-        setType('fixed-deposit');
-        setAccountNumber('');
-        setCustomerId('');
-        setDmatId('');
-
-        setPrincipalAmount('');
-        setInterestRate('');
-        setMonthlyEmi('');
-        setEmisLeft('');
-
-        setPolicyNumber('');
-        setPremiumAmount('');
-        setRenewalDate('');
-        setStatementDate('');
-        setDueDate('');
-        setLogsRequired(false);
-        setSections([]);
-    };
-
-    const handleDeleteConfirm = () => {
+    const handleDeleteConfirm = React.useCallback(() => {
         if (accountToDelete) {
             deleteAccount(accountToDelete.id);
             setAccountToDelete(null);
         }
-    };
+    }, [accountToDelete, deleteAccount]);
 
     const isInvestment = (type: AccountType) => type === 'stock' || type === 'mutual-fund' || type === 'land' || type === 'insurance' || type === 'other';
 
@@ -346,17 +350,19 @@ export function Accounts() {
     // Trigger edit mode if editAccountId is present in URL
     useEffect(() => {
         const editId = searchParams.get('editAccountId');
-        if (editId && accounts.length > 0) {
+        if (editId && accounts.length > 0 && !isAdding) {
             const accountToEdit = accounts.find(a => a.id === editId);
             if (accountToEdit) {
                 handleEdit(accountToEdit);
                 // Clear the parameter so it doesn't re-trigger
-                const newParams = new URLSearchParams(searchParams);
-                newParams.delete('editAccountId');
-                setSearchParams(newParams, { replace: true });
+                setSearchParams(params => {
+                    const newParams = new URLSearchParams(params);
+                    newParams.delete('editAccountId');
+                    return newParams;
+                }, { replace: true });
             }
         }
-    }, [searchParams, accounts, handleEdit, setSearchParams]);
+    }, [searchParams, accounts.length, isAdding, handleEdit, setSearchParams]);
 
     const cancelSelectMode = () => {
         setIsSelectMode(false);
