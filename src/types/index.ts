@@ -26,6 +26,12 @@ export interface CreditCardDetails {
     dueDate: number;       // Day of month
 }
 
+export interface AccountSection {
+    id: string;
+    name: string;
+    amount: number;
+}
+
 export interface Account {
     id: string;
     name: string;
@@ -48,6 +54,7 @@ export interface Account {
     includeInReports?: boolean;
     group?: 'banking' | 'investment';
     logsRequired?: boolean;
+    sections?: AccountSection[];
 }
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
@@ -65,6 +72,7 @@ export interface Transaction {
     excludeFromBalance?: boolean;
     isBillPayment?: boolean; // Flag for credit card bill payments
     isAdjustment?: boolean; // Flag for credit card adjustment transactions (added to billed amount)
+    sectionId?: string; // Optional subsection
 }
 
 export interface Category {
@@ -151,6 +159,8 @@ export interface FinanceSettings {
     showEventsInReport?: boolean;
     showLogsInReport?: boolean;
     showManualInReport?: boolean;
+    showCategorySummaryInReport?: boolean;
+    showBudgetAndLimitsInReport?: boolean;
     pdfIncludeCharts?: boolean;
     pdfIncludeAccountSummary?: boolean;
     pdfIncludeTransactions?: boolean;
@@ -160,7 +170,6 @@ export interface FinanceSettings {
     showAuditTrail?: boolean;
     passcode?: string;
     useBiometrics?: boolean;
-    showCategorySummaryInReport?: boolean;
     incomeIncludedAccountTypes?: string[];
     expenseIncludedAccountTypes?: string[];
 }

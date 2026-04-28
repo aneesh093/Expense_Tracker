@@ -44,6 +44,7 @@ interface FinanceState {
     showLogsInReport: boolean;
     showManualInReport: boolean;
     showCategorySummaryInReport: boolean;
+    showBudgetAndLimitsInReport: boolean;
     pdfIncludeCharts: boolean;
     pdfIncludeAccountSummary: boolean;
     pdfIncludeTransactions: boolean;
@@ -125,6 +126,7 @@ interface FinanceState {
     setShowLogsInReport: (show: boolean) => void;
     setShowManualInReport: (show: boolean) => void;
     setShowCategorySummaryInReport: (show: boolean) => void;
+    setShowBudgetAndLimitsInReport: (show: boolean) => void;
     setPdfIncludeCharts: (show: boolean) => void;
     setPdfIncludeAccountSummary: (show: boolean) => void;
     setPdfIncludeTransactions: (show: boolean) => void;
@@ -156,6 +158,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     showLogsInReport: localStorage.getItem('finance-show-logs-in-report') !== 'false',
     showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
     showCategorySummaryInReport: localStorage.getItem('finance-show-category-summary') !== 'false',
+    showBudgetAndLimitsInReport: localStorage.getItem('finance-show-budget-limits-in-report') !== 'false',
     pdfIncludeCharts: localStorage.getItem('finance-pdf-include-charts') !== 'false',
     pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
     pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
@@ -380,7 +383,24 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                             : transaction.type === 'expense'
                                 ? acc.balance + (isLoan ? transaction.amount : -transaction.amount) // Expense: Loan increases (more debt), Savings decreases
                                 : acc.balance + (isLoan ? transaction.amount : -transaction.amount); // Transfer Out: Same as expense
-                    return { ...acc, balance: newBalance };
+                                
+                    let newSections = acc.sections;
+                    if (transaction.sectionId && newSections) {
+                        newSections = newSections.map(s => {
+                            if (s.id === transaction.sectionId) {
+                                const newAmount =
+                                    transaction.type === 'income'
+                                        ? s.amount + transaction.amount
+                                        : transaction.type === 'expense'
+                                            ? s.amount + (isLoan ? transaction.amount : -transaction.amount)
+                                            : s.amount + (isLoan ? transaction.amount : -transaction.amount);
+                                return { ...s, amount: newAmount };
+                            }
+                            return s;
+                        });
+                    }
+                    
+                    return { ...acc, balance: newBalance, sections: newSections };
                 }
                 if (transaction.type === 'transfer' && acc.id === transaction.toAccountId) {
                     // Logic for the DESTINATION account
@@ -436,7 +456,24 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                             : oldTransaction.type === 'expense'
                                 ? acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount)
                                 : acc.balance - (isLoan ? oldTransaction.amount : -oldTransaction.amount);
-                    return { ...acc, balance: revertedBalance };
+                                
+                    let revertedSections = acc.sections;
+                    if (oldTransaction.sectionId && revertedSections) {
+                        revertedSections = revertedSections.map(s => {
+                            if (s.id === oldTransaction.sectionId) {
+                                const revertedAmount =
+                                    oldTransaction.type === 'income'
+                                        ? s.amount - oldTransaction.amount
+                                        : oldTransaction.type === 'expense'
+                                            ? s.amount - (isLoan ? oldTransaction.amount : -oldTransaction.amount)
+                                            : s.amount - (isLoan ? oldTransaction.amount : -oldTransaction.amount);
+                                return { ...s, amount: revertedAmount };
+                            }
+                            return s;
+                        });
+                    }
+
+                    return { ...acc, balance: revertedBalance, sections: revertedSections };
                 }
                 if (oldTransaction.type === 'transfer' && acc.id === oldTransaction.toAccountId) {
                     const isLoan = acc.type === 'loan';
@@ -459,7 +496,24 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                             : updatedTransaction.type === 'expense'
                                 ? acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount)
                                 : acc.balance + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount);
-                    return { ...acc, balance: newBalance };
+                                
+                    let newSections = acc.sections;
+                    if (updatedTransaction.sectionId && newSections) {
+                        newSections = newSections.map(s => {
+                            if (s.id === updatedTransaction.sectionId) {
+                                const newAmount =
+                                    updatedTransaction.type === 'income'
+                                        ? s.amount + updatedTransaction.amount
+                                        : updatedTransaction.type === 'expense'
+                                            ? s.amount + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount)
+                                            : s.amount + (isLoan ? updatedTransaction.amount : -updatedTransaction.amount);
+                                return { ...s, amount: newAmount };
+                            }
+                            return s;
+                        });
+                    }
+
+                    return { ...acc, balance: newBalance, sections: newSections };
                 }
                 if (updatedTransaction.type === 'transfer' && acc.id === updatedTransaction.toAccountId) {
                     const isLoan = acc.type === 'loan';
@@ -518,7 +572,24 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                         : transaction.type === 'expense'
                             ? acc.balance - (isLoan ? transaction.amount : -transaction.amount) // Undo expense: Loan decreases, Savings increases
                             : acc.balance - (isLoan ? transaction.amount : -transaction.amount);
-                return { ...acc, balance: newBalance };
+                            
+                let newSections = acc.sections;
+                if (transaction.sectionId && newSections) {
+                    newSections = newSections.map(s => {
+                        if (s.id === transaction.sectionId) {
+                            const newAmount =
+                                transaction.type === 'income'
+                                    ? s.amount - transaction.amount
+                                    : transaction.type === 'expense'
+                                        ? s.amount - (isLoan ? transaction.amount : -transaction.amount)
+                                        : s.amount - (isLoan ? transaction.amount : -transaction.amount);
+                            return { ...s, amount: newAmount };
+                        }
+                        return s;
+                    });
+                }
+                
+                return { ...acc, balance: newBalance, sections: newSections };
             }
             if (transaction.type === 'transfer' && acc.id === transaction.toAccountId) {
                 const isLoan = acc.type === 'loan';
@@ -782,6 +853,9 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 }
                 if (settings.showCategorySummaryInReport !== undefined) {
                     localStorage.setItem('finance-show-category-summary', String(settings.showCategorySummaryInReport));
+                }
+                if (settings.showBudgetAndLimitsInReport !== undefined) {
+                    localStorage.setItem('finance-show-budget-limits-in-report', String(settings.showBudgetAndLimitsInReport));
                 }
                 if (settings.pdfIncludeCharts !== undefined) {
                     localStorage.setItem('finance-pdf-include-charts', String(settings.pdfIncludeCharts));
@@ -1052,6 +1126,11 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     setShowCategorySummaryInReport: (show) => {
         localStorage.setItem('finance-show-category-summary', String(show));
         set({ showCategorySummaryInReport: show });
+    },
+
+    setShowBudgetAndLimitsInReport: (show) => {
+        localStorage.setItem('finance-show-budget-limits-in-report', String(show));
+        set({ showBudgetAndLimitsInReport: show });
     },
 
     setPdfIncludeCharts: (show) => {

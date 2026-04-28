@@ -46,6 +46,7 @@ export function Accounts() {
     const [statementDate, setStatementDate] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [logsRequired, setLogsRequired] = useState(false);
+    const [sections, setSections] = useState<{ id: string; name: string; amount: number }[]>([]);
 
     const [activeTab, setActiveTab] = useState<'banking' | 'investments'>('banking');
 
@@ -129,7 +130,8 @@ export function Accounts() {
             color: 'blue',
             isPrimary,
             group: formGroup,
-            logsRequired
+            logsRequired,
+            sections
         };
 
         if (type === 'stock' || type === 'mutual-fund') {
@@ -213,6 +215,7 @@ export function Accounts() {
         }
 
         setLogsRequired(account.logsRequired || false);
+        setSections(account.sections || []);
         setIsAdding(true);
     };
 
@@ -239,6 +242,7 @@ export function Accounts() {
         setStatementDate('');
         setDueDate('');
         setLogsRequired(false);
+        setSections([]);
     };
 
     const handleDeleteConfirm = () => {
@@ -725,6 +729,64 @@ export function Accounts() {
                                     </div>
                                 </div>
                             )}
+                            
+                            <div className="space-y-3 bg-gray-50 p-4 rounded-xl">
+                                <div className="flex justify-between items-center">
+                                    <label className="block text-sm font-medium text-gray-700">Subsections / Envelopes</label>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); setSections([...sections, { id: generateId(), name: '', amount: 0 }]); }}
+                                        className="text-blue-600 hover:bg-blue-100 p-1 rounded transition-colors text-sm font-medium flex items-center space-x-1"
+                                    >
+                                        <Plus size={16} /> <span>Add</span>
+                                    </button>
+                                </div>
+                                {sections.length > 0 && (
+                                    <div className="space-y-2">
+                                        {sections.map((section, index) => (
+                                            <div key={section.id} className="flex space-x-2 items-center">
+                                                <input
+                                                    type="text"
+                                                    value={section.name}
+                                                    onChange={(e) => {
+                                                        const newSections = [...sections];
+                                                        newSections[index] = { ...newSections[index], name: e.target.value };
+                                                        setSections(newSections);
+                                                    }}
+                                                    placeholder="e.g. Food"
+                                                    className="flex-1 p-2 bg-white rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 text-sm"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={section.amount || ''}
+                                                    onChange={(e) => {
+                                                        const newSections = [...sections];
+                                                        newSections[index] = { ...newSections[index], amount: parseFloat(e.target.value) || 0 };
+                                                        setSections(newSections);
+                                                    }}
+                                                    placeholder="0.00"
+                                                    className="w-24 p-2 bg-white rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 text-sm"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        const newSections = [...sections];
+                                                        newSections.splice(index, 1);
+                                                        setSections(newSections);
+                                                    }}
+                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <div className="text-right text-xs text-gray-500 font-medium pt-1">
+                                            Total: ₹{sections.reduce((sum, s) => sum + s.amount, 0)} / ₹{parseFloat(balance) || 0}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="flex flex-col space-y-3 pt-2">
                                 <label className="flex items-center space-x-3 cursor-pointer group">

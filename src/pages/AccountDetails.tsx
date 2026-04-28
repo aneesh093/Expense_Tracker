@@ -433,6 +433,20 @@ export function AccountDetails() {
                             <span className="bg-blue-700/50 px-2 py-1 rounded-lg">DMAT: {account.dmatId}</span>
                         )}
                     </div>
+
+                    {account.sections && account.sections.length > 0 && (
+                        <div className="mt-4 w-full px-4 mb-2">
+                            <div className="bg-white/10 rounded-xl p-3 flex flex-col space-y-2 border border-white/20">
+                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-blue-100 mb-1">Subsections / Envelopes</h4>
+                                {account.sections.map(sec => (
+                                    <div key={sec.id} className="flex justify-between items-center text-sm border-b border-white/10 pb-1 last:border-0 last:pb-0">
+                                        <span className="text-white font-medium">{sec.name}</span>
+                                        <span className="text-white font-bold">{formatCurrency(sec.amount)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Account Tabs */}
