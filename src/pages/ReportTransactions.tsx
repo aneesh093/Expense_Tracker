@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { format, isWithinInterval } from 'date-fns';
-import { ChevronLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar } from 'lucide-react';
+import { ChevronLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, Paperclip } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function ReportTransactions() {
@@ -38,10 +38,7 @@ export function ReportTransactions() {
     const displayItems = useMemo(() => {
         const reportAccountIds = new Set(
             accounts
-                .filter(a => {
-                    const isTypeAllowed = a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan';
-                    return isTypeAllowed && a.includeInReports !== false;
-                })
+                .filter(a => a.includeInReports !== false)
                 .map(a => a.id)
         );
 
@@ -278,8 +275,13 @@ export function ReportTransactions() {
                                             t.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowRightLeft size={20} />}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="font-semibold text-gray-900 text-sm truncate">
+                                        <p className="font-semibold text-gray-900 text-sm truncate flex items-center gap-1.5">
                                             {t.note || t.category}
+                                            {t.billImage && (
+                                                <span title="Bill Attached" className="text-blue-500 shrink-0 inline-flex items-center">
+                                                    <Paperclip size={12} className="stroke-[2.5]" />
+                                                </span>
+                                            )}
                                         </p>
                                         <div className="flex items-center text-[10px] text-gray-500 space-x-1 mt-0.5">
                                             <span>{format(new Date(t.date), 'MMM dd')}</span>

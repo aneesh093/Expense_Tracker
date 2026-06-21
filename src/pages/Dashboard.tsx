@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { format, startOfMonth, endOfMonth, isWithinInterval, isSameDay, startOfWeek, addDays, addWeeks } from 'date-fns';
-import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, CreditCard, Eye, EyeOff, ArrowRightLeft, Plus, BookOpen, ChevronLeft, ChevronRight, Paperclip } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
@@ -87,7 +87,7 @@ export function Dashboard() {
             targetWeekStart = addWeeks(targetWeekStart, weekOffset);
         }
 
-        const relevantAccountTypes = new Set(['savings', 'cash', 'credit']);
+        const relevantAccountTypes = new Set(['savings', 'cash', 'credit', 'online-wallet', 'other', 'loan']);
 
         const days = Array.from({ length: 7 }).map((_, i) => {
             const date = addDays(targetWeekStart, i);
@@ -135,7 +135,7 @@ export function Dashboard() {
 
     const filteredTransactions = useMemo(() => {
         const targetAccountIds = new Set(
-            accounts.filter(a => a.isPrimary || a.type === 'credit').map(a => a.id)
+            accounts.filter(a => a.isPrimary || a.type === 'credit' || a.includeInReports !== false).map(a => a.id)
         );
 
         // If no primary accounts or credit cards exist, maybe show all? Or show none? 
@@ -348,11 +348,16 @@ export function Dashboard() {
                                                 t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-gray-900 text-sm">
+                                            <p className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
                                                 {isTransfer
                                                     ? `Transfer: ${fromAccount?.name || 'Unknown'} -> ${toAccount?.name || 'Unknown'}`
                                                     : (t.note || t.category)
                                                 }
+                                                {!isTransfer && t.billImage && (
+                                                    <span title="Bill Attached" className="text-blue-500 shrink-0 inline-flex items-center">
+                                                        <Paperclip size={12} className="stroke-[2.5]" />
+                                                    </span>
+                                                )}
                                             </p>
                                             <div className="flex items-center text-[10px] text-gray-500 space-x-1 mt-0.5">
                                                 <span>{format(new Date(t.date), 'MMM dd, h:mm a')}</span>

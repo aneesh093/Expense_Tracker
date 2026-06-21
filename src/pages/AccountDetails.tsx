@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, CirclePlus, X, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, CirclePlus, X, Pencil, Trash2, ChevronLeft, ChevronRight, Paperclip } from 'lucide-react';
 import { format, subMonths, addMonths } from 'date-fns';
 import { cn, generateId } from '../lib/utils';
 import { type Holding } from '../types';
@@ -709,8 +709,13 @@ export function AccountDetails() {
                                                     t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-gray-900 text-sm">
+                                                <p className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
                                                     {t.note || (isTransfer ? (isIncomingTransfer ? "Transfer In" : "Transfer Out") : t.category)}
+                                                    {!isTransfer && t.billImage && (
+                                                        <span title="Bill Attached" className="text-blue-500 shrink-0 inline-flex items-center">
+                                                            <Paperclip size={12} className="stroke-[2.5]" />
+                                                        </span>
+                                                    )}
                                                 </p>
                                                 <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
                                             </div>

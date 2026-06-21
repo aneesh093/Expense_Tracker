@@ -31,6 +31,8 @@ export function TransactionForm() {
     const [isAdjustment, setIsAdjustment] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [showKeypad, setShowKeypad] = useState(false);
+    const [billImage, setBillImage] = useState<string | undefined>(undefined);
+    const [showFullBill, setShowFullBill] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -63,6 +65,7 @@ export function TransactionForm() {
                 setExcludeFromBalance(!!transaction.excludeFromBalance);
                 setIsBillPayment(!!transaction.isBillPayment);
                 setIsAdjustment(!!transaction.isAdjustment);
+                setBillImage(transaction.billImage);
                 setIsEditing(true);
             }
             return; // Don't run auto-selection logic if editing
@@ -202,6 +205,21 @@ export function TransactionForm() {
         }
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                alert("File size must be less than 2MB.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setBillImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSubmit = () => {
         const value = parseFloat(amount);
         if (value <= 0) return;
@@ -237,7 +255,8 @@ export function TransactionForm() {
             sectionId: sectionId || undefined,
             excludeFromBalance,
             isBillPayment: type === 'transfer' && isToCreditCard ? isBillPayment : undefined,
-            isAdjustment: type === 'expense' && isCreditCard ? isAdjustment : undefined
+            isAdjustment: type === 'expense' && isCreditCard ? isAdjustment : undefined,
+            billImage: type === 'expense' ? billImage : undefined
         };
 
         if (isEditing && id) {
@@ -245,6 +264,7 @@ export function TransactionForm() {
         } else {
             addTransaction(transactionData);
             setAmount('0');
+            setBillImage(undefined);
         }
 
         setShowSuccess(true);
@@ -498,6 +518,51 @@ export function TransactionForm() {
                     />
                 </div>
 
+                {/* Bill Attachment (Only for Expense type) */}
+                {type === 'expense' && (
+                    <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <span className="text-gray-500 text-sm font-medium">Attach Bill</span>
+                                <span className="text-gray-400 text-[10px] font-medium leading-tight">Optional proof of expense</span>
+                            </div>
+                            {billImage ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setBillImage(undefined)}
+                                    className="text-xs text-red-500 font-bold hover:text-red-700 transition-colors"
+                                >
+                                    Remove Bill
+                                </button>
+                            ) : (
+                                <label className="cursor-pointer bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95">
+                                    <span>Choose File</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                    />
+                                </label>
+                            )}
+                        </div>
+
+                        {billImage && (
+                            <div className="relative group rounded-xl overflow-hidden border border-gray-200 w-fit max-w-full">
+                                <img
+                                    src={billImage}
+                                    alt="Bill attachment"
+                                    className="max-h-40 rounded-xl object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => setShowFullBill(true)}
+                                />
+                                <div className="text-[10px] text-gray-400 mt-1 text-center italic">
+                                    Click image to enlarge
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Event Select */}
                 <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
                     <span className="text-gray-500 text-sm font-medium">Event/Log</span>
@@ -603,6 +668,27 @@ export function TransactionForm() {
                     <span>{isEditing ? 'Update Transaction' : 'Save Transaction'}</span>
                 </button>
             </div>
+
+            {/* Full-size Bill Modal */}
+            {showFullBill && billImage && (
+                <div className="fixed inset-0 bg-black/85 z-[100] flex flex-col items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setShowFullBill(false)}>
+                    <div className="absolute top-4 right-4 flex space-x-2">
+                        <button
+                            onClick={() => setShowFullBill(false)}
+                            className="bg-white/20 text-white hover:bg-white/35 px-4 py-2 rounded-full font-bold text-sm transition-all"
+                        >
+                            Close
+                        </button>
+                    </div>
+                    <div className="max-w-full max-h-[80vh] overflow-auto flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                        <img
+                            src={billImage}
+                            alt="Full Bill"
+                            className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                        />
+                    </div>
+                </div>
+            )}
 
         </div>
     );
