@@ -48,10 +48,7 @@ export function Reports() {
     const periodTransactions = useMemo(() => {
         const reportAccountIds = new Set(
             accounts
-                .filter(a => {
-                    const isTypeAllowed = a.isPrimary || a.type === 'credit' || a.type === 'cash' || a.type === 'savings' || a.type === 'fixed-deposit' || a.type === 'loan' || a.type === 'online-wallet';
-                    return isTypeAllowed && a.includeInReports !== false;
-                })
+                .filter(a => a.includeInReports !== false)
                 .map(a => a.id)
         );
 

@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useMemo, useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Edit2, Trash2, Plus, ArrowUpRight, ArrowDownRight, Calendar } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Plus, ArrowUpRight, ArrowDownRight, Calendar, Paperclip } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function EventDetails() {
@@ -10,6 +10,7 @@ export function EventDetails() {
     const { id } = useParams<{ id: string }>();
     const { events, transactions, eventLogs, eventPlans, deleteEvent, deleteEventPlan } = useFinanceStore();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [transactionView, setTransactionView] = useState<'all' | 'monthly'>('all');
 
     const event = useMemo(() => events.find(e => e.id === id), [events, id]);
 
@@ -43,6 +44,43 @@ export function EventDetails() {
             .filter(t => t.eventId === id)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transactions, id]);
+
+    const displayedTransactions = useMemo(() => {
+        if (transactionView === 'monthly') {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            return eventTransactions.filter(t => {
+                const tDate = new Date(t.date);
+                return tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth;
+            });
+        }
+        return eventTransactions;
+    }, [eventTransactions, transactionView]);
+
+    const monthlyStats = useMemo(() => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const currentMonthTrans = eventTransactions.filter(t => {
+            const d = new Date(t.date);
+            return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        });
+
+        const expense = currentMonthTrans
+            .filter(t => t.type === 'expense')
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        const income = currentMonthTrans
+            .filter(t => t.type === 'income')
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        return {
+            expense,
+            income,
+            count: currentMonthTrans.length
+        };
+    }, [eventTransactions]);
 
     const eventLogsList = useMemo(() => {
         return eventLogs
@@ -229,35 +267,104 @@ export function EventDetails() {
             {/* Tab Content */}
             <div className="space-y-6 pb-24">
                 {activeTab === 'transactions' && (
-                    <section>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold text-gray-900">Actual Transactions</h2>
+                    <section className="space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="space-y-2">
+                                <h2 className="text-base font-bold text-gray-900">Actual Transactions</h2>
+                                <div className="flex p-0.5 bg-gray-100 rounded-xl w-fit">
+                                    <button
+                                        onClick={() => setTransactionView('all')}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200",
+                                            transactionView === 'all'
+                                                ? "bg-white text-blue-600 shadow-sm"
+                                                : "text-gray-500 hover:text-gray-700"
+                                        )}
+                                    >
+                                        All
+                                    </button>
+                                    <button
+                                        onClick={() => setTransactionView('monthly')}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200",
+                                            transactionView === 'monthly'
+                                                ? "bg-white text-blue-600 shadow-sm"
+                                                : "text-gray-500 hover:text-gray-700"
+                                        )}
+                                    >
+                                        Monthly
+                                    </button>
+                                </div>
+                            </div>
                             <button
                                 onClick={() => navigate(`/add?eventId=${id}`)}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 active:scale-95 transition-transform"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 active:scale-95 transition-all shadow-md shadow-blue-100 self-start sm:self-center"
                             >
                                 <Plus size={16} />
                                 <span>Add</span>
                             </button>
                         </div>
+
+                        {transactionView === 'monthly' && displayedTransactions.length > 0 && (
+                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3 text-xs">
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                    <span className="text-blue-800 font-bold">
+                                        Current Month: {format(new Date(), 'MMMM yyyy')} ({monthlyStats.count} {monthlyStats.count === 1 ? 'transaction' : 'transactions'})
+                                    </span>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div>
+                                        <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Spent</span>
+                                        <span className="text-red-600 font-bold font-mono">{formatCurrency(monthlyStats.expense)}</span>
+                                    </div>
+                                    {monthlyStats.income > 0 && (
+                                        <div>
+                                            <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">Income</span>
+                                            <span className="text-green-600 font-bold font-mono">{formatCurrency(monthlyStats.income)}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-3">
-                            {eventTransactions.length === 0 ? (
+                            {displayedTransactions.length === 0 ? (
                                 <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
-                                    <p className="text-gray-400 text-sm italic font-medium">No records found.</p>
+                                    <p className="text-gray-400 text-sm italic font-medium">
+                                        {transactionView === 'monthly'
+                                            ? `No records found for ${format(new Date(), 'MMMM yyyy')}.`
+                                            : 'No records found.'}
+                                    </p>
+                                    {transactionView === 'monthly' && eventTransactions.length > 0 && (
+                                        <button
+                                            onClick={() => setTransactionView('all')}
+                                            className="mt-3 text-xs text-blue-600 font-bold hover:underline"
+                                        >
+                                            View all transactions
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
-                                eventTransactions.map((t) => (
+                                displayedTransactions.map((t) => (
                                     <div
                                         key={t.id}
                                         onClick={() => navigate(`/edit/${t.id}`)}
-                                        className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100 cursor-pointer active:bg-gray-50 transition-colors"
+                                        className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between border border-gray-100 cursor-pointer active:scale-[0.99] hover:bg-gray-50/50 transition-all"
                                     >
                                         <div className="flex items-center space-x-3">
                                             <div className={cn("p-2 rounded-full", t.type === 'expense' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500")}>
                                                 {t.type === 'expense' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-gray-900 text-sm">{t.note || t.category}</p>
+                                                <p className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                                                    {t.note || t.category}
+                                                    {t.billImage && (
+                                                        <span title="Bill Attached" className="text-blue-500 shrink-0 inline-flex items-center">
+                                                            <Paperclip size={12} className="stroke-[2.5]" />
+                                                        </span>
+                                                    )}
+                                                </p>
                                                 <p className="text-xs text-gray-500">{format(new Date(t.date), 'MMM dd, h:mm a')}</p>
                                             </div>
                                         </div>

@@ -73,6 +73,7 @@ export interface Transaction {
     isBillPayment?: boolean; // Flag for credit card bill payments
     isAdjustment?: boolean; // Flag for credit card adjustment transactions (added to billed amount)
     sectionId?: string; // Optional subsection
+    billImage?: string; // Base64 string of the attached bill
 }
 
 export interface Category {
