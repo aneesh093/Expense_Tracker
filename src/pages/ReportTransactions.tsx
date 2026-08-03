@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { format, isWithinInterval } from 'date-fns';
-import { ChevronLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, Paperclip } from 'lucide-react';
+import { ChevronLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Calendar, Paperclip, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function ReportTransactions() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { transactions, accounts, events, categories, eventLogs } = useFinanceStore();
+    const { transactions, accounts, events, categories, eventLogs, reportSortBy, setReportSortBy } = useFinanceStore();
 
     // Get filter state from navigation
     const { start, end, title, filter, selectedAccountId: initialAccountId, selectedCategory: initialCategory, selectedEventId: initialEventId } = (location.state as {
@@ -29,11 +29,69 @@ export function ReportTransactions() {
         selectedEventId: 'all'
     };
 
-    const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || 'all');
-    const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId || 'all');
-    const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || 'all');
-    const [customStart, setCustomStart] = useState<string>(format(new Date(start), 'yyyy-MM-dd'));
-    const [customEnd, setCustomEnd] = useState<string>(format(new Date(end), 'yyyy-MM-dd'));
+    // Storage key is scoped to the filter type so each report section has its own persisted state
+    const storageKey = `report-txn-filters-${filter}`;
+    const defaultStart = format(new Date(start), 'yyyy-MM-dd');
+    const defaultEnd = format(new Date(end), 'yyyy-MM-dd');
+
+    const getInitialFilters = () => {
+        try {
+            const saved = sessionStorage.getItem(storageKey);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return {
+                    category: parsed.category ?? (initialCategory || 'all'),
+                    eventId: parsed.eventId ?? (initialEventId || 'all'),
+                    accountId: parsed.accountId ?? (initialAccountId || 'all'),
+                    start: parsed.start ?? defaultStart,
+                    end: parsed.end ?? defaultEnd,
+                };
+            }
+        } catch { /* ignore */ }
+        return {
+            category: initialCategory || 'all',
+            eventId: initialEventId || 'all',
+            accountId: initialAccountId || 'all',
+            start: defaultStart,
+            end: defaultEnd,
+        };
+    };
+
+    const initial = getInitialFilters();
+    const [selectedCategory, setSelectedCategory] = useState<string>(initial.category);
+    const [selectedEventId, setSelectedEventId] = useState<string>(initial.eventId);
+    const [selectedAccountId, setSelectedAccountId] = useState<string>(initial.accountId);
+    const [customStart, setCustomStart] = useState<string>(initial.start);
+    const [customEnd, setCustomEnd] = useState<string>(initial.end);
+
+    // Persist filter changes to sessionStorage
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(storageKey, JSON.stringify({
+                category: selectedCategory,
+                eventId: selectedEventId,
+                accountId: selectedAccountId,
+                start: customStart,
+                end: customEnd,
+            }));
+        } catch { /* ignore */ }
+    }, [storageKey, selectedCategory, selectedEventId, selectedAccountId, customStart, customEnd]);
+
+    const isFiltered =
+        selectedCategory !== 'all' ||
+        selectedEventId !== 'all' ||
+        selectedAccountId !== 'all' ||
+        customStart !== defaultStart ||
+        customEnd !== defaultEnd;
+
+    const clearFilters = () => {
+        setSelectedCategory(initialCategory || 'all');
+        setSelectedEventId(initialEventId || 'all');
+        setSelectedAccountId(initialAccountId || 'all');
+        setCustomStart(defaultStart);
+        setCustomEnd(defaultEnd);
+        try { sessionStorage.removeItem(storageKey); } catch { /* ignore */ }
+    };
 
     const displayItems = useMemo(() => {
         const reportAccountIds = new Set(
@@ -119,8 +177,13 @@ export function ReportTransactions() {
             ...filteredLogs.map(l => ({ ...l, itemType: 'log' as const }))
         ];
 
-        return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [transactions, eventLogs, accounts, customStart, customEnd, filter, selectedCategory, selectedAccountId, selectedEventId]);
+        return items.sort((a, b) => {
+            if (reportSortBy === 'date') {
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
+            }
+            return b.amount - a.amount;
+        });
+    }, [transactions, eventLogs, accounts, customStart, customEnd, filter, selectedCategory, selectedAccountId, selectedEventId, reportSortBy]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -131,24 +194,35 @@ export function ReportTransactions() {
 
     return (
         <div className="flex flex-col bg-gray-50 -mx-4 -mt-4 min-h-full">
-            <header className="flex items-center p-4 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                    <ChevronLeft size={24} />
-                </button>
-                <div className="ml-2">
-                    <h1 className="text-lg font-bold text-gray-900">
-                        {filter === 'manual' ? 'Manual Expenses' :
-                            filter === 'core' ? 'Core Expenses' :
-                                filter === 'transfer' ? 'Transfers' :
-                                    filter === 'mandate' ? 'Mandate Payments' : 'Transactions'}
-                    </h1>
-                    <p className="text-xs text-gray-500">
-                        {title}
-                    </p>
+            <header className="flex items-center justify-between p-4 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
+                <div className="flex items-center">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                        <ChevronLeft size={24} />
+                    </button>
+                    <div className="ml-2">
+                        <h1 className="text-lg font-bold text-gray-900">
+                            {filter === 'manual' ? 'Manual Expenses' :
+                                filter === 'core' ? 'Core Expenses' :
+                                    filter === 'transfer' ? 'Transfers' :
+                                        filter === 'mandate' ? 'Mandate Payments' : 'Transactions'}
+                        </h1>
+                        <p className="text-xs text-gray-500">
+                            {title}
+                        </p>
+                    </div>
                 </div>
+                {isFiltered && (
+                    <button
+                        onClick={clearFilters}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 transition-all"
+                    >
+                        <X size={13} />
+                        Clear Filters
+                    </button>
+                )}
             </header>
 
             {/* Filters Section */}
@@ -210,6 +284,18 @@ export function ReportTransactions() {
                         {accounts.map(acc => (
                             <option key={acc.id} value={acc.id}>{acc.name}</option>
                         ))}
+                    </select>
+                </div>
+
+                <div className="flex flex-col space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sort Transactions By</label>
+                    <select
+                        value={reportSortBy}
+                        onChange={(e) => setReportSortBy(e.target.value as 'date' | 'amount')}
+                        className="w-full p-2 text-xs bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                        <option value="date">Date (Newest First)</option>
+                        <option value="amount">Amount (Highest First)</option>
                     </select>
                 </div>
             </div>

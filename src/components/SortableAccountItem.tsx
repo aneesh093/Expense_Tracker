@@ -72,6 +72,7 @@ export function SortableAccountItem({
             className={cn(
                 "flex items-center justify-between p-4 bg-white hover:bg-gray-50 transition-all border-b border-gray-100 last:border-0",
                 isSelected && "bg-blue-50",
+                account.includeInNetWorth === false && "opacity-80",
                 isDragging && "shadow-lg bg-gray-50 z-50 rounded-lg border-transparent scale-[1.02]"
             )}
         >
@@ -113,6 +114,11 @@ export function SortableAccountItem({
                         {account.isPrimary && (
                             <span className="text-[10px] bg-blue-100 text-blue-600 w-5 h-5 flex items-center justify-center rounded-full font-bold">
                                 P
+                            </span>
+                        )}
+                        {account.includeInNetWorth === false && (
+                            <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium tracking-wide">
+                                Excluded
                             </span>
                         )}
                     </div>

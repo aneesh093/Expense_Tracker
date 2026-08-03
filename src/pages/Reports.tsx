@@ -11,7 +11,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export function Reports() {
     const navigate = useNavigate();
-    const { transactions, categories, accounts, events, eventLogs, reportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, setShowCategorySummaryInReport, showBudgetAndLimitsInReport, setShowBudgetAndLimitsInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
+    const { transactions, categories, accounts, events, eventLogs, reportSortBy, setReportSortBy, showEventsInReport, showLogsInReport, showManualInReport, showCategorySummaryInReport, setShowCategorySummaryInReport, showBudgetAndLimitsInReport, setShowBudgetAndLimitsInReport, pdfIncludeCharts, pdfIncludeAccountSummary, pdfIncludeTransactions, pdfIncludeEventSummary, getCreditCardStats } = useFinanceStore();
 
     // View Mode State
     const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
@@ -48,11 +48,19 @@ export function Reports() {
     const periodTransactions = useMemo(() => {
         const reportAccountIds = new Set(
             accounts
-                .filter(a => a.includeInReports !== false)
+                .filter(a => a.includeInReports !== false && a.includeInNetWorth !== false)
                 .map(a => a.id)
         );
 
         const relevantTransactions = transactions.filter(t => {
+            // Check if source or destination account is excluded from calculations
+            const account = accounts.find(a => a.id === t.accountId);
+            if (account && account.includeInNetWorth === false) return false;
+            if (t.toAccountId) {
+                const toAccount = accounts.find(a => a.id === t.toAccountId);
+                if (toAccount && toAccount.includeInNetWorth === false) return false;
+            }
+
             // Check event exclusion
             if (t.eventId) {
                 const event = events.find(e => e.id === t.eventId);
@@ -131,6 +139,7 @@ export function Reports() {
     const openingBalances = useMemo(() => {
         const balances: Record<string, number> = {};
         accounts.forEach(acc => {
+            if (acc.includeInNetWorth === false) return; // Skip excluded accounts
             const isLoan = acc.type === 'loan';
             const currentAssetBalance = isLoan ? -acc.balance : acc.balance;
 
@@ -269,7 +278,7 @@ export function Reports() {
 
     const creditCardStats = useMemo(() => {
         return accounts
-            .filter(acc => acc.type === 'credit')
+            .filter(a => a.type === 'credit' && a.includeInReports !== false && a.includeInNetWorth !== false)
             .reduce((acc, card) => {
                 const stats = getCreditCardStats(card.id, creditCardAsOfDate);
                 return {
@@ -405,8 +414,8 @@ export function Reports() {
             totalLoanRepayment,
             transactions: periodTransactions,
             eventLogs: periodEventLogs,
-            accounts: accounts.filter(a => a.includeInReports !== false),
-            allAccounts: accounts,
+            accounts: accounts.filter(a => a.includeInReports !== false && a.includeInNetWorth !== false),
+            allAccounts: accounts.filter(a => a.includeInNetWorth !== false),
             categories,
             events: events.filter(e => e.includeInReports !== false),
             chartData,
@@ -552,6 +561,18 @@ export function Reports() {
                                             {Array.from(new Set(categories.map(c => c.name))).sort().map(name => (
                                                 <option key={name} value={name}>{name}</option>
                                             ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="border-t border-gray-100 my-1 pt-1">
+                                        <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">Sort Transactions By</div>
+                                        <select
+                                            value={reportSortBy}
+                                            onChange={(e) => setReportSortBy(e.target.value as 'date' | 'amount')}
+                                            className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-lg border border-gray-200 outline-none focus:ring-1 focus:ring-blue-500"
+                                        >
+                                            <option value="date">Date (Newest First)</option>
+                                            <option value="amount">Amount (Highest First)</option>
                                         </select>
                                     </div>
                                 </div>
