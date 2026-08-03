@@ -311,7 +311,8 @@ export function AccountDetails() {
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
     const [viewMode, setViewMode] = useState<'all' | 'monthly'>('all');
     const [currentDate, setCurrentDate] = useState(new Date());
-    const sessionKey = `account_category_filter_${id}`;
+
+
     const [selectedCategory, setSelectedCategory] = useState<string>(() => {
         return id ? (sessionStorage.getItem(`account_category_filter_${id}`) || 'all') : 'all';
     });
