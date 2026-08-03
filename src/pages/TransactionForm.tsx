@@ -15,7 +15,10 @@ export function TransactionForm() {
     const [type, setType] = useState<TransactionType>('expense');
     const [selectedAccountId, setSelectedAccountId] = useState('');
     const [toAccountId, setToAccountId] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState(categories[0]?.id || '');
+    const [selectedCategory, setSelectedCategory] = useState(() => {
+        const sorted = categories.slice().sort((a, b) => a.name.localeCompare(b.name));
+        return sorted.find(c => c.type === 'expense')?.id || categories[0]?.id || '';
+    });
     const [sectionId, setSectionId] = useState<string>('');
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [note, setNote] = useState('');
@@ -84,22 +87,34 @@ export function TransactionForm() {
         } else if (currentVisible.length > 0 && (!selectedAccountId || !currentVisible.some(a => a.id === selectedAccountId))) {
             setSelectedAccountId(currentVisible[0].id);
         }
+
+        // Final category selection logic for NEW transactions
+        const sortedCategories = categories.slice().sort((a, b) => a.name.localeCompare(b.name));
+        const activeCategoryObj = categories.find(c => c.id === selectedCategory);
+        if (!selectedCategory || !activeCategoryObj || activeCategoryObj.type !== type) {
+            const firstValidCategory = sortedCategories.find(c => c.type === type);
+            if (firstValidCategory) {
+                setSelectedCategory(firstValidCategory.id);
+            } else {
+                setSelectedCategory('');
+            }
+        }
     }, [id, transactions, categories, searchParams, accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes, type]);
 
     // Keypad logic
 
     const getVisibleAccounts = (currentType: TransactionType) => {
-        if (currentType === 'transfer') {
-            return accounts;
+        let list = accounts;
+        if (currentType !== 'transfer') {
+            const includedTypes = currentType === 'income'
+                ? incomeIncludedAccountTypes
+                : expenseIncludedAccountTypes;
+
+            list = accounts.filter(acc =>
+                !includedTypes || includedTypes.includes(acc.type)
+            );
         }
-
-        const includedTypes = currentType === 'income'
-            ? incomeIncludedAccountTypes
-            : expenseIncludedAccountTypes;
-
-        return accounts.filter(acc =>
-            !includedTypes || includedTypes.includes(acc.type)
-        );
+        return list.slice().sort((a, b) => a.name.localeCompare(b.name));
     };
 
     const visibleAccounts = getVisibleAccounts(type);
@@ -131,16 +146,17 @@ export function TransactionForm() {
         // Validate Category
         // Always reset category to valid one for new type unless it matches
         // (Logic from previous effect)
+        const sortedCategories = categories.slice().sort((a, b) => a.name.localeCompare(b.name));
         const currentCategory = categories.find(c => c.id === selectedCategory);
         if (currentCategory && currentCategory.type !== newType) {
-            const firstValidCategory = categories.find(c => c.type === newType);
+            const firstValidCategory = sortedCategories.find(c => c.type === newType);
             if (firstValidCategory) {
                 setSelectedCategory(firstValidCategory.id);
             } else {
                 setSelectedCategory('');
             }
         } else if (!selectedCategory) {
-            const firstValidCategory = categories.find(c => c.type === newType);
+            const firstValidCategory = sortedCategories.find(c => c.type === newType);
             if (firstValidCategory) {
                 setSelectedCategory(firstValidCategory.id);
             }
@@ -581,6 +597,8 @@ export function TransactionForm() {
                                     end.setHours(23, 59, 59, 999);
                                     return end >= new Date();
                                 })
+                                .slice()
+                                .sort((a, b) => a.name.localeCompare(b.name))
                                 .map(event => (
                                     <option key={event.id} value={event.id}>{event.name}</option>
                                 ))}

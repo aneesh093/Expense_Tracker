@@ -32,20 +32,41 @@ export function useAutoReport() {
                     const monthStart = startOfMonth(today);
 
                     // Helper to filter (similar to Reports.tsx but headless)
-                    const primaryAccountIds = new Set(accounts.filter(a => a.isPrimary).map(a => a.id));
-                    const relevantTransactions = transactions.filter(t =>
-                        primaryAccountIds.size === 0 ||
-                        primaryAccountIds.has(t.accountId) ||
-                        (t.toAccountId && primaryAccountIds.has(t.toAccountId))
-                    ).filter(t => {
-                        const d = new Date(t.date);
-                        return d >= monthStart && d <= lastDayOfMonth;
-                    });
+                    const activeAccounts = accounts.filter(a => a.includeInNetWorth !== false);
+                    const primaryAccountIds = new Set(activeAccounts.filter(a => a.isPrimary).map(a => a.id));
+                    const relevantTransactions = transactions
+                        .filter(t => {
+                            const account = accounts.find(a => a.id === t.accountId);
+                            if (account && account.includeInNetWorth === false) return false;
+                            if (t.toAccountId) {
+                                const toAccount = accounts.find(a => a.id === t.toAccountId);
+                                if (toAccount && toAccount.includeInNetWorth === false) return false;
+                            }
+                            return true;
+                        })
+                        .filter(t =>
+                            primaryAccountIds.size === 0 ||
+                            primaryAccountIds.has(t.accountId) ||
+                            (t.toAccountId && primaryAccountIds.has(t.toAccountId))
+                        ).filter(t => {
+                            const d = new Date(t.date);
+                            return d >= monthStart && d <= lastDayOfMonth;
+                        });
 
-                    const allRelevantTransactions = transactions.filter(t => {
-                        const d = new Date(t.date);
-                        return d >= monthStart && d <= lastDayOfMonth;
-                    });
+                    const allRelevantTransactions = transactions
+                        .filter(t => {
+                            const account = accounts.find(a => a.id === t.accountId);
+                            if (account && account.includeInNetWorth === false) return false;
+                            if (t.toAccountId) {
+                                const toAccount = accounts.find(a => a.id === t.toAccountId);
+                                if (toAccount && toAccount.includeInNetWorth === false) return false;
+                            }
+                            return true;
+                        })
+                        .filter(t => {
+                            const d = new Date(t.date);
+                            return d >= monthStart && d <= lastDayOfMonth;
+                        });
 
                     const relevantEventLogs = eventLogs.filter(l => {
                         const d = new Date(l.date);
@@ -142,6 +163,7 @@ export function useAutoReport() {
                     // Calculate Opening Balances
                     const openingBalances: Record<string, number> = {};
                     accounts.forEach(acc => {
+                        if (acc.includeInNetWorth === false) return; // Skip excluded accounts
                         const isLoan = acc.type === 'loan';
                         const currentAssetBalance = isLoan ? -acc.balance : acc.balance;
 
@@ -177,7 +199,7 @@ export function useAutoReport() {
                         totalLoanRepayment,
                         transactions: relevantTransactions,
                         eventLogs: relevantEventLogs,
-                        accounts,
+                        accounts: activeAccounts,
                         categories,
                         events,
                         chartData,

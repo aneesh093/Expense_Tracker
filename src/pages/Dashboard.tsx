@@ -12,6 +12,11 @@ export function Dashboard() {
 
     const totalBalance = useMemo(() => {
         return accounts.reduce((sum, acc) => {
+            // Check if this individual account is disabled from calculations/net worth
+            if (acc.includeInNetWorth === false) {
+                return sum;
+            }
+
             // Determine the group for this account
             // If account has explicit group, use it. Otherwise infer from type.
             let group: 'banking' | 'investment';
@@ -44,11 +49,12 @@ export function Dashboard() {
     }, [accounts, isAccountTypeHidden]);
 
     const displayedAccounts = useMemo(() => {
-        const primaryAccounts = accounts.filter(acc => acc.isPrimary);
+        const activeAccounts = accounts.filter(acc => acc.includeInNetWorth !== false);
+        const primaryAccounts = activeAccounts.filter(acc => acc.isPrimary);
         // If there are primary accounts, show only them. 
         // Otherwise show all (or maybe top 3 by balance if you want to limit?).
         // Let's mirror the transaction logic: if NO primary, show all.
-        return primaryAccounts.length > 0 ? primaryAccounts : accounts;
+        return primaryAccounts.length > 0 ? primaryAccounts : activeAccounts;
     }, [accounts]);
 
     // Calculate monthly totals
@@ -58,7 +64,20 @@ export function Dashboard() {
         const end = endOfMonth(now);
 
         return transactions
-            .filter(t => !t.excludeFromBalance && isWithinInterval(new Date(t.date), { start, end }))
+            .filter(t => {
+                if (t.excludeFromBalance) return false;
+                if (!isWithinInterval(new Date(t.date), { start, end })) return false;
+
+                const account = accounts.find(a => a.id === t.accountId);
+                if (account && account.includeInNetWorth === false) return false;
+
+                if (t.type === 'transfer' && t.toAccountId) {
+                    const toAccount = accounts.find(a => a.id === t.toAccountId);
+                    if (toAccount && toAccount.includeInNetWorth === false) return false;
+                }
+
+                return true;
+            })
             .reduce((acc, t) => {
                 if (t.type === 'income') {
                     acc.totalIncome += t.amount;
@@ -97,7 +116,7 @@ export function Dashboard() {
                     if (!isSameDay(new Date(t.date), date)) return false;
 
                     const account = accounts.find(a => a.id === t.accountId);
-                    return account && relevantAccountTypes.has(account.type);
+                    return account && relevantAccountTypes.has(account.type) && account.includeInNetWorth !== false;
                 })
                 .reduce((sum, t) => {
                     return sum + (t.type === 'expense' ? t.amount : -t.amount);
@@ -135,7 +154,9 @@ export function Dashboard() {
 
     const filteredTransactions = useMemo(() => {
         const targetAccountIds = new Set(
-            accounts.filter(a => a.isPrimary || a.type === 'credit' || a.includeInReports !== false).map(a => a.id)
+            accounts
+                .filter(a => (a.isPrimary || a.type === 'credit' || a.includeInReports !== false) && a.includeInNetWorth !== false)
+                .map(a => a.id)
         );
 
         // If no primary accounts or credit cards exist, maybe show all? Or show none? 
@@ -143,7 +164,16 @@ export function Dashboard() {
         // Now adding credit cards. Let's show all if NO targets exist, otherwise filter.
         if (targetAccountIds.size === 0) {
             return transactions
-                .filter(t => !t.excludeFromBalance)
+                .filter(t => {
+                    if (t.excludeFromBalance) return false;
+                    const account = accounts.find(a => a.id === t.accountId);
+                    if (account && account.includeInNetWorth === false) return false;
+                    if (t.toAccountId) {
+                        const toAccount = accounts.find(a => a.id === t.toAccountId);
+                        if (toAccount && toAccount.includeInNetWorth === false) return false;
+                    }
+                    return true;
+                })
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         }
 

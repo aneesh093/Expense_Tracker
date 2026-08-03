@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, CirclePlus, X, Pencil, Trash2, ChevronLeft, ChevronRight, Paperclip } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, CirclePlus, X, Pencil, Trash2, ChevronLeft, ChevronRight, Paperclip, ChevronDown } from 'lucide-react';
 import { format, subMonths, addMonths } from 'date-fns';
 import { cn, generateId } from '../lib/utils';
 import { type Holding } from '../types';
@@ -311,9 +311,51 @@ export function AccountDetails() {
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
     const [viewMode, setViewMode] = useState<'all' | 'monthly'>('all');
     const [currentDate, setCurrentDate] = useState(new Date());
+    const sessionKey = `account_category_filter_${id}`;
+    const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+        return id ? (sessionStorage.getItem(`account_category_filter_${id}`) || 'all') : 'all';
+    });
+
+    const handleCategoryChange = (val: string) => {
+        setSelectedCategory(val);
+        if (id) {
+            sessionStorage.setItem(`account_category_filter_${id}`, val);
+        }
+    };
+
+    useEffect(() => {
+        if (id) {
+            const saved = sessionStorage.getItem(`account_category_filter_${id}`) || 'all';
+            setSelectedCategory(saved);
+        }
+    }, [id]);
 
     const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev, 1));
     const handleNextMonth = () => setCurrentDate(prev => addMonths(prev, 1));
+
+    const uniqueCategories = useMemo(() => {
+        if (!id) return [];
+        let baseTransactions = transactions.filter(t => t.accountId === id || t.toAccountId === id);
+
+        if (filterType !== 'all') {
+            baseTransactions = baseTransactions.filter(t => {
+                const isTransfer = t.type === 'transfer';
+                const isIncomingTransfer = isTransfer && t.toAccountId === id;
+                const effectiveType = isTransfer
+                    ? (isIncomingTransfer ? 'income' : 'expense')
+                    : t.type;
+                return effectiveType === filterType;
+            });
+        }
+
+        const cats = baseTransactions.map(t => {
+            const isTransfer = t.type === 'transfer';
+            const isIncomingTransfer = isTransfer && t.toAccountId === id;
+            return isTransfer ? (isIncomingTransfer ? "Transfer In" : "Transfer Out") : t.category;
+        });
+
+        return Array.from(new Set(cats)).sort();
+    }, [id, transactions, filterType]);
 
     const accountTransactions = useMemo(() => {
         if (!id) return [];
@@ -326,17 +368,30 @@ export function AccountDetails() {
             baseTransactions = baseTransactions.filter(t => t.date.startsWith(monthStr));
         }
 
-        if (filterType === 'all') return baseTransactions;
+        if (filterType !== 'all') {
+            baseTransactions = baseTransactions.filter(t => {
+                const isTransfer = t.type === 'transfer';
+                const isIncomingTransfer = isTransfer && t.toAccountId === id;
+                const effectiveType = isTransfer
+                    ? (isIncomingTransfer ? 'income' : 'expense')
+                    : t.type;
+                return effectiveType === filterType;
+            });
+        }
 
-        return baseTransactions.filter(t => {
-            const isTransfer = t.type === 'transfer';
-            const isIncomingTransfer = isTransfer && t.toAccountId === id;
-            const effectiveType = isTransfer
-                ? (isIncomingTransfer ? 'income' : 'expense')
-                : t.type;
-            return effectiveType === filterType;
-        });
-    }, [id, transactions, filterType, viewMode, currentDate]);
+        if (selectedCategory !== 'all') {
+            baseTransactions = baseTransactions.filter(t => {
+                const isTransfer = t.type === 'transfer';
+                const isIncomingTransfer = isTransfer && t.toAccountId === id;
+                const categoryName = isTransfer
+                    ? (isIncomingTransfer ? "Transfer In" : "Transfer Out")
+                    : t.category;
+                return categoryName === selectedCategory;
+            });
+        }
+
+        return baseTransactions;
+    }, [id, transactions, filterType, viewMode, currentDate, selectedCategory]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -431,6 +486,9 @@ export function AccountDetails() {
                         )}
                         {account.dmatId && (
                             <span className="bg-blue-700/50 px-2 py-1 rounded-lg">DMAT: {account.dmatId}</span>
+                        )}
+                        {account.includeInNetWorth === false && (
+                            <span className="bg-amber-600 text-white font-semibold px-2 py-1 rounded-lg">Excluded from Net Worth</span>
                         )}
                     </div>
 
@@ -671,6 +729,38 @@ export function AccountDetails() {
                                     </button>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Category Filter */}
+                        <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100 shadow-sm ml-1">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider pl-1.5">Filter Category</span>
+                            <div className="flex items-center space-x-2">
+                                {selectedCategory !== 'all' && (
+                                    <button
+                                        onClick={() => handleCategoryChange('all')}
+                                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                        title="Clear filter"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                                <div className="relative flex items-center bg-gray-50 p-1 px-2.5 rounded-lg border border-gray-100">
+                                    <select
+                                        value={selectedCategory}
+                                        onChange={(e) => handleCategoryChange(e.target.value)}
+                                        className="appearance-none bg-transparent text-xs font-bold text-gray-700 pr-5 focus:outline-none cursor-pointer"
+                                    >
+                                        <option value="all">All Categories</option>
+                                        {selectedCategory !== 'all' && !uniqueCategories.includes(selectedCategory) && (
+                                            <option value={selectedCategory}>{selectedCategory}</option>
+                                        )}
+                                        {uniqueCategories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown size={14} className="absolute right-1.5 text-gray-500 pointer-events-none" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div className="space-y-3">

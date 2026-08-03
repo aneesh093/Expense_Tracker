@@ -28,6 +28,7 @@ export function Accounts() {
     const [balance, setBalance] = useState('');
     const [currentAmount, setCurrentAmount] = useState('');
     const [isPrimary, setIsPrimary] = useState(false);
+    const [includeInNetWorth, setIncludeInNetWorth] = useState(true);
     const [accountNumber, setAccountNumber] = useState('');
     const [customerId, setCustomerId] = useState('');
     const [dmatId, setDmatId] = useState('');
@@ -79,6 +80,7 @@ export function Accounts() {
         setBalance('');
         setCurrentAmount('');
         setIsPrimary(false);
+        setIncludeInNetWorth(true);
         setType('fixed-deposit');
         setAccountNumber('');
         setCustomerId('');
@@ -106,6 +108,7 @@ export function Accounts() {
         setBalance(account.balance?.toString() || '');
         setCurrentAmount(account.currentAmount !== undefined ? account.currentAmount.toString() : '');
         setIsPrimary(account.isPrimary || false);
+        setIncludeInNetWorth(account.includeInNetWorth !== false);
         setFormGroup(account.group || (isInvestment(account.type) ? 'investment' : 'banking'));
 
         // Populate specific fields if they exist
@@ -197,6 +200,7 @@ export function Accounts() {
             balance: parseFloat(balance) || 0,
             color: 'blue',
             isPrimary,
+            includeInNetWorth,
             group: formGroup,
             logsRequired,
             sections
@@ -247,7 +251,7 @@ export function Accounts() {
 
         setIsAdding(false);
         resetForm();
-    }, [name, subName, type, balance, editingId, accounts, isPrimary, formGroup, logsRequired, sections, currentAmount, accountNumber, customerId, dmatId, policyNumber, premiumAmount, renewalDate, principalAmount, interestRate, monthlyEmi, emisLeft, statementDate, dueDate, updateAccount, addAccount, resetForm]);
+    }, [name, subName, type, balance, editingId, accounts, isPrimary, includeInNetWorth, formGroup, logsRequired, sections, currentAmount, accountNumber, customerId, dmatId, policyNumber, premiumAmount, renewalDate, principalAmount, interestRate, monthlyEmi, emisLeft, statementDate, dueDate, updateAccount, addAccount, resetForm]);
 
     const handleDeleteConfirm = React.useCallback(() => {
         if (accountToDelete) {
@@ -808,6 +812,16 @@ export function Accounts() {
                                 <label className="flex items-center space-x-3 cursor-pointer group">
                                     <input
                                         type="checkbox"
+                                        checked={includeInNetWorth}
+                                        onChange={(e) => setIncludeInNetWorth(e.target.checked)}
+                                        className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-gray-900 font-medium group-active:text-blue-600 transition-colors">Include in Net Worth / Calculations</span>
+                                </label>
+
+                                <label className="flex items-center space-x-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
                                         checked={logsRequired}
                                         onChange={(e) => setLogsRequired(e.target.checked)}
                                         className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
@@ -881,7 +895,9 @@ export function Accounts() {
                     >
                         <div className="space-y-6">
                             {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => {
-                                const groupTotal = accountsInGroup.reduce((sum, acc) => sum + acc.balance, 0);
+                                const groupTotal = accountsInGroup
+                                    .filter(acc => acc.includeInNetWorth !== false)
+                                    .reduce((sum, acc) => sum + acc.balance, 0);
                                 // Determine the group for this account type based on activeTab
                                 const group = activeTab === 'investments' ? 'investment' : 'banking';
                                 const isHidden = isAccountTypeHidden(type as AccountType, group);
@@ -921,10 +937,12 @@ export function Accounts() {
                                                     ? '•••••'
                                                     : formatCurrency(
                                                         type === 'credit'
-                                                            ? accountsInGroup.reduce((total, acc) => {
-                                                                const stats = getCreditCardStats(acc.id);
-                                                                return total + stats.billed + stats.unbilled;
-                                                            }, 0)
+                                                            ? accountsInGroup
+                                                                .filter(acc => acc.includeInNetWorth !== false)
+                                                                .reduce((total, acc) => {
+                                                                    const stats = getCreditCardStats(acc.id);
+                                                                    return total + stats.billed + stats.unbilled;
+                                                                }, 0)
                                                             : groupTotal
                                                     )
                                                 }
