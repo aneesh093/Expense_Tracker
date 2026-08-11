@@ -22,7 +22,8 @@ export function AppPreferences() {
         pdfIncludeCharts, setPdfIncludeCharts,
         pdfIncludeAccountSummary, setPdfIncludeAccountSummary,
         pdfIncludeTransactions, setPdfIncludeTransactions,
-        pdfIncludeEventSummary, setPdfIncludeEventSummary
+        pdfIncludeEventSummary, setPdfIncludeEventSummary,
+        allowIndividualEventExport, setAllowIndividualEventExport
     } = useFinanceStore();
 
     const Toggle = ({ checked, onChange, color = "bg-blue-600" }: { checked: boolean, onChange: (val: boolean) => void, color?: string }) => (
@@ -116,6 +117,15 @@ export function AppPreferences() {
                                     iconColor="text-orange-600"
                                 >
                                     <Toggle checked={showAuditTrail} onChange={setShowAuditTrail} color="bg-orange-500" />
+                                </SettingItem>
+                                <SettingItem
+                                    icon={FileText}
+                                    title="Allow individual event export"
+                                    description="Export PDF for each event/log details"
+                                    iconBg="bg-emerald-50"
+                                    iconColor="text-emerald-600"
+                                >
+                                    <Toggle checked={allowIndividualEventExport} onChange={setAllowIndividualEventExport} color="bg-emerald-500" />
                                 </SettingItem>
                             </div>
                         </section>

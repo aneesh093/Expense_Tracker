@@ -2,13 +2,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useMemo, useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Edit2, Trash2, Plus, ArrowUpRight, ArrowDownRight, Calendar, Paperclip } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Plus, ArrowUpRight, ArrowDownRight, Calendar, Paperclip, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { generateEventPDF } from '../lib/pdfGenerator';
 
 export function EventDetails() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const { events, transactions, eventLogs, eventPlans, deleteEvent, deleteEventPlan } = useFinanceStore();
+    const { events, transactions, eventLogs, eventPlans, deleteEvent, deleteEventPlan, accounts, allowIndividualEventExport } = useFinanceStore();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [transactionView, setTransactionView] = useState<'all' | 'monthly'>('all');
 
@@ -94,6 +95,12 @@ export function EventDetails() {
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [eventPlans, id]);
 
+    const handleExportPDF = () => {
+        if (event) {
+            generateEventPDF(event, eventTransactions, eventLogsList, eventPlansList, accounts);
+        }
+    };
+
     const stats = useMemo(() => {
         const totalExpense = eventTransactions
             .filter(t => t.type === 'expense')
@@ -162,6 +169,15 @@ export function EventDetails() {
                     <ArrowLeft size={24} />
                 </button>
                 <div className="flex space-x-2">
+                    {allowIndividualEventExport && (
+                        <button
+                            onClick={handleExportPDF}
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                            title="Export to PDF"
+                        >
+                            <Download size={20} />
+                        </button>
+                    )}
                     <button
                         onClick={() => navigate(`/events/edit/${id}`)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
@@ -269,8 +285,17 @@ export function EventDetails() {
                 {activeTab === 'transactions' && (
                     <section className="space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-                            <div className="space-y-2">
+                            <div className="flex items-center justify-between w-full sm:w-auto sm:space-y-2 sm:flex-col sm:items-start">
                                 <h2 className="text-base font-bold text-gray-900">Actual Transactions</h2>
+                                <button
+                                    onClick={() => navigate(`/add?eventId=${id}`)}
+                                    className="sm:hidden bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 active:scale-95 transition-all shadow-md shadow-blue-100"
+                                >
+                                    <Plus size={14} />
+                                    <span>Add</span>
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                                 <div className="flex p-0.5 bg-gray-100 rounded-xl w-fit">
                                     <button
                                         onClick={() => setTransactionView('all')}
@@ -295,14 +320,14 @@ export function EventDetails() {
                                         Monthly
                                     </button>
                                 </div>
+                                <button
+                                    onClick={() => navigate(`/add?eventId=${id}`)}
+                                    className="hidden sm:flex bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold items-center justify-center space-x-2 active:scale-95 transition-all shadow-md shadow-blue-100 self-center"
+                                >
+                                    <Plus size={16} />
+                                    <span>Add</span>
+                                </button>
                             </div>
-                            <button
-                                onClick={() => navigate(`/add?eventId=${id}`)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 active:scale-95 transition-all shadow-md shadow-blue-100 self-start sm:self-center"
-                            >
-                                <Plus size={16} />
-                                <span>Add</span>
-                            </button>
                         </div>
 
                         {transactionView === 'monthly' && displayedTransactions.length > 0 && (
