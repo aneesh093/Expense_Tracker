@@ -49,6 +49,7 @@ interface FinanceState {
     pdfIncludeAccountSummary: boolean;
     pdfIncludeTransactions: boolean;
     pdfIncludeEventSummary: boolean;
+    allowIndividualEventExport: boolean;
     showInvestmentAccounts: boolean;
     showAuditTrail: boolean;
     isLocked: boolean;
@@ -131,6 +132,7 @@ interface FinanceState {
     setPdfIncludeAccountSummary: (show: boolean) => void;
     setPdfIncludeTransactions: (show: boolean) => void;
     setPdfIncludeEventSummary: (show: boolean) => void;
+    setAllowIndividualEventExport: (allow: boolean) => void;
 
     // Account Inclusion Settings
     incomeIncludedAccountTypes: string[];
@@ -163,6 +165,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     pdfIncludeAccountSummary: localStorage.getItem('finance-pdf-include-account-summary') !== 'false',
     pdfIncludeTransactions: localStorage.getItem('finance-pdf-include-transactions') !== 'false',
     pdfIncludeEventSummary: localStorage.getItem('finance-pdf-include-event-summary') !== 'false',
+    allowIndividualEventExport: localStorage.getItem('finance-allow-individual-event-export') === 'true',
     showInvestmentAccounts: localStorage.getItem('finance-show-investment-accounts') !== 'false', // Default true
     showAuditTrail: localStorage.getItem('finance-show-audit-trail') !== 'false', // Default true
     isLocked: false, // Will be set in initialize
@@ -869,6 +872,9 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 if (settings.pdfIncludeEventSummary !== undefined) {
                     localStorage.setItem('finance-pdf-include-event-summary', String(settings.pdfIncludeEventSummary));
                 }
+                if (settings.allowIndividualEventExport !== undefined) {
+                    localStorage.setItem('finance-allow-individual-event-export', String(settings.allowIndividualEventExport));
+                }
                 if (settings.autoBackupEnabled !== undefined) {
                     localStorage.setItem('auto-backup-enabled', String(settings.autoBackupEnabled));
                 }
@@ -899,6 +905,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                     pdfIncludeAccountSummary: settings.pdfIncludeAccountSummary ?? state.pdfIncludeAccountSummary,
                     pdfIncludeTransactions: settings.pdfIncludeTransactions ?? state.pdfIncludeTransactions,
                     pdfIncludeEventSummary: settings.pdfIncludeEventSummary ?? state.pdfIncludeEventSummary,
+                    allowIndividualEventExport: settings.allowIndividualEventExport ?? state.allowIndividualEventExport,
                     showInvestmentAccounts: settings.showInvestmentAccounts ?? state.showInvestmentAccounts,
                     showAuditTrail: settings.showAuditTrail ?? state.showAuditTrail,
                     incomeIncludedAccountTypes: settings.incomeIncludedAccountTypes ?? state.incomeIncludedAccountTypes,
@@ -1151,5 +1158,10 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     setPdfIncludeEventSummary: (show) => {
         localStorage.setItem('finance-pdf-include-event-summary', String(show));
         set({ pdfIncludeEventSummary: show });
+    },
+
+    setAllowIndividualEventExport: (allow) => {
+        localStorage.setItem('finance-allow-individual-event-export', String(allow));
+        set({ allowIndividualEventExport: allow });
     },
 }));

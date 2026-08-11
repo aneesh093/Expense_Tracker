@@ -166,6 +166,7 @@ export interface FinanceSettings {
     pdfIncludeAccountSummary?: boolean;
     pdfIncludeTransactions?: boolean;
     pdfIncludeEventSummary?: boolean;
+    allowIndividualEventExport?: boolean;
     autoBackupEnabled?: boolean;
     showInvestmentAccounts?: boolean;
     showAuditTrail?: boolean;

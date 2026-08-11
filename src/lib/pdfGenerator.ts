@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import type { Transaction, Account, Category, Event, EventLog } from '../types';
+import type { Transaction, Account, Category, Event, EventLog, EventPlan } from '../types';
 
 interface ReportData {
     title: string;
@@ -628,7 +628,7 @@ export const generateReportPDF = (data: ReportData) => {
             theme: 'grid',
             styles: { fontSize: 8 },
             headStyles: { fillColor: [66, 66, 66] },
-            didParseCell: (cellData) => {
+            didParseCell: (cellData: any) => {
                 if (cellData.section === 'body') {
                     const type = cellData.row.cells[1].raw as string;
                     if (type.includes('TRANSFER')) {
@@ -897,7 +897,7 @@ export const generateReportPDF = (data: ReportData) => {
                     theme: 'grid',
                     styles: { fontSize: 8 },
                     headStyles: { fillColor: [44, 44, 44] },
-                    didParseCell: (cellData) => {
+                    didParseCell: (cellData: any) => {
                         if (cellData.section === 'body') {
                             const rowIndex = cellData.row.index;
                             const item = eventItems[rowIndex];
@@ -950,4 +950,265 @@ export const generateReportPDF = (data: ReportData) => {
     }
 
     doc.save(`${data.title.replace(/\s+/g, '_')}_${data.period}.pdf`);
+};
+
+export const generateEventPDF = (
+    event: Event,
+    transactions: Transaction[],
+    eventLogs: EventLog[],
+    eventPlans: EventPlan[],
+    accounts: Account[]
+) => {
+    const doc = new jsPDF();
+
+    // Event title
+    doc.setFontSize(20);
+    doc.setTextColor(31, 41, 55); // Gray 800
+    doc.setFont('helvetica', 'bold');
+    doc.text(event.name, 14, 22);
+
+    // Event date range
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128); // Gray 500
+    const dateStr = `Period: ${format(new Date(event.startDate), 'MMM dd, yyyy')}${event.endDate ? ` - ${format(new Date(event.endDate), 'MMM dd, yyyy')}` : ''}`;
+    doc.text(dateStr, 14, 28);
+
+    // Generated on
+    doc.text(`Generated on: ${format(new Date(), 'PPpp')}`, 14, 33);
+
+    // Description if exists
+    let currentY = 38;
+    if (event.description) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(75, 85, 99); // Gray 600
+        const splitDescription = doc.splitTextToSize(event.description, 180);
+        doc.text(splitDescription, 14, currentY);
+        currentY += splitDescription.length * 4.5 + 4;
+    } else {
+        currentY += 2;
+    }
+
+    // Calculate statistics
+    const totalTransExpense = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+    const totalTransIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalLogExpense = eventLogs
+        .filter(l => l.type === 'expense')
+        .reduce((sum, l) => sum + l.amount, 0);
+    const totalLogIncome = eventLogs
+        .filter(l => l.type === 'income')
+        .reduce((sum, l) => sum + l.amount, 0);
+
+    const totalPlanned = eventPlans
+        .reduce((sum, p) => sum + p.amount, 0);
+
+    const grandTotalExpense = totalTransExpense + totalLogExpense;
+    const grandTotalIncome = totalTransIncome + totalLogIncome;
+    const netAmount = grandTotalIncome - grandTotalExpense;
+
+    // Draw Stats Boxes (4 columns: Income, Expense, Net Impact, Planned Budget)
+    const boxWidth = 43;
+    const boxHeight = 22;
+    const gap = 3;
+    const startX = 14;
+
+    // Box 1: Total Income (Green)
+    doc.setFillColor(240, 253, 244);
+    doc.rect(startX, currentY, boxWidth, boxHeight, 'F');
+    doc.setTextColor(22, 101, 52);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total Income', startX + 4, currentY + 7);
+    doc.setFontSize(11);
+    doc.text(`INR ${grandTotalIncome.toLocaleString('en-IN')}`, startX + 4, currentY + 16);
+
+    // Box 2: Total Expense (Red)
+    const x2 = startX + boxWidth + gap;
+    doc.setFillColor(254, 242, 242);
+    doc.rect(x2, currentY, boxWidth, boxHeight, 'F');
+    doc.setTextColor(153, 27, 27);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Actual Spent', x2 + 4, currentY + 7);
+    doc.setFontSize(11);
+    doc.text(`INR ${grandTotalExpense.toLocaleString('en-IN')}`, x2 + 4, currentY + 16);
+
+    // Box 3: Net Impact (Green/Red)
+    const x3 = x2 + boxWidth + gap;
+    const isPositive = netAmount >= 0;
+    if (isPositive) {
+        doc.setFillColor(240, 253, 244);
+        doc.setTextColor(22, 101, 52);
+    } else {
+        doc.setFillColor(254, 242, 242);
+        doc.setTextColor(153, 27, 27);
+    }
+    doc.rect(x3, currentY, boxWidth, boxHeight, 'F');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Net Balance', x3 + 4, currentY + 7);
+    doc.setFontSize(11);
+    const sign = isPositive ? '+' : '-';
+    doc.text(`${sign} INR ${Math.abs(netAmount).toLocaleString('en-IN')}`, x3 + 4, currentY + 16);
+
+    // Box 4: Planned Budget (Blue)
+    const x4 = x3 + boxWidth + gap;
+    doc.setFillColor(239, 246, 255);
+    doc.rect(x4, currentY, boxWidth, boxHeight, 'F');
+    doc.setTextColor(30, 64, 175);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Planned Budget', x4 + 4, currentY + 7);
+    doc.setFontSize(11);
+    doc.text(`INR ${totalPlanned.toLocaleString('en-IN')}`, x4 + 4, currentY + 16);
+
+    currentY += boxHeight + 12;
+
+    // Render Table 1: Transactions if any
+    if (transactions.length > 0) {
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(31, 41, 55);
+        doc.text('Actual Transactions', 14, currentY);
+        currentY += 6;
+
+        const tableBody = transactions.map(t => {
+            const accName = accounts.find(a => a.id === t.accountId)?.name || 'Unknown';
+            return [
+                format(new Date(t.date), 'MMM dd, yyyy'),
+                accName,
+                t.category,
+                t.note || '-',
+                t.type.toUpperCase(),
+                t.amount.toLocaleString('en-IN')
+            ];
+        });
+
+        autoTable(doc, {
+            head: [['Date', 'Account', 'Category', 'Note', 'Type', 'Amount (INR)']],
+            body: tableBody,
+            startY: currentY,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [59, 130, 246] }, // Blue 500
+            didParseCell: (cellData: any) => {
+                if (cellData.section === 'body') {
+                    const rowIndex = cellData.row.index;
+                    const t = transactions[rowIndex];
+                    if (t.type === 'expense') {
+                        cellData.cell.styles.textColor = [153, 27, 27];
+                    } else if (t.type === 'income') {
+                        cellData.cell.styles.textColor = [22, 101, 52];
+                    } else if (t.type === 'transfer') {
+                        cellData.cell.styles.textColor = [67, 56, 202]; // Indigo 700
+                    }
+                }
+            },
+            columnStyles: {
+                0: { cellWidth: 25 },
+                1: { cellWidth: 30 },
+                2: { cellWidth: 25 },
+                3: { cellWidth: 'auto' },
+                4: { cellWidth: 20 },
+                5: { cellWidth: 25, halign: 'right' },
+            }
+        });
+
+        // @ts-ignore
+        currentY = doc.lastAutoTable.finalY + 12;
+    }
+
+    // Render Table 2: Custom/Offline Logs if any
+    if (eventLogs.length > 0) {
+        if (currentY > 250) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(31, 41, 55);
+        doc.text('Custom / Offline Logs', 14, currentY);
+        currentY += 6;
+
+        const logTableBody = eventLogs.map(l => [
+            format(new Date(l.date), 'MMM dd, yyyy'),
+            l.description,
+            l.type.toUpperCase(),
+            l.amount.toLocaleString('en-IN')
+        ]);
+
+        autoTable(doc, {
+            head: [['Date', 'Description', 'Type', 'Amount (INR)']],
+            body: logTableBody,
+            startY: currentY,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [249, 115, 22] }, // Orange 500
+            didParseCell: (cellData: any) => {
+                if (cellData.section === 'body') {
+                    const rowIndex = cellData.row.index;
+                    const log = eventLogs[rowIndex];
+                    if (log.type === 'expense') {
+                        cellData.cell.styles.textColor = [153, 27, 27];
+                    } else if (log.type === 'income') {
+                        cellData.cell.styles.textColor = [22, 101, 52];
+                    }
+                }
+            },
+            columnStyles: {
+                0: { cellWidth: 30 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 25 },
+                3: { cellWidth: 30, halign: 'right' },
+            }
+        });
+
+        // @ts-ignore
+        currentY = doc.lastAutoTable.finalY + 12;
+    }
+
+    // Render Table 3: Plans if any
+    if (eventPlans.length > 0) {
+        if (currentY > 250) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(31, 41, 55);
+        doc.text('Trip / Event Plans', 14, currentY);
+        currentY += 6;
+
+        const planTableBody = eventPlans.map(p => [
+            format(new Date(p.date), 'MMM dd, yyyy'),
+            p.description,
+            p.amount.toLocaleString('en-IN')
+        ]);
+
+        autoTable(doc, {
+            head: [['Date', 'Description', 'Amount (INR)']],
+            body: planTableBody,
+            startY: currentY,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [79, 70, 229] }, // Indigo 600
+            columnStyles: {
+                0: { cellWidth: 30 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 30, halign: 'right' },
+            }
+        });
+    }
+
+    // Save PDF
+    const filename = `${event.name.replace(/\s+/g, '_')}_details.pdf`;
+    doc.save(filename);
 };
