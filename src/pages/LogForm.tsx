@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type EventLog } from '../types';
 import { ArrowLeft, Check, Trash2, Calendar } from 'lucide-react';
 import { cn, generateId } from '../lib/utils';
 import { format } from 'date-fns';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 export function LogForm() {
     const navigate = useNavigate();
@@ -19,6 +20,15 @@ export function LogForm() {
     const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [isEditing, setIsEditing] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
+
+    const hasUnsavedChanges = useMemo(() => {
+        if (isSaved) return false;
+        if (isEditing) return true;
+        return amount !== '0' || description.trim() !== '';
+    }, [amount, description, isEditing, isSaved]);
+
+    useUnsavedChanges(hasUnsavedChanges);
 
     useEffect(() => {
         const eventIdParam = searchParams.get('eventId');
@@ -59,6 +69,7 @@ export function LogForm() {
             addEventLog(logData);
         }
 
+        setIsSaved(true);
         setShowSuccess(true);
         setTimeout(() => {
             setShowSuccess(false);
@@ -69,6 +80,7 @@ export function LogForm() {
     const handleDelete = () => {
         if (id && confirm('Are you sure you want to delete this log?')) {
             deleteEventLog(id);
+            setIsSaved(true);
             navigate(-1);
         }
     };

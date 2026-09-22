@@ -1,5 +1,5 @@
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { MobileLayout } from './components/Layout/MobileLayout';
 import { Dashboard } from './pages/Dashboard';
@@ -32,10 +32,59 @@ import { useAutoReport } from './hooks/useAutoReport';
 import { SecuritySettings } from './pages/SecuritySettings';
 import { LockScreen } from './components/Security/LockScreen';
 
+function RootLayout() {
+  const isLocked = useFinanceStore((state) => state.isLocked);
+  return (
+    <>
+      {isLocked && <LockScreen />}
+      <Outlet />
+    </>
+  );
+}
+
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      {
+        element: <MobileLayout />,
+        children: [
+          { path: '/', element: <Dashboard /> },
+          { path: '/accounts', element: <Accounts /> },
+          { path: '/accounts/:id', element: <AccountDetails /> },
+          { path: '/add', element: <TransactionForm /> },
+          { path: '/edit/:id', element: <TransactionForm /> },
+          { path: '/events', element: <Events /> },
+          { path: '/events/new', element: <EventForm /> },
+          { path: '/events/edit/:id', element: <EventForm /> },
+          { path: '/events/:id', element: <EventDetails /> },
+          { path: '/reports', element: <Reports /> },
+          { path: '/reports/transactions', element: <ReportTransactions /> },
+          { path: '/settings', element: <Settings /> },
+          { path: '/settings/preferences', element: <AppPreferences /> },
+          { path: '/settings/transactions', element: <TransactionSettings /> },
+          { path: '/settings/security', element: <SecuritySettings /> },
+          { path: '/settings/audit-trail', element: <AuditTrail /> },
+          { path: '/mandates', element: <Mandates /> },
+          { path: '/settings/backup', element: <BackupConfiguration /> },
+          { path: '/settings/about', element: <About /> },
+          { path: '/settings/user-guide', element: <UserGuide /> },
+          { path: '/logs/new', element: <LogForm /> },
+          { path: '/logs/edit/:id', element: <LogForm /> },
+          { path: '/plans/new', element: <PlanForm /> },
+          { path: '/plans/edit/:id', element: <PlanForm /> },
+          { path: '/settings/report-sources', element: <ReportSources /> },
+          { path: '/categories', element: <Categories /> },
+          { path: '*', element: <Navigate to="/" replace /> },
+        ],
+      },
+    ],
+  },
+]);
+
 function App() {
   const initialize = useFinanceStore((state) => state.initialize);
   const checkAndRunMandates = useFinanceStore((state) => state.checkAndRunMandates);
-  const isLocked = useFinanceStore((state) => state.isLocked);
 
   // Enable automatic daily backups
   useBackupScheduler();
@@ -52,42 +101,7 @@ function App() {
     init();
   }, [initialize, checkAndRunMandates]);
 
-  return (
-    <BrowserRouter>
-      {isLocked && <LockScreen />}
-      <Routes>
-        <Route element={<MobileLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/accounts" element={<Accounts />} />
-          <Route path="/accounts/:id" element={<AccountDetails />} />
-          <Route path="/add" element={<TransactionForm />} />
-          <Route path="/edit/:id" element={<TransactionForm />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/events/new" element={<EventForm />} />
-          <Route path="/events/edit/:id" element={<EventForm />} />
-          <Route path="/events/:id" element={<EventDetails />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/reports/transactions" element={<ReportTransactions />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/preferences" element={<AppPreferences />} />
-          <Route path="/settings/transactions" element={<TransactionSettings />} />
-          <Route path="/settings/security" element={<SecuritySettings />} />
-          <Route path="/settings/audit-trail" element={<AuditTrail />} />
-          <Route path="/mandates" element={<Mandates />} />
-          <Route path="/settings/backup" element={<BackupConfiguration />} />
-          <Route path="/settings/about" element={<About />} />
-          <Route path="/settings/user-guide" element={<UserGuide />} />
-          <Route path="/logs/new" element={<LogForm />} />
-          <Route path="/logs/edit/:id" element={<LogForm />} />
-          <Route path="/plans/new" element={<PlanForm />} />
-          <Route path="/plans/edit/:id" element={<PlanForm />} />
-          <Route path="/settings/report-sources" element={<ReportSources />} />
-          <Route path="/categories" element={<Categories />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;

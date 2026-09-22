@@ -367,6 +367,24 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     },
 
     addTransaction: (transaction) => {
+        // Prevent adding an expense that exceeds available balance on balance-tracking accounts
+        if (transaction.type === 'expense' && !transaction.excludeFromBalance) {
+            const sourceAccount = get().accounts.find((acc) => acc.id === transaction.accountId);
+            if (sourceAccount && sourceAccount.type !== 'credit' && sourceAccount.type !== 'loan') {
+                let available = sourceAccount.balance;
+                if (transaction.sectionId && sourceAccount.sections) {
+                    const sec = sourceAccount.sections.find((s) => s.id === transaction.sectionId);
+                    if (sec) {
+                        available = Math.min(available, sec.amount);
+                    }
+                }
+                if (transaction.amount > available) {
+                    console.error(`Cannot add expense: amount (${transaction.amount}) exceeds available balance (${available})`);
+                    return;
+                }
+            }
+        }
+
         set((state) => {
             const newTransactions = [...state.transactions, transaction];
 
@@ -489,6 +507,23 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
         // Apply new transaction effects if it's impacting balance
         if (!updatedTransaction.excludeFromBalance) {
+            if (updatedTransaction.type === 'expense') {
+                const sourceAcc = updatedAccounts.find((acc) => acc.id === updatedTransaction.accountId);
+                if (sourceAcc && sourceAcc.type !== 'credit' && sourceAcc.type !== 'loan') {
+                    let available = sourceAcc.balance;
+                    if (updatedTransaction.sectionId && sourceAcc.sections) {
+                        const sec = sourceAcc.sections.find((s) => s.id === updatedTransaction.sectionId);
+                        if (sec) {
+                            available = Math.min(available, sec.amount);
+                        }
+                    }
+                    if (updatedTransaction.amount > available) {
+                        console.error(`Cannot edit expense: amount (${updatedTransaction.amount}) exceeds available balance (${available})`);
+                        return;
+                    }
+                }
+            }
+
             updatedAccounts = updatedAccounts.map((acc) => {
                 if (acc.id === updatedTransaction.accountId) {
                     const isLoan = acc.type === 'loan';
