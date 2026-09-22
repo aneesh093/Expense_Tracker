@@ -1,8 +1,9 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { Event } from '../types';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 const EVENT_ICONS = ['🏠', '🏢', '💼', '✈️', '🎉', '💳', '🏦', '🤝'];
 const EVENT_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
@@ -43,6 +44,16 @@ export function EventForm() {
         }
     }, [existingEvent]);
 
+    const [isSaved, setIsSaved] = useState(false);
+
+    const hasUnsavedChanges = useMemo(() => {
+        if (isSaved) return false;
+        if (isEditing) return true;
+        return formData.name.trim() !== '' || formData.description?.trim() !== '';
+    }, [formData.name, formData.description, isEditing, isSaved]);
+
+    useUnsavedChanges(hasUnsavedChanges);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -70,6 +81,7 @@ export function EventForm() {
             addEvent(eventData);
         }
 
+        setIsSaved(true);
         navigate('/events');
     };
 

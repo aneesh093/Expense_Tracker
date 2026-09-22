@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { ArrowLeft } from 'lucide-react';
 import { type EventPlan } from '../types';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 export function PlanForm() {
     const navigate = useNavigate();
@@ -31,6 +32,16 @@ export function PlanForm() {
         }
     }, [id, eventPlans, eventIdFromQuery]);
 
+    const [isSaved, setIsSaved] = useState(false);
+
+    const hasUnsavedChanges = useMemo(() => {
+        if (isSaved) return false;
+        if (isEditing) return true;
+        return amount.trim() !== '' || description.trim() !== '';
+    }, [amount, description, isEditing, isSaved]);
+
+    useUnsavedChanges(hasUnsavedChanges);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const value = parseFloat(amount);
@@ -54,6 +65,7 @@ export function PlanForm() {
             addEventPlan(planData);
         }
 
+        setIsSaved(true);
         navigate(`/events/${selectedEventId}`);
     };
 

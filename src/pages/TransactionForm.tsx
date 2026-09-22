@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type Transaction, type TransactionType } from '../types';
 import { ArrowLeft, ChevronDown, Check, Trash2 } from 'lucide-react';
-import { cn, generateId } from '../lib/utils';
+import { cn, generateId, formatCurrency } from '../lib/utils';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 export function TransactionForm() {
     const navigate = useNavigate();
@@ -36,6 +37,54 @@ export function TransactionForm() {
     const [showKeypad, setShowKeypad] = useState(false);
     const [billImage, setBillImage] = useState<string | undefined>(undefined);
     const [showFullBill, setShowFullBill] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
+    const [initialValues, setInitialValues] = useState<{
+        amount: string;
+        note: string;
+        accountId: string;
+        toAccountId: string;
+        type: TransactionType;
+        category: string;
+        date: string;
+        billImage?: string;
+    } | null>(null);
+
+    // Track whether the form has unsaved user input
+    const hasUnsavedChanges = useMemo(() => {
+        if (isSaved) return false;
+        // For new transactions: dirty if user entered an amount, note, or bill
+        if (!isEditing) {
+            return amount !== '0' || note.trim() !== '' || !!billImage;
+        }
+        // For editing: dirty if anything changed from initial loaded values
+        if (!initialValues) return false;
+        return (
+            amount !== initialValues.amount ||
+            note !== initialValues.note ||
+            type !== initialValues.type ||
+            selectedAccountId !== initialValues.accountId ||
+            toAccountId !== initialValues.toAccountId ||
+            selectedCategory !== initialValues.category ||
+            transactionDate !== initialValues.date ||
+            billImage !== initialValues.billImage
+        );
+    }, [amount, note, billImage, isEditing, isSaved, initialValues, type, selectedAccountId, toAccountId, selectedCategory, transactionDate]);
+
+    useUnsavedChanges(hasUnsavedChanges);
+
+    const getVisibleAccounts = useCallback((currentType: TransactionType) => {
+        let list = accounts;
+        if (currentType !== 'transfer') {
+            const includedTypes = currentType === 'income'
+                ? incomeIncludedAccountTypes
+                : expenseIncludedAccountTypes;
+
+            list = accounts.filter(acc =>
+                !includedTypes || includedTypes.includes(acc.type)
+            );
+        }
+        return list.slice().sort((a, b) => a.name.localeCompare(b.name));
+    }, [accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes]);
 
     useEffect(() => {
         if (id) {
@@ -48,28 +97,41 @@ export function TransactionForm() {
                     setToAccountId(transaction.toAccountId || '');
                 }
                 const category = categories.find(c => c.name === transaction.category);
-                setSelectedCategory(category ? category.id : (categories[0]?.id || ''));
+                const categoryId = category ? category.id : (categories[0]?.id || '');
+                setSelectedCategory(categoryId);
                 setSectionId(transaction.sectionId || '');
                 setSelectedEventId(transaction.eventId || '');
                 setNote(transaction.note || '');
+                let formattedDate = '';
                 if (transaction.date) {
                     const d = new Date(transaction.date);
                     const year = d.getFullYear();
                     const month = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
-                    setTransactionDate(`${year}-${month}-${day}`);
+                    formattedDate = `${year}-${month}-${day}`;
                 } else {
                     const d = new Date();
                     const year = d.getFullYear();
                     const month = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
-                    setTransactionDate(`${year}-${month}-${day}`);
+                    formattedDate = `${year}-${month}-${day}`;
                 }
+                setTransactionDate(formattedDate);
                 setExcludeFromBalance(!!transaction.excludeFromBalance);
                 setIsBillPayment(!!transaction.isBillPayment);
                 setIsAdjustment(!!transaction.isAdjustment);
                 setBillImage(transaction.billImage);
                 setIsEditing(true);
+                setInitialValues({
+                    amount: transaction.amount.toString(),
+                    note: transaction.note || '',
+                    accountId: transaction.accountId,
+                    toAccountId: transaction.type === 'transfer' ? (transaction.toAccountId || '') : '',
+                    type: transaction.type,
+                    category: categoryId,
+                    date: formattedDate,
+                    billImage: transaction.billImage,
+                });
             }
             return; // Don't run auto-selection logic if editing
         }
@@ -99,23 +161,7 @@ export function TransactionForm() {
                 setSelectedCategory('');
             }
         }
-    }, [id, transactions, categories, searchParams, accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes, type]);
-
-    // Keypad logic
-
-    const getVisibleAccounts = (currentType: TransactionType) => {
-        let list = accounts;
-        if (currentType !== 'transfer') {
-            const includedTypes = currentType === 'income'
-                ? incomeIncludedAccountTypes
-                : expenseIncludedAccountTypes;
-
-            list = accounts.filter(acc =>
-                !includedTypes || includedTypes.includes(acc.type)
-            );
-        }
-        return list.slice().sort((a, b) => a.name.localeCompare(b.name));
-    };
+    }, [id, transactions, categories, searchParams, accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes, type, getVisibleAccounts]);
 
     const visibleAccounts = getVisibleAccounts(type);
 
@@ -204,14 +250,47 @@ export function TransactionForm() {
     const selectedAccount = accounts.find(a => a.id === selectedAccountId);
     const targetAccount = accounts.find(a => a.id === toAccountId);
     const isCreditCard = selectedAccount?.type === 'credit';
+    const isLoanAccount = selectedAccount?.type === 'loan';
     const isToCreditCard = targetAccount?.type === 'credit';
+    const isBalanceRestricted = !isCreditCard && !isLoanAccount;
+
+    const existingTransaction = useMemo(() => {
+        return isEditing && id ? transactions.find(t => t.id === id) : null;
+    }, [isEditing, id, transactions]);
+
+    const availableBalance = useMemo(() => {
+        if (!selectedAccount || !isBalanceRestricted) return Infinity;
+
+        // Account base balance (revert previous expense if editing this account)
+        let accBal = selectedAccount.balance;
+        if (existingTransaction && !existingTransaction.excludeFromBalance && existingTransaction.type === 'expense' && existingTransaction.accountId === selectedAccountId) {
+            accBal += existingTransaction.amount;
+        }
+
+        // Section balance if a section is selected
+        if (sectionId && selectedAccount.sections) {
+            const selectedSection = selectedAccount.sections.find(s => s.id === sectionId);
+            if (selectedSection) {
+                let secBal = selectedSection.amount;
+                if (existingTransaction && !existingTransaction.excludeFromBalance && existingTransaction.type === 'expense' && existingTransaction.accountId === selectedAccountId && existingTransaction.sectionId === sectionId) {
+                    secBal += existingTransaction.amount;
+                }
+                return Math.min(accBal, secBal);
+            }
+        }
+
+        return accBal;
+    }, [selectedAccount, isBalanceRestricted, existingTransaction, selectedAccountId, sectionId]);
+
+    const parsedAmount = parseFloat(amount || '0');
+    const isOverBalance = type === 'expense' && !excludeFromBalance && isBalanceRestricted && parsedAmount > availableBalance;
 
     const isOverLimit = type === 'expense' && (
-        (activeCategory?.limit && (monthlyCategorySpending.total + parseFloat(amount || '0')) > activeCategory.limit) ||
-        (isCreditCard && activeCategory?.ccLimit && (monthlyCategorySpending.cc + parseFloat(amount || '0')) > activeCategory.ccLimit)
+        (activeCategory?.limit && (monthlyCategorySpending.total + parsedAmount) > activeCategory.limit) ||
+        (isCreditCard && activeCategory?.ccLimit && (monthlyCategorySpending.cc + parsedAmount) > activeCategory.ccLimit)
     );
 
-    const isOverCCLimit = isCreditCard && activeCategory?.ccLimit && (monthlyCategorySpending.cc + parseFloat(amount || '0')) > activeCategory.ccLimit;
+    const isOverCCLimit = isCreditCard && activeCategory?.ccLimit && (monthlyCategorySpending.cc + parsedAmount) > activeCategory.ccLimit;
 
     const handleDelete = () => {
         if (amount.length === 1) {
@@ -241,6 +320,10 @@ export function TransactionForm() {
         if (value <= 0) return;
         if (!selectedAccountId) {
             alert("Please create an account first!"); // Simple validation
+            return;
+        }
+        if (isOverBalance) {
+            alert(`Expense amount exceeds the available balance of ${formatCurrency(availableBalance)}.`);
             return;
         }
         if (type === 'transfer') {
@@ -283,6 +366,7 @@ export function TransactionForm() {
             setBillImage(undefined);
         }
 
+        setIsSaved(true);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
     };
@@ -290,6 +374,7 @@ export function TransactionForm() {
     const handleDeleteTransaction = () => {
         if (id && confirm('Are you sure you want to delete this transaction?')) {
             deleteTransaction(id);
+            setIsSaved(true);
             navigate(-1);
         }
     };
@@ -335,11 +420,22 @@ export function TransactionForm() {
                 <p className="text-gray-400 font-medium mb-2">Amount</p>
                 <div
                     onClick={() => setShowKeypad(true)}
-                    className="text-5xl font-bold tracking-tight text-gray-900 flex items-center cursor-pointer hover:opacity-80 transition-opacity decoration-blue-500 underline decoration-2 underline-offset-8 decoration-dashed"
+                    className={cn(
+                        "text-5xl font-bold tracking-tight flex items-center cursor-pointer hover:opacity-80 transition-opacity decoration-blue-500 underline decoration-2 underline-offset-8 decoration-dashed",
+                        isOverBalance ? "text-red-600 decoration-red-500" : "text-gray-900"
+                    )}
                 >
-                    <span className="text-3xl mr-1 text-gray-400">₹</span>
+                    <span className={cn("text-3xl mr-1", isOverBalance ? "text-red-400" : "text-gray-400")}>₹</span>
                     {amount}
                 </div>
+                {isOverBalance && (
+                    <div className="mt-4 px-4 py-2 border rounded-lg flex items-center space-x-2 animate-in fade-in zoom-in duration-200 bg-red-50 border-red-200">
+                        <div className="w-2 h-2 rounded-full animate-pulse bg-red-500 flex-shrink-0" />
+                        <p className="text-[11px] font-bold uppercase tracking-tight text-red-700">
+                            Expense exceeds available balance of {formatCurrency(availableBalance)}
+                        </p>
+                    </div>
+                )}
                 {isOverLimit && activeCategory && (
                     <div className={cn(
                         "mt-4 px-4 py-2 border rounded-lg flex items-center space-x-2 animate-in fade-in zoom-in duration-200",
@@ -362,26 +458,44 @@ export function TransactionForm() {
             {/* Form Fields */}
             <div className="px-4 space-y-3 mb-6">
                 {/* Account Select */}
-                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
-                    <span className="text-gray-500 text-sm font-medium">Account</span>
-                    <div className="relative">
-                        <select
-                            value={selectedAccountId}
-                            onChange={(e) => {
-                                setSelectedAccountId(e.target.value);
-                                setSectionId('');
-                            }}
-                            className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
-                        >
-                            {accountsToList
-                                .slice()
-                                .sort((a, b) => a.name.localeCompare(b.name))
-                                .map(acc => (
-                                <option key={acc.id} value={acc.id}>{acc.name}</option>
-                            ))}
-                        </select>
-                        <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <div className="bg-gray-50 p-4 rounded-xl space-y-1">
+                    <div className="flex items-center justify-between">
+                        <span className="text-gray-500 text-sm font-medium">Account</span>
+                        <div className="relative">
+                            <select
+                                value={selectedAccountId}
+                                onChange={(e) => {
+                                    setSelectedAccountId(e.target.value);
+                                    setSectionId('');
+                                }}
+                                className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none cursor-pointer"
+                            >
+                                {accountsToList
+                                    .slice()
+                                    .sort((a, b) => a.name.localeCompare(b.name))
+                                    .map(acc => {
+                                        const showBal = acc.type !== 'credit' && acc.type !== 'loan';
+                                        return (
+                                            <option key={acc.id} value={acc.id}>
+                                                {acc.name}{showBal ? ` (${formatCurrency(acc.balance)})` : ''}
+                                            </option>
+                                        );
+                                    })}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
                     </div>
+                    {selectedAccount && isBalanceRestricted && (
+                        <div className="flex justify-between items-center pt-1 border-t border-gray-200/60 text-xs">
+                            <span className="text-gray-400">Available Balance</span>
+                            <span className={cn(
+                                "font-semibold",
+                                availableBalance <= 0 ? "text-red-500" : "text-gray-700"
+                            )}>
+                                {formatCurrency(availableBalance)}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Section Select */}
@@ -392,11 +506,11 @@ export function TransactionForm() {
                             <select
                                 value={sectionId}
                                 onChange={(e) => setSectionId(e.target.value)}
-                                className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
+                                className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none cursor-pointer"
                             >
                                 <option value="">None</option>
                                 {selectedAccount.sections.map(sec => (
-                                    <option key={sec.id} value={sec.id}>{sec.name} (₹{sec.amount})</option>
+                                    <option key={sec.id} value={sec.id}>{sec.name} ({formatCurrency(sec.amount)})</option>
                                 ))}
                             </select>
                             <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -680,7 +794,13 @@ export function TransactionForm() {
                 )}
                 <button
                     onClick={handleSubmit}
-                    className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.98] transition-transform flex items-center justify-center space-x-2"
+                    disabled={isOverBalance}
+                    className={cn(
+                        "w-full font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2",
+                        isOverBalance
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                            : "bg-blue-600 text-white active:scale-[0.98]"
+                    )}
                 >
                     <Check size={20} />
                     <span>{isEditing ? 'Update Transaction' : 'Save Transaction'}</span>
