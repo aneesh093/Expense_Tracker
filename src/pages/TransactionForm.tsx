@@ -22,7 +22,11 @@ export function TransactionForm() {
     });
     const [sectionId, setSectionId] = useState<string>('');
     const [selectedEventId, setSelectedEventId] = useState<string>('');
-    const [note, setNote] = useState('');
+    const [note, setNote] = useState(() => {
+        const sorted = categories.slice().sort((a, b) => a.name.localeCompare(b.name));
+        const initCat = sorted.find(c => c.type === 'expense') || categories[0];
+        return initCat?.defaultNote || '';
+    });
     const [transactionDate, setTransactionDate] = useState(() => {
         const d = new Date();
         const year = d.getFullYear();
@@ -52,9 +56,12 @@ export function TransactionForm() {
     // Track whether the form has unsaved user input
     const hasUnsavedChanges = useMemo(() => {
         if (isSaved) return false;
-        // For new transactions: dirty if user entered an amount, note, or bill
+        // For new transactions: dirty if user entered an amount, custom note, or bill
         if (!isEditing) {
-            return amount !== '0' || note.trim() !== '' || !!billImage;
+            const currentCat = categories.find(c => c.id === selectedCategory);
+            const isAutoNote = currentCat?.defaultNote && note.trim() === currentCat.defaultNote.trim();
+            const hasCustomNote = note.trim() !== '' && !isAutoNote;
+            return amount !== '0' || hasCustomNote || !!billImage;
         }
         // For editing: dirty if anything changed from initial loaded values
         if (!initialValues) return false;
@@ -157,11 +164,14 @@ export function TransactionForm() {
             const firstValidCategory = sortedCategories.find(c => c.type === type);
             if (firstValidCategory) {
                 setSelectedCategory(firstValidCategory.id);
+                if (!note.trim() && firstValidCategory.defaultNote) {
+                    setNote(firstValidCategory.defaultNote.trim());
+                }
             } else {
                 setSelectedCategory('');
             }
         }
-    }, [id, transactions, categories, searchParams, accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes, type, getVisibleAccounts]);
+    }, [id, transactions, categories, searchParams, accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes, type, getVisibleAccounts, note, selectedCategory]);
 
     const visibleAccounts = getVisibleAccounts(type);
 
@@ -169,6 +179,22 @@ export function TransactionForm() {
     const accountsToList = (isEditing && selectedAccountId && !visibleAccounts.find(a => a.id === selectedAccountId))
         ? [accounts.find(a => a.id === selectedAccountId)!].concat(visibleAccounts).filter(Boolean)
         : visibleAccounts;
+
+    const handleCategoryChange = (newCatId: string) => {
+        const prevCategory = categories.find(c => c.id === selectedCategory);
+        const nextCategory = categories.find(c => c.id === newCatId);
+        setSelectedCategory(newCatId);
+
+        // Auto-fill note:
+        // If note is currently empty, or matches previous category's default note
+        const noteTrimmed = note.trim();
+        const prevDefaultNote = prevCategory?.defaultNote?.trim();
+        const nextDefaultNote = nextCategory?.defaultNote?.trim() || '';
+
+        if (!noteTrimmed || (prevDefaultNote && noteTrimmed === prevDefaultNote)) {
+            setNote(nextDefaultNote);
+        }
+    };
 
     const handleTypeChange = (newType: TransactionType) => {
         setType(newType);
@@ -191,21 +217,21 @@ export function TransactionForm() {
 
         // Validate Category
         // Always reset category to valid one for new type unless it matches
-        // (Logic from previous effect)
         const sortedCategories = categories.slice().sort((a, b) => a.name.localeCompare(b.name));
         const currentCategory = categories.find(c => c.id === selectedCategory);
+        let nextCatId = selectedCategory;
         if (currentCategory && currentCategory.type !== newType) {
             const firstValidCategory = sortedCategories.find(c => c.type === newType);
-            if (firstValidCategory) {
-                setSelectedCategory(firstValidCategory.id);
-            } else {
-                setSelectedCategory('');
-            }
+            nextCatId = firstValidCategory ? firstValidCategory.id : '';
         } else if (!selectedCategory) {
             const firstValidCategory = sortedCategories.find(c => c.type === newType);
             if (firstValidCategory) {
-                setSelectedCategory(firstValidCategory.id);
+                nextCatId = firstValidCategory.id;
             }
+        }
+
+        if (nextCatId !== selectedCategory) {
+            handleCategoryChange(nextCatId);
         }
     };
 
@@ -473,14 +499,11 @@ export function TransactionForm() {
                                 {accountsToList
                                     .slice()
                                     .sort((a, b) => a.name.localeCompare(b.name))
-                                    .map(acc => {
-                                        const showBal = acc.type !== 'credit' && acc.type !== 'loan';
-                                        return (
-                                            <option key={acc.id} value={acc.id}>
-                                                {acc.name}{showBal ? ` (${formatCurrency(acc.balance)})` : ''}
-                                            </option>
-                                        );
-                                    })}
+                                    .map(acc => (
+                                        <option key={acc.id} value={acc.id}>
+                                            {acc.name}
+                                        </option>
+                                    ))}
                             </select>
                             <ChevronDown size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         </div>
@@ -545,8 +568,8 @@ export function TransactionForm() {
                         <div className="relative">
                             <select
                                 value={selectedCategory}
-                                onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none"
+                                onChange={(e) => handleCategoryChange(e.target.value)}
+                                className="appearance-none bg-transparent font-medium text-gray-900 pr-8 text-right focus:outline-none cursor-pointer"
                             >
                                 {categories
                                     .filter(cat => cat.type === type)

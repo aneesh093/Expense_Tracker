@@ -13,6 +13,7 @@ export function Categories() {
     const { categories, addCategory, updateCategory, deleteCategory, reorderList } = useFinanceStore();
 
     const [newCategoryName, setNewCategoryName] = useState('');
+    const [newCategoryDefaultNote, setNewCategoryDefaultNote] = useState('');
     const [newCategoryType, setNewCategoryType] = useState<TransactionType>('expense');
     const [showAddForm, setShowAddForm] = useState(false);
     const [showBulkAdd, setShowBulkAdd] = useState(false);
@@ -61,6 +62,8 @@ export function Categories() {
 
     const openAddModal = (type: TransactionType) => {
         setNewCategoryType(type);
+        setNewCategoryName('');
+        setNewCategoryDefaultNote('');
         setShowAddForm(true);
     };
 
@@ -75,10 +78,12 @@ export function Categories() {
             name: newCategoryName.trim(),
             type: newCategoryType,
             icon: newCategoryType === 'income' ? 'banknote' : 'shopping-bag', // Default icons
-            color: newCategoryType === 'income' ? '#22c55e' : '#ef4444' // Default colors
+            color: newCategoryType === 'income' ? '#22c55e' : '#ef4444', // Default colors
+            defaultNote: newCategoryDefaultNote.trim() || undefined
         });
 
         setNewCategoryName('');
+        setNewCategoryDefaultNote('');
         setShowAddForm(false);
     };
 
@@ -102,7 +107,9 @@ export function Categories() {
             ? ['#22c55e', '#10b981', '#059669', '#047857', '#065f46']
             : ['#ef4444', '#dc2626', '#b91c1c', '#991b1b', '#7f1d1d'];
 
-        lines.forEach((name, index) => {
+        lines.forEach((line, index) => {
+            const [rawName, rawNote] = line.split('|').map(s => s.trim());
+            const name = rawName;
             // Skip if duplicate
             if (existingNames.includes(name.toLowerCase())) return;
 
@@ -111,7 +118,8 @@ export function Categories() {
                 name: name,
                 type: bulkType,
                 icon: bulkType === 'income' ? 'banknote' : 'shopping-bag',
-                color: colors[index % colors.length]
+                color: colors[index % colors.length],
+                defaultNote: rawNote || undefined
             });
         });
 
@@ -124,7 +132,7 @@ export function Categories() {
             .filter(c => c.type === type)
             .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-        const text = categoriesToEdit.map(c => c.name).join('\n');
+        const text = categoriesToEdit.map(c => c.defaultNote ? `${c.name} | ${c.defaultNote}` : c.name).join('\n');
         setBulkEditText(text);
         setBulkEditType(type);
         setShowBulkEdit(true);
@@ -144,11 +152,14 @@ export function Categories() {
             .sort((a, b) => (a.order || 0) - (b.order || 0));
 
         // Update existing categories with new names
-        lines.forEach((name, index) => {
+        lines.forEach((line, index) => {
+            const [rawName, rawNote] = line.split('|').map(s => s.trim());
+            const name = rawName;
+            const defaultNote = rawNote || undefined;
             if (index < categoriesToEdit.length) {
                 const category = categoriesToEdit[index];
-                if (category.name !== name) {
-                    updateCategory(category.id, { name });
+                if (category.name !== name || category.defaultNote !== defaultNote) {
+                    updateCategory(category.id, { name, defaultNote });
                 }
             } else {
                 // If there are more lines than categories, add new ones
@@ -161,7 +172,8 @@ export function Categories() {
                     name: name,
                     type: bulkEditType,
                     icon: bulkEditType === 'income' ? 'banknote' : 'shopping-bag',
-                    color: colors[index % colors.length]
+                    color: colors[index % colors.length],
+                    defaultNote: defaultNote
                 });
             }
         });
@@ -353,11 +365,23 @@ export function Categories() {
                                     autoFocus
                                 />
                             </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Default Note (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={newCategoryDefaultNote}
+                                    onChange={(e) => setNewCategoryDefaultNote(e.target.value)}
+                                    placeholder="e.g. Milk, Bakery"
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                                />
+                                <p className="text-[11px] text-gray-400 mt-1">Automatically fills the note when this category is selected in transactions.</p>
+                            </div>
                         </div>
 
                         <div className="flex space-x-3 mt-6">
                             <button
-                                onClick={() => setShowAddForm(false)}
+                                onClick={() => { setShowAddForm(false); setNewCategoryName(''); setNewCategoryDefaultNote(''); }}
                                 className="flex-1 px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 Cancel
@@ -383,11 +407,11 @@ export function Categories() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Category Names</label>
-                                <p className="text-xs text-gray-500 mb-2">Enter one category per line</p>
+                                <p className="text-xs text-gray-500 mb-2">Enter one category per line (format: Name or Name | Default Note)</p>
                                 <textarea
                                     value={bulkInput}
                                     onChange={(e) => setBulkInput(e.target.value)}
-                                    placeholder={`Groceries\nRent\nUtilities\nTransportation`}
+                                    placeholder={`Groceries\nMilk | Milk\nBakery | Bakery\nUtilities`}
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono text-sm"
                                     rows={8}
                                     autoFocus
@@ -426,11 +450,11 @@ export function Categories() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Category Names</label>
-                                <p className="text-xs text-gray-500 mb-2">Edit, add, or remove categories (one per line)</p>
+                                <p className="text-xs text-gray-500 mb-2">Edit, add, or remove categories (format: Name or Name | Default Note)</p>
                                 <textarea
                                     value={bulkEditText}
                                     onChange={(e) => setBulkEditText(e.target.value)}
-                                    placeholder={`Groceries\nRent\nUtilities\nTransportation`}
+                                    placeholder={`Groceries\nMilk | Milk\nBakery | Bakery\nUtilities`}
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono text-sm"
                                     rows={12}
                                     autoFocus

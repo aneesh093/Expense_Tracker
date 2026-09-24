@@ -3,7 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { type Category } from '../types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface SortableCategoryItemProps {
     category: Category;
@@ -19,6 +19,15 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
     const [editColor, setEditColor] = useState(category.color);
     const [editLimit, setEditLimit] = useState(category.limit?.toString() || '');
     const [editCCLimit, setEditCCLimit] = useState(category.ccLimit?.toString() || '');
+    const [editDefaultNote, setEditDefaultNote] = useState(category.defaultNote || '');
+
+    useEffect(() => {
+        setEditName(category.name);
+        setEditColor(category.color);
+        setEditLimit(category.limit?.toString() || '');
+        setEditCCLimit(category.ccLimit?.toString() || '');
+        setEditDefaultNote(category.defaultNote || '');
+    }, [category]);
 
     const {
         attributes,
@@ -42,7 +51,8 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
                 name: editName.trim(),
                 color: editColor,
                 limit: editLimit ? parseFloat(editLimit) : undefined,
-                ccLimit: editCCLimit ? parseFloat(editCCLimit) : undefined
+                ccLimit: editCCLimit ? parseFloat(editCCLimit) : undefined,
+                defaultNote: editDefaultNote.trim() || undefined
             });
             setIsEditing(false);
         }
@@ -53,6 +63,7 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
         setEditColor(category.color);
         setEditLimit(category.limit?.toString() || '');
         setEditCCLimit(category.ccLimit?.toString() || '');
+        setEditDefaultNote(category.defaultNote || '');
         setIsEditing(false);
     };
 
@@ -82,6 +93,16 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
                                 className="w-full bg-gray-50 border-none rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500"
                                 placeholder="Category name"
                             />
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Default Note (Auto-fill)</label>
+                                <input
+                                    type="text"
+                                    value={editDefaultNote}
+                                    onChange={(e) => setEditDefaultNote(e.target.value)}
+                                    className="w-full bg-gray-50 border-none rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. Milk, Bakery"
+                                />
+                            </div>
                             {category.type === 'expense' && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
@@ -159,7 +180,12 @@ export function SortableCategoryItem({ category, deleteCategory, updateCategory 
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-bold text-gray-900">{category.name}</span>
-                            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                {category.defaultNote && (
+                                    <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded tracking-tight">
+                                        Note: {category.defaultNote}
+                                    </span>
+                                )}
                                 {category.limit && (
                                     <span className="text-[9px] font-black text-orange-500 uppercase tracking-tight">
                                         Limit: ₹{new Intl.NumberFormat('en-IN').format(category.limit)}

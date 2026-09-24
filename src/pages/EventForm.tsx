@@ -5,7 +5,20 @@ import { ArrowLeft } from 'lucide-react';
 import type { Event } from '../types';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
-const EVENT_ICONS = ['🏠', '🏢', '💼', '✈️', '🎉', '💳', '🏦', '🤝'];
+const EVENT_ICONS = [
+    // People & Personal
+    '👥', '🧑‍💼',
+    // Stocks & Trading
+     '📊', 
+    // Mutual Funds, Wealth & Banking
+    '💰', '💵', '🏦', '💳', 
+    // Property, Business & Deals
+    '🏠', '🏢', '🏗️', '💼', '🤝',
+    // Travel, Events & Milestones
+    '✈️', '🎉', '💍', '🎁', 
+    // Lifestyle, Healthcare & Vehicles
+    '🚗', '⛽', '🏥', '💊', '🍽️', '🛍️', '🎬', '🛠️'
+];
 const EVENT_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
 export function EventForm() {
