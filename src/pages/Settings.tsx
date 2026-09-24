@@ -60,7 +60,7 @@ export function Settings() {
                     <SettingItem
                         icon={Layers}
                         title="Categories"
-                        description="Manage income and expense categories"
+                        description="Manage categories, limits & auto-fill notes"
                         path="/categories"
                         iconBg="bg-purple-50"
                         iconColor="text-purple-600"

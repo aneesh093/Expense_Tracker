@@ -122,6 +122,22 @@ export function TransactionSettings() {
                         * Note: These settings only affect the visibility of accounts in the transaction entry form. They do not affect calculations in Dashboard or Reports.
                     </p>
                 </section>
+
+                <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 px-1">Category Auto-Notes</h2>
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-between">
+                        <div className="pr-4">
+                            <p className="text-sm font-semibold text-gray-800">Default Category Notes</p>
+                            <p className="text-xs text-gray-500">Configure notes (e.g. Milk, Bakery) that auto-fill when a category is selected</p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/categories')}
+                            className="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-100 transition-colors shrink-0"
+                        >
+                            Configure
+                        </button>
+                    </div>
+                </section>
             </div>
         </div>
     );

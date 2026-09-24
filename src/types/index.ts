@@ -85,6 +85,7 @@ export interface Category {
     order?: number;
     limit?: number;
     ccLimit?: number;
+    defaultNote?: string;
 }
 
 export interface Event {
