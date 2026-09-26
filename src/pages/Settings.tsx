@@ -151,7 +151,7 @@ export function Settings() {
                 </SettingGroup>
 
                 <div className="pt-8 text-center">
-                    <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.3em]">Finance Tracker v2.1.0</p>
+                    <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.3em]">Finance Tracker v2.0</p>
                 </div>
             </div>
         </div>
