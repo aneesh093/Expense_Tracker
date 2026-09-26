@@ -24,7 +24,7 @@ export function About() {
                         <Code size={40} />
                     </div>
                     <h2 className="text-xl font-bold text-gray-900">Finance App</h2>
-                    <p className="text-sm text-gray-500 mb-6">v1.0.0</p>
+                    <p className="text-sm text-gray-500 mb-6">v2.0</p>
 
                     <div className="bg-gray-50 rounded-xl p-4">
                         <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Developed By</p>
