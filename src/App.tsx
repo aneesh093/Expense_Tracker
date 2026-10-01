@@ -22,6 +22,7 @@ import { Categories } from './pages/Categories';
 import { Mandates } from './pages/Mandates';
 import { BackupConfiguration } from './pages/BackupConfiguration';
 import { TransactionSettings } from './pages/TransactionSettings';
+import { AccountOrderSettings } from './pages/AccountOrderSettings';
 import { About } from './pages/About';
 import { UserGuide } from './pages/UserGuide';
 import { useFinanceStore } from './store/useFinanceStore';
@@ -62,6 +63,7 @@ const router = createBrowserRouter([
           { path: '/reports/transactions', element: <ReportTransactions /> },
           { path: '/settings', element: <Settings /> },
           { path: '/settings/preferences', element: <AppPreferences /> },
+          { path: '/settings/account-order', element: <AccountOrderSettings /> },
           { path: '/settings/transactions', element: <TransactionSettings /> },
           { path: '/settings/security', element: <SecuritySettings /> },
           { path: '/settings/audit-trail', element: <AuditTrail /> },

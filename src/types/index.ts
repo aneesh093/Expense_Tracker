@@ -153,11 +153,15 @@ export interface EventPlan {
     description: string;
     date: string;
 }
+export type AccountOrderMode = 'custom' | 'name' | 'name-desc' | 'balance-desc' | 'balance-asc';
+
 export interface FinanceSettings {
     isBalanceHidden?: boolean;
     isAccountsBalanceHidden?: boolean;
     hiddenAccountTypes?: string[];
     reportSortBy?: 'date' | 'amount';
+    accountOrderMode?: AccountOrderMode;
+    accountTypeOrder?: string[];
     showEventsInReport?: boolean;
     showLogsInReport?: boolean;
     showManualInReport?: boolean;
@@ -176,3 +180,4 @@ export interface FinanceSettings {
     incomeIncludedAccountTypes?: string[];
     expenseIncludedAccountTypes?: string[];
 }
+

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { type Account, type AccountType, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog, type EventPlan, type FinanceSettings } from '../types';
+import { type Account, type AccountType, type AccountOrderMode, type Transaction, type Category, type Event, type Mandate, type AuditTrail, type InvestmentLog, type EventLog, type EventPlan, type FinanceSettings } from '../types';
 import { db, dbHelpers, migrateFromLocalStorage } from '../lib/db';
+
+export const DEFAULT_ACCOUNT_TYPE_ORDER: AccountType[] = ['savings', 'credit', 'cash', 'fixed-deposit', 'online-wallet', 'loan', 'stock', 'mutual-fund', 'land', 'insurance', 'other'];
 
 const getLocalYYYYMMDD = (date: Date) => {
     const year = date.getFullYear();
@@ -123,6 +125,11 @@ interface FinanceState {
 
     reportSortBy: 'date' | 'amount';
     setReportSortBy: (sortBy: 'date' | 'amount') => void;
+    accountOrderMode: AccountOrderMode;
+    setAccountOrderMode: (mode: AccountOrderMode) => void;
+    accountTypeOrder: string[];
+    setAccountTypeOrder: (order: string[]) => void;
+    reorderAccountTypes: (newOrder: string[]) => void;
     setShowEventsInReport: (show: boolean) => void;
     setShowLogsInReport: (show: boolean) => void;
     setShowManualInReport: (show: boolean) => void;
@@ -156,6 +163,15 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true', // Default to false
     hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
     reportSortBy: (localStorage.getItem('finance-report-sort-by') as 'date' | 'amount') || 'date',
+    accountOrderMode: (localStorage.getItem('finance-account-order-mode') as AccountOrderMode) || 'custom',
+    accountTypeOrder: (() => {
+        try {
+            const stored = localStorage.getItem('finance-account-type-order');
+            return stored ? JSON.parse(stored) : DEFAULT_ACCOUNT_TYPE_ORDER;
+        } catch {
+            return DEFAULT_ACCOUNT_TYPE_ORDER;
+        }
+    })(),
     showEventsInReport: localStorage.getItem('finance-show-events-in-report') !== 'false',
     showLogsInReport: localStorage.getItem('finance-show-logs-in-report') !== 'false',
     showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
@@ -277,6 +293,15 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 isBalanceHidden: localStorage.getItem('finance-privacy-mode') !== 'false',
                 isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true',
                 reportSortBy: (localStorage.getItem('finance-report-sort-by') as 'date' | 'amount') || 'date',
+                accountOrderMode: (localStorage.getItem('finance-account-order-mode') as AccountOrderMode) || 'custom',
+                accountTypeOrder: (() => {
+                    try {
+                        const stored = localStorage.getItem('finance-account-type-order');
+                        return stored ? JSON.parse(stored) : DEFAULT_ACCOUNT_TYPE_ORDER;
+                    } catch {
+                        return DEFAULT_ACCOUNT_TYPE_ORDER;
+                    }
+                })(),
                 isLocked: !!localStorage.getItem('finance-passcode')
             });
 
@@ -880,6 +905,12 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                 if (settings.reportSortBy !== undefined) {
                     localStorage.setItem('finance-report-sort-by', settings.reportSortBy);
                 }
+                if (settings.accountOrderMode !== undefined) {
+                    localStorage.setItem('finance-account-order-mode', settings.accountOrderMode);
+                }
+                if (settings.accountTypeOrder !== undefined) {
+                    localStorage.setItem('finance-account-type-order', JSON.stringify(settings.accountTypeOrder));
+                }
                 if (settings.showEventsInReport !== undefined) {
                     localStorage.setItem('finance-show-events-in-report', String(settings.showEventsInReport));
                 }
@@ -933,6 +964,8 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
                     isAccountsBalanceHidden: settings.isAccountsBalanceHidden ?? state.isAccountsBalanceHidden,
                     hiddenAccountTypes: settings.hiddenAccountTypes ?? state.hiddenAccountTypes,
                     reportSortBy: settings.reportSortBy ?? state.reportSortBy,
+                    accountOrderMode: settings.accountOrderMode ?? state.accountOrderMode,
+                    accountTypeOrder: settings.accountTypeOrder ?? state.accountTypeOrder,
                     showEventsInReport: settings.showEventsInReport ?? state.showEventsInReport,
                     showLogsInReport: settings.showLogsInReport ?? state.showLogsInReport,
                     showManualInReport: settings.showManualInReport ?? state.showManualInReport,
@@ -1198,5 +1231,20 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
     setAllowIndividualEventExport: (allow) => {
         localStorage.setItem('finance-allow-individual-event-export', String(allow));
         set({ allowIndividualEventExport: allow });
+    },
+
+    setAccountOrderMode: (mode) => {
+        localStorage.setItem('finance-account-order-mode', mode);
+        set({ accountOrderMode: mode });
+    },
+
+    setAccountTypeOrder: (order) => {
+        localStorage.setItem('finance-account-type-order', JSON.stringify(order));
+        set({ accountTypeOrder: order });
+    },
+
+    reorderAccountTypes: (newOrder) => {
+        localStorage.setItem('finance-account-type-order', JSON.stringify(newOrder));
+        set({ accountTypeOrder: newOrder });
     },
 }));

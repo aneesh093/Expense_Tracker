@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Layers, ChevronRight, Clock, PieChart,
     Settings2, Info, BookOpen, Shield,
-    HardDrive, ListTree
+    HardDrive, ListTree, ArrowUpDown
 } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { cn } from '../lib/utils';
@@ -93,6 +93,14 @@ export function Settings() {
                         path="/settings/preferences"
                         iconBg="bg-blue-50"
                         iconColor="text-blue-600"
+                    />
+                    <SettingItem
+                        icon={ArrowUpDown}
+                        title="Account Ordering"
+                        description="Configure display order of accounts & types"
+                        path="/settings/account-order"
+                        iconBg="bg-teal-50"
+                        iconColor="text-teal-600"
                     />
                     <SettingItem
                         icon={Layers}
