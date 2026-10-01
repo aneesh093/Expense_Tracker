@@ -23,6 +23,8 @@ export function BackupConfiguration() {
                 isAccountsBalanceHidden: localStorage.getItem('finance-accounts-privacy-mode') === 'true',
                 hiddenAccountTypes: JSON.parse(localStorage.getItem('finance-hidden-account-types') || '["credit","land","insurance"]'),
                 reportSortBy: localStorage.getItem('finance-report-sort-by') || 'date',
+                accountOrderMode: localStorage.getItem('finance-account-order-mode') || 'custom',
+                accountTypeOrder: JSON.parse(localStorage.getItem('finance-account-type-order') || '["savings","credit","cash","fixed-deposit","online-wallet","loan","stock","mutual-fund","land","insurance","other"]'),
                 showEventsInReport: localStorage.getItem('finance-show-events-in-report') !== 'false',
                 showLogsInReport: localStorage.getItem('finance-show-logs-in-report') !== 'false',
                 showManualInReport: localStorage.getItem('finance-show-manual-in-report') !== 'false',
@@ -94,6 +96,8 @@ export function BackupConfiguration() {
                         if (settings.isAccountsBalanceHidden !== undefined) localStorage.setItem('finance-accounts-privacy-mode', settings.isAccountsBalanceHidden.toString());
                         if (settings.hiddenAccountTypes !== undefined) localStorage.setItem('finance-hidden-account-types', JSON.stringify(settings.hiddenAccountTypes));
                         if (settings.reportSortBy !== undefined) localStorage.setItem('finance-report-sort-by', settings.reportSortBy);
+                        if (settings.accountOrderMode !== undefined) localStorage.setItem('finance-account-order-mode', settings.accountOrderMode);
+                        if (settings.accountTypeOrder !== undefined) localStorage.setItem('finance-account-type-order', JSON.stringify(settings.accountTypeOrder));
                         if (settings.showEventsInReport !== undefined) localStorage.setItem('finance-show-events-in-report', String(settings.showEventsInReport));
                         if (settings.showLogsInReport !== undefined) localStorage.setItem('finance-show-logs-in-report', String(settings.showLogsInReport));
                         if (settings.showManualInReport !== undefined) localStorage.setItem('finance-show-manual-in-report', String(settings.showManualInReport));

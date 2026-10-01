@@ -7,12 +7,28 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import { cn, generateId } from '../lib/utils';
 import { type Account, type AccountType } from '../types';
-import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Wallet, X, AlertTriangle, ToggleLeft, ToggleRight, Eye, EyeOff, ArrowUpDown } from 'lucide-react';
 
 export function Accounts() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { accounts, transactions, addAccount, updateAccount, deleteAccount, isAccountsBalanceHidden, toggleAccountsBalanceHidden, reorderList, toggleAccountTypeVisibility, isAccountTypeHidden, showInvestmentAccounts, getCreditCardStats } = useFinanceStore();
+    const {
+        accounts,
+        transactions,
+        addAccount,
+        updateAccount,
+        deleteAccount,
+        isAccountsBalanceHidden,
+        toggleAccountsBalanceHidden,
+        reorderList,
+        toggleAccountTypeVisibility,
+        isAccountTypeHidden,
+        showInvestmentAccounts,
+        getCreditCardStats,
+        accountOrderMode,
+        setAccountOrderMode,
+        accountTypeOrder
+    } = useFinanceStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -158,6 +174,36 @@ export function Accounts() {
         }).format(amount);
     }, []);
 
+    const getAccountSortBalance = React.useCallback((acc: Account) => {
+        if (acc.type === 'credit') {
+            const stats = getCreditCardStats(acc.id);
+            return stats.billed + stats.unbilled;
+        }
+        if (acc.type === 'stock' || acc.type === 'mutual-fund') {
+            return acc.currentAmount !== undefined ? acc.currentAmount : acc.balance;
+        }
+        return acc.balance;
+    }, [getCreditCardStats]);
+
+    const sortAccounts = React.useCallback((list: Account[]) => {
+        return [...list].sort((a, b) => {
+            if (accountOrderMode === 'name') {
+                return a.name.localeCompare(b.name);
+            }
+            if (accountOrderMode === 'name-desc') {
+                return b.name.localeCompare(a.name);
+            }
+            if (accountOrderMode === 'balance-desc') {
+                return getAccountSortBalance(b) - getAccountSortBalance(a);
+            }
+            if (accountOrderMode === 'balance-asc') {
+                return getAccountSortBalance(a) - getAccountSortBalance(b);
+            }
+            // default / custom
+            return (a.order || 0) - (b.order || 0);
+        });
+    }, [accountOrderMode, getAccountSortBalance]);
+
     const handleDragEnd = React.useCallback((event: any) => {
         const { active, over } = event;
 
@@ -166,9 +212,7 @@ export function Accounts() {
             const overAccount = accounts.find(a => a.id === over.id);
 
             if (activeAccount && overAccount && activeAccount.type === overAccount.type) {
-                const groupItems = accounts
-                    .filter(a => a.type === activeAccount.type)
-                    .sort((a, b) => (a.order || 0) - (b.order || 0));
+                const groupItems = sortAccounts(accounts.filter(a => a.type === activeAccount.type));
 
                 const oldIndex = groupItems.findIndex(item => item.id === active.id);
                 const newIndex = groupItems.findIndex(item => item.id === over.id);
@@ -176,10 +220,13 @@ export function Accounts() {
                 if (oldIndex !== -1 && newIndex !== -1) {
                     const newOrder = arrayMove(groupItems, oldIndex, newIndex).map(item => item.id);
                     reorderList('accounts', newOrder);
+                    if (accountOrderMode !== 'custom') {
+                        setAccountOrderMode('custom');
+                    }
                 }
             }
         }
-    }, [accounts, reorderList]);
+    }, [accounts, reorderList, sortAccounts, accountOrderMode, setAccountOrderMode]);
 
     const handleSave = React.useCallback(() => {
         if (!name.trim()) return;
@@ -270,10 +317,12 @@ export function Accounts() {
 
         // Fallback for generic categorization
         return activeTab === 'banking' ? !isInvestment(acc.type) : isInvestment(acc.type);
-    }).sort((a, b) => (a.order || 0) - (b.order || 0));
+    });
+
+    const sortedAccounts = sortAccounts(filteredAccounts);
 
     // Group accounts by type
-    const groupedAccounts = filteredAccounts.reduce((groups, account) => {
+    const groupedAccounts = sortedAccounts.reduce((groups, account) => {
         const type = account.type;
         if (!groups[type]) {
             groups[type] = [];
@@ -281,6 +330,17 @@ export function Accounts() {
         groups[type].push(account);
         return groups;
     }, {} as Record<string, Account[]>);
+
+    // Determine ordered types based on accountTypeOrder
+    const sortedGroupTypes = React.useMemo(() => {
+        return Object.keys(groupedAccounts).sort((a, b) => {
+            const indexA = accountTypeOrder.indexOf(a);
+            const indexB = accountTypeOrder.indexOf(b);
+            const orderA = indexA === -1 ? 999 : indexA;
+            const orderB = indexB === -1 ? 999 : indexB;
+            return orderA - orderB;
+        });
+    }, [groupedAccounts, accountTypeOrder]);
 
     // Get type display name
     const getTypeDisplayName = (type: AccountType): string => {
@@ -393,6 +453,13 @@ export function Accounts() {
                                     title={isAccountsBalanceHidden ? "Show Balances" : "Hide Balances"}
                                 >
                                     {isAccountsBalanceHidden ? <EyeOff size={24} /> : <Eye size={24} />}
+                                </button>
+                                <button
+                                    onClick={() => navigate('/settings/account-order')}
+                                    className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors"
+                                    title="Account Ordering Settings"
+                                >
+                                    <ArrowUpDown size={22} />
                                 </button>
                                 <button
                                     onClick={openAddModal}
@@ -894,7 +961,9 @@ export function Accounts() {
                         onDragEnd={handleDragEnd}
                     >
                         <div className="space-y-6">
-                            {Object.entries(groupedAccounts).map(([type, accountsInGroup]) => {
+                            {sortedGroupTypes.map((type) => {
+                                const accountsInGroup = groupedAccounts[type];
+                                if (!accountsInGroup || accountsInGroup.length === 0) return null;
                                 const groupTotal = accountsInGroup
                                     .filter(acc => acc.includeInNetWorth !== false)
                                     .reduce((sum, acc) => sum + acc.balance, 0);

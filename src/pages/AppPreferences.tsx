@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, Clock, Database, FileText, Layout, FileBarChart } from 'lucide-react';
+import { ArrowLeft, Layers, Clock, Database, FileText, Layout, FileBarChart, ArrowUpDown } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
+import { type AccountOrderMode } from '../types';
 import { cn } from '../lib/utils';
 import { useState } from 'react';
 
@@ -23,7 +24,8 @@ export function AppPreferences() {
         pdfIncludeAccountSummary, setPdfIncludeAccountSummary,
         pdfIncludeTransactions, setPdfIncludeTransactions,
         pdfIncludeEventSummary, setPdfIncludeEventSummary,
-        allowIndividualEventExport, setAllowIndividualEventExport
+        allowIndividualEventExport, setAllowIndividualEventExport,
+        accountOrderMode, setAccountOrderMode
     } = useFinanceStore();
 
     const Toggle = ({ checked, onChange, color = "bg-blue-600" }: { checked: boolean, onChange: (val: boolean) => void, color?: string }) => (
@@ -126,6 +128,33 @@ export function AppPreferences() {
                                     iconColor="text-emerald-600"
                                 >
                                     <Toggle checked={allowIndividualEventExport} onChange={setAllowIndividualEventExport} color="bg-emerald-500" />
+                                </SettingItem>
+                                <SettingItem
+                                    icon={ArrowUpDown}
+                                    title="Account Ordering"
+                                    description="Display order mode for accounts"
+                                    iconBg="bg-teal-50"
+                                    iconColor="text-teal-600"
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        <select
+                                            value={accountOrderMode}
+                                            onChange={(e) => setAccountOrderMode(e.target.value as AccountOrderMode)}
+                                            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 font-bold text-gray-700 focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="custom">Custom (Drag & Drop)</option>
+                                            <option value="name">Name (A → Z)</option>
+                                            <option value="name-desc">Name (Z → A)</option>
+                                            <option value="balance-desc">Balance (High → Low)</option>
+                                            <option value="balance-asc">Balance (Low → High)</option>
+                                        </select>
+                                        <button
+                                            onClick={() => navigate('/settings/account-order')}
+                                            className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                                        >
+                                            Customize
+                                        </button>
+                                    </div>
                                 </SettingItem>
                             </div>
                         </section>
