@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type EventLog } from '../types';
@@ -21,6 +21,7 @@ export function LogForm() {
     const [isEditing, setIsEditing] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+    const isSubmittingRef = useRef(false);
 
     const hasUnsavedChanges = useMemo(() => {
         if (isSaved) return false;
@@ -51,8 +52,14 @@ export function LogForm() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Guard against double submission
+        if (isSubmittingRef.current) return;
+
         const value = parseFloat(amount);
         if (value <= 0) return;
+
+        isSubmittingRef.current = true;
 
         const logData: EventLog = {
             id: isEditing && id ? id : generateId(),
@@ -63,13 +70,15 @@ export function LogForm() {
             date: new Date(date).toISOString(),
         };
 
+        // Set isSaved BEFORE mutation so the unsaved changes blocker won't fire during navigate
+        setIsSaved(true);
+
         if (isEditing && id) {
             updateEventLog(id, logData);
         } else {
             addEventLog(logData);
         }
 
-        setIsSaved(true);
         setShowSuccess(true);
         setTimeout(() => {
             setShowSuccess(false);

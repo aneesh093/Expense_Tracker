@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { Event } from '../types';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
@@ -58,6 +58,7 @@ export function EventForm() {
     }, [existingEvent]);
 
     const [isSaved, setIsSaved] = useState(false);
+    const isSubmittingRef = useRef(false);
 
     const hasUnsavedChanges = useMemo(() => {
         if (isSaved) return false;
@@ -70,10 +71,15 @@ export function EventForm() {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Guard against double submission
+        if (isSubmittingRef.current) return;
+
         if (!formData.name.trim()) {
             alert('Please enter an event/log name');
             return;
         }
+
+        isSubmittingRef.current = true;
 
         const eventData: Event = {
             id: id || crypto.randomUUID(),
@@ -88,13 +94,15 @@ export function EventForm() {
             showPlans: formData.showPlans
         };
 
+        // Set isSaved BEFORE mutation so the unsaved changes blocker won't fire during navigate
+        setIsSaved(true);
+
         if (isEditing) {
             updateEvent(eventData.id, eventData);
         } else {
             addEvent(eventData);
         }
 
-        setIsSaved(true);
         navigate('/events');
     };
 

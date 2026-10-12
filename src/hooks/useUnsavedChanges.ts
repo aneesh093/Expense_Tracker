@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useBlocker, type BlockerFunction } from 'react-router-dom';
 
 /**
@@ -13,12 +13,17 @@ export function useUnsavedChanges(
     hasUnsavedChanges: boolean,
     message: string = 'You have unsaved changes. Are you sure you want to leave? Your entered data will be lost.'
 ) {
+    // Use a ref so the blocker callback always reads the latest value synchronously,
+    // avoiding stale closure issues when state updates (e.g. setIsSaved) are batched
+    const hasChangesRef = useRef(hasUnsavedChanges);
+    hasChangesRef.current = hasUnsavedChanges;
+
     const shouldBlock = useCallback<BlockerFunction>(
         ({ currentLocation, nextLocation }) => {
-            if (!hasUnsavedChanges) return false;
+            if (!hasChangesRef.current) return false;
             return currentLocation.pathname !== nextLocation.pathname;
         },
-        [hasUnsavedChanges]
+        []
     );
 
     // Block in-app navigation via React Router when path changes

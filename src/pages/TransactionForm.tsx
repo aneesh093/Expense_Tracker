@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { type Transaction, type TransactionType } from '../types';
@@ -93,55 +93,68 @@ export function TransactionForm() {
         return list.slice().sort((a, b) => a.name.localeCompare(b.name));
     }, [accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes]);
 
+    const loadedTxIdRef = useRef<string | null>(null);
+
+    // Load existing transaction for editing once per transaction id
     useEffect(() => {
-        if (id) {
-            const transaction = transactions.find(t => t.id === id);
-            if (transaction) {
-                setAmount(transaction.amount.toString());
-                setType(transaction.type);
-                setSelectedAccountId(transaction.accountId);
-                if (transaction.type === 'transfer') {
-                    setToAccountId(transaction.toAccountId || '');
-                }
-                const category = categories.find(c => c.name === transaction.category);
-                const categoryId = category ? category.id : (categories[0]?.id || '');
-                setSelectedCategory(categoryId);
-                setSectionId(transaction.sectionId || '');
-                setSelectedEventId(transaction.eventId || '');
-                setNote(transaction.note || '');
-                let formattedDate = '';
-                if (transaction.date) {
-                    const d = new Date(transaction.date);
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    formattedDate = `${year}-${month}-${day}`;
-                } else {
-                    const d = new Date();
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    formattedDate = `${year}-${month}-${day}`;
-                }
-                setTransactionDate(formattedDate);
-                setExcludeFromBalance(!!transaction.excludeFromBalance);
-                setIsBillPayment(!!transaction.isBillPayment);
-                setIsAdjustment(!!transaction.isAdjustment);
-                setBillImage(transaction.billImage);
-                setIsEditing(true);
-                setInitialValues({
-                    amount: transaction.amount.toString(),
-                    note: transaction.note || '',
-                    accountId: transaction.accountId,
-                    toAccountId: transaction.type === 'transfer' ? (transaction.toAccountId || '') : '',
-                    type: transaction.type,
-                    category: categoryId,
-                    date: formattedDate,
-                    billImage: transaction.billImage,
-                });
-            }
-            return; // Don't run auto-selection logic if editing
+        if (!id) {
+            loadedTxIdRef.current = null;
+            return;
         }
+
+        if (loadedTxIdRef.current === id) return;
+
+        const transaction = transactions.find(t => t.id === id);
+        if (transaction) {
+            loadedTxIdRef.current = id;
+            setAmount(transaction.amount.toString());
+            setType(transaction.type);
+            setSelectedAccountId(transaction.accountId);
+            if (transaction.type === 'transfer') {
+                setToAccountId(transaction.toAccountId || '');
+            }
+            const category = categories.find(c => c.name === transaction.category);
+            const categoryId = category ? category.id : (categories[0]?.id || '');
+            setSelectedCategory(categoryId);
+            setSectionId(transaction.sectionId || '');
+            setSelectedEventId(transaction.eventId || '');
+            setNote(transaction.note || '');
+            let formattedDate = '';
+            if (transaction.date) {
+                const d = new Date(transaction.date);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                formattedDate = `${year}-${month}-${day}`;
+            } else {
+                const d = new Date();
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                formattedDate = `${year}-${month}-${day}`;
+            }
+            setTransactionDate(formattedDate);
+            setExcludeFromBalance(!!transaction.excludeFromBalance);
+            setIsBillPayment(!!transaction.isBillPayment);
+            setIsAdjustment(!!transaction.isAdjustment);
+            setBillImage(transaction.billImage);
+            setIsEditing(true);
+            setInitialValues({
+                amount: transaction.amount.toString(),
+                note: transaction.note || '',
+                accountId: transaction.accountId,
+                toAccountId: transaction.type === 'transfer' ? (transaction.toAccountId || '') : '',
+                type: transaction.type,
+                category: categoryId,
+                date: formattedDate,
+                billImage: transaction.billImage,
+            });
+        }
+    }, [id, transactions, categories]);
+
+    // Pre-fill defaults for NEW transactions only
+    useEffect(() => {
+        if (id) return; // Don't run auto-selection logic if editing
 
         // Pre-fill from URL params
         const eventIdParam = searchParams.get('eventId');
@@ -164,14 +177,17 @@ export function TransactionForm() {
             const firstValidCategory = sortedCategories.find(c => c.type === type);
             if (firstValidCategory) {
                 setSelectedCategory(firstValidCategory.id);
-                if (!note.trim() && firstValidCategory.defaultNote) {
-                    setNote(firstValidCategory.defaultNote.trim());
-                }
+                setNote(prevNote => {
+                    if (!prevNote.trim() && firstValidCategory.defaultNote) {
+                        return firstValidCategory.defaultNote.trim();
+                    }
+                    return prevNote;
+                });
             } else {
                 setSelectedCategory('');
             }
         }
-    }, [id, transactions, categories, searchParams, accounts, incomeIncludedAccountTypes, expenseIncludedAccountTypes, type, getVisibleAccounts, note, selectedCategory]);
+    }, [id, searchParams, type, getVisibleAccounts, categories, selectedAccountId, selectedCategory]);
 
     const visibleAccounts = getVisibleAccounts(type);
 
@@ -181,18 +197,21 @@ export function TransactionForm() {
         : visibleAccounts;
 
     const handleCategoryChange = (newCatId: string) => {
-        const prevCategory = categories.find(c => c.id === selectedCategory);
         const nextCategory = categories.find(c => c.id === newCatId);
         setSelectedCategory(newCatId);
 
-        // Auto-fill note:
-        // If note is currently empty, or matches previous category's default note
-        const noteTrimmed = note.trim();
-        const prevDefaultNote = prevCategory?.defaultNote?.trim();
         const nextDefaultNote = nextCategory?.defaultNote?.trim() || '';
 
-        if (!noteTrimmed || (prevDefaultNote && noteTrimmed === prevDefaultNote)) {
+        if (!isEditing) {
             setNote(nextDefaultNote);
+        } else {
+            const prevCategory = categories.find(c => c.id === selectedCategory);
+            const noteTrimmed = note.trim();
+            const prevDefaultNote = prevCategory?.defaultNote?.trim();
+
+            if (!noteTrimmed || (prevDefaultNote && noteTrimmed === prevDefaultNote)) {
+                setNote(nextDefaultNote);
+            }
         }
     };
 
@@ -386,6 +405,16 @@ export function TransactionForm() {
 
         if (isEditing && id) {
             editTransaction(id, transactionData);
+            setInitialValues({
+                amount: value.toString(),
+                note,
+                accountId: selectedAccountId,
+                toAccountId: type === 'transfer' ? toAccountId : '',
+                type,
+                category: selectedCategory,
+                date: transactionDate,
+                billImage: type === 'expense' ? billImage : undefined,
+            });
         } else {
             addTransaction(transactionData);
             setAmount('0');
