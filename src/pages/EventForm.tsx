@@ -66,7 +66,7 @@ export function EventForm() {
         return formData.name.trim() !== '' || formData.description?.trim() !== '';
     }, [formData.name, formData.description, isEditing, isSaved]);
 
-    useUnsavedChanges(hasUnsavedChanges);
+    const { markAsSaved } = useUnsavedChanges(hasUnsavedChanges);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -94,7 +94,8 @@ export function EventForm() {
             showPlans: formData.showPlans
         };
 
-        // Set isSaved BEFORE mutation so the unsaved changes blocker won't fire during navigate
+        // Synchronously bypass blocker and mark saved
+        markAsSaved();
         setIsSaved(true);
 
         if (isEditing) {

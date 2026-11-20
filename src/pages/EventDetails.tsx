@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useMemo, useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Edit2, Trash2, Plus, ArrowUpRight, ArrowDownRight, Calendar, Paperclip, Download } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Plus, ArrowUpRight, ArrowDownRight, Calendar, Paperclip, Download, Target, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { generateEventPDF } from '../lib/pdfGenerator';
 
@@ -126,9 +126,12 @@ export function EventDetails() {
             totalExpense: grandTotalExpense,
             totalIncome: grandTotalIncome,
             totalPlanned,
-            netAmount: grandTotalIncome - grandTotalExpense
+            netAmount: grandTotalIncome - grandTotalExpense,
+            remainingBudget: totalPlanned - grandTotalExpense
         };
     }, [eventTransactions, eventLogsList, eventPlansList]);
+
+    const hasPlannedBudget = isPlansVisible && stats.totalPlanned > 0;
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -195,64 +198,234 @@ export function EventDetails() {
 
             {/* Event Info Card */}
             <div
-                className="rounded-2xl p-6 text-white shadow-xl"
+                className="relative overflow-hidden rounded-3xl p-6 text-white shadow-lg"
                 style={{ background: `linear-gradient(135deg, ${event.color} 0%, ${event.color}dd 100%)` }}
             >
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center space-x-3">
-                        <div className="text-4xl">{event.icon}</div>
-                        <div>
-                            <h1 className="text-2xl font-bold">{event.name}</h1>
-                            <p className="text-white/80 text-sm flex items-center mt-1">
-                                <Calendar size={14} className="mr-1" />
-                                {format(parseISO(event.startDate), 'MMM dd, yyyy')}
-                                {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
-                            </p>
+                {/* Subtle decorative glow */}
+                <div className="absolute -top-10 -right-10 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="relative flex justify-between items-start gap-3">
+                    <div className="flex items-center space-x-3.5 min-w-0">
+                        <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                            {event.icon}
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">{event.name}</h1>
+                            <div className="inline-flex items-center text-white/90 text-xs font-medium mt-1 bg-black/10 px-2.5 py-0.5 rounded-full backdrop-blur-sm">
+                                <Calendar size={12} className="mr-1.5 shrink-0" />
+                                <span className="truncate">
+                                    {format(parseISO(event.startDate), 'MMM dd, yyyy')}
+                                    {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <div className="text-right bg-white p-2.5 rounded-xl shadow-sm border border-white/20">
-                        <p className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Balance</p>
+
+                    {/* Top Metric Pill */}
+                    <div className="bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-sm text-right shrink-0 border border-white/40 min-w-[105px]">
+                        <p className="text-[10px] text-gray-500 uppercase font-extrabold tracking-wider">
+                            {hasPlannedBudget
+                                ? 'Remaining'
+                                : (stats.totalIncome > 0 ? 'Net Balance' : 'Total Spent')}
+                        </p>
                         <p className={cn(
                             "text-lg sm:text-xl font-bold font-mono tracking-tight",
-                            stats.netAmount >= 0 ? "text-green-600" : "text-red-600"
+                            hasPlannedBudget
+                                ? (stats.remainingBudget >= 0 ? "text-emerald-600" : "text-rose-600")
+                                : (stats.totalIncome > 0
+                                    ? (stats.netAmount >= 0 ? "text-emerald-600" : "text-rose-600")
+                                    : "text-gray-900")
                         )}>
-                            {formatCurrency(stats.netAmount)}
+                            {hasPlannedBudget
+                                ? formatCurrency(stats.remainingBudget)
+                                : (stats.totalIncome > 0
+                                    ? formatCurrency(stats.netAmount)
+                                    : formatCurrency(stats.totalExpense))}
                         </p>
+                        {hasPlannedBudget && (
+                            <span className={cn(
+                                "text-[10px] font-bold px-1.5 py-0.5 rounded-md inline-block mt-0.5",
+                                stats.remainingBudget >= 0
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : "bg-rose-50 text-rose-700"
+                            )}>
+                                {stats.remainingBudget >= 0
+                                    ? `${Math.max(0, 100 - Math.round((stats.totalExpense / stats.totalPlanned) * 100))}% left`
+                                    : 'Over budget'}
+                            </span>
+                        )}
                     </div>
                 </div>
+
                 {event.description && (
-                    <p className="text-white/90 text-sm">{event.description}</p>
+                    <p className="relative text-white/90 text-sm mt-3.5 pt-3 border-t border-white/15 leading-relaxed">{event.description}</p>
                 )}
             </div>
 
-            {/* Overall Stats Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
-                <div className="grid grid-cols-2">
-                    <div className="p-4 border-r border-gray-50">
-                        <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1 text-center">Actual Spent</p>
-                        <p className="text-lg font-bold text-red-600 text-center">{formatCurrency(stats.totalExpense)}</p>
-                    </div>
-                    <div className="p-4">
-                        <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1 text-center">Planned Budget</p>
-                        <p className="text-lg font-bold text-blue-600 text-center">{formatCurrency(stats.totalPlanned)}</p>
-                    </div>
-                </div>
-                <div className="p-3 bg-gray-50/50 flex justify-center">
-                    <div className="flex items-center space-x-2">
-                        <div className="h-1.5 w-24 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                                className={cn(
-                                    "h-full rounded-full transition-all duration-500",
-                                    stats.totalExpense > stats.totalPlanned ? "bg-red-500" : "bg-blue-500"
-                                )}
-                                style={{ width: `${Math.min(100, (stats.totalExpense / (stats.totalPlanned || 1)) * 100)}%` }}
-                            />
+            {/* Overall Stats Card */}
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 space-y-4">
+                {hasPlannedBudget ? (
+                    <>
+                        {/* Progress Header */}
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="flex items-center space-x-1.5">
+                                    <Target size={15} className="text-blue-600" />
+                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                        Budget Progress
+                                    </span>
+                                </div>
+                                <span className={cn(
+                                    "text-xs font-bold px-2.5 py-0.5 rounded-full",
+                                    stats.totalExpense > stats.totalPlanned
+                                        ? "bg-rose-100 text-rose-700"
+                                        : "bg-blue-100 text-blue-700"
+                                )}>
+                                    {Math.round((stats.totalExpense / stats.totalPlanned) * 100)}% of budget
+                                </span>
+                            </div>
+
+                            {/* Full-width smooth progress bar */}
+                            <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden p-0.5">
+                                <div
+                                    className={cn(
+                                        "h-full rounded-full transition-all duration-500",
+                                        stats.totalExpense > stats.totalPlanned
+                                            ? "bg-gradient-to-r from-rose-500 to-red-600"
+                                            : "bg-gradient-to-r from-blue-500 to-indigo-600"
+                                    )}
+                                    style={{ width: `${Math.min(100, (stats.totalExpense / stats.totalPlanned) * 100)}%` }}
+                                />
+                            </div>
+
+                            <div className="flex justify-between items-center text-[11px] text-gray-500 mt-1.5 px-0.5">
+                                <span>Spent: <strong className="text-gray-900 font-mono">{formatCurrency(stats.totalExpense)}</strong></span>
+                                <span>Budget: <strong className="text-gray-900 font-mono">{formatCurrency(stats.totalPlanned)}</strong></span>
+                            </div>
                         </div>
-                        <span className="text-[10px] font-bold text-gray-500">
-                            {stats.totalPlanned > 0 ? `${Math.round((stats.totalExpense / stats.totalPlanned) * 100)}% of budget` : 'No plan budget'}
-                        </span>
-                    </div>
-                </div>
+
+                        {/* Breakdown Tiles */}
+                        <div className={cn(
+                            "grid gap-2.5 pt-3 border-t border-gray-100",
+                            stats.totalIncome > 0 ? "grid-cols-3" : "grid-cols-2"
+                        )}>
+                            <div className="bg-rose-50/50 p-3 rounded-2xl border border-rose-100/60 flex flex-col items-center text-center">
+                                <div className="flex items-center space-x-1 text-rose-600 mb-1">
+                                    <TrendingDown size={13} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Spent</span>
+                                </div>
+                                <span className="text-sm sm:text-base font-bold font-mono text-rose-700">
+                                    {formatCurrency(stats.totalExpense)}
+                                </span>
+                            </div>
+
+                            <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/60 flex flex-col items-center text-center">
+                                <div className="flex items-center space-x-1 text-blue-600 mb-1">
+                                    <Target size={13} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Budget</span>
+                                </div>
+                                <span className="text-sm sm:text-base font-bold font-mono text-blue-700">
+                                    {formatCurrency(stats.totalPlanned)}
+                                </span>
+                            </div>
+
+                            {stats.totalIncome > 0 && (
+                                <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/60 flex flex-col items-center text-center">
+                                    <div className="flex items-center space-x-1 text-emerald-600 mb-1">
+                                        <TrendingUp size={13} />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Inflow</span>
+                                    </div>
+                                    <span className="text-sm sm:text-base font-bold font-mono text-emerald-700">
+                                        {formatCurrency(stats.totalIncome)}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Dedicated Pool Cash Balance Row if inflows exist */}
+                        {stats.totalIncome > 0 && (
+                            <div className="flex items-center justify-between px-3.5 py-2.5 bg-gray-50 rounded-2xl border border-gray-100 text-xs">
+                                <div className="flex items-center space-x-2 text-gray-600">
+                                    <Wallet size={14} className="text-gray-500" />
+                                    <span className="font-medium">Pool Cash Balance</span>
+                                </div>
+                                <div className={cn(
+                                    "font-bold font-mono",
+                                    stats.netAmount >= 0 ? "text-emerald-600" : "text-rose-600"
+                                )}>
+                                    {stats.netAmount >= 0 ? '+' : ''}{formatCurrency(stats.netAmount)}
+                                </div>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        {/* Unplanned Trip State */}
+                        <div className={cn(
+                            "grid gap-2.5",
+                            stats.totalIncome > 0 ? "grid-cols-2" : "grid-cols-2"
+                        )}>
+                            <div className="bg-rose-50/50 p-3.5 rounded-2xl border border-rose-100/60 flex flex-col items-center text-center">
+                                <div className="flex items-center space-x-1 text-rose-600 mb-1">
+                                    <TrendingDown size={14} />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Actual Spent</span>
+                                </div>
+                                <span className="text-base sm:text-lg font-bold font-mono text-rose-700">
+                                    {formatCurrency(stats.totalExpense)}
+                                </span>
+                            </div>
+
+                            {stats.totalIncome > 0 ? (
+                                <div className="bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-100/60 flex flex-col items-center text-center">
+                                    <div className="flex items-center space-x-1 text-emerald-600 mb-1">
+                                        <TrendingUp size={14} />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Total Inflow</span>
+                                    </div>
+                                    <span className="text-base sm:text-lg font-bold font-mono text-emerald-700">
+                                        {formatCurrency(stats.totalIncome)}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 flex flex-col items-center text-center">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Activity</span>
+                                    <span className="text-base sm:text-lg font-bold text-gray-800">
+                                        {eventTransactions.length + eventLogsList.length} items
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {stats.totalIncome > 0 && (
+                            <div className="flex items-center justify-between px-3.5 py-2.5 bg-gray-50 rounded-2xl border border-gray-100 text-xs">
+                                <div className="flex items-center space-x-2 text-gray-600">
+                                    <Wallet size={14} className="text-gray-500" />
+                                    <span className="font-medium">Net Pool Balance</span>
+                                </div>
+                                <div className={cn(
+                                    "font-bold font-mono",
+                                    stats.netAmount >= 0 ? "text-emerald-600" : "text-rose-600"
+                                )}>
+                                    {stats.netAmount >= 0 ? '+' : ''}{formatCurrency(stats.netAmount)}
+                                </div>
+                            </div>
+                        )}
+
+                        {isPlansVisible && (
+                            <div className="flex items-center justify-between p-3.5 bg-blue-50/60 rounded-2xl border border-blue-100/70 text-xs text-blue-900">
+                                <div className="flex items-center space-x-2">
+                                    <Target size={15} className="text-blue-600 shrink-0" />
+                                    <span className="font-medium">No planned budget set</span>
+                                </div>
+                                <button
+                                    onClick={() => navigate(`/plans/new?eventId=${id}`)}
+                                    className="px-3 py-1 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 active:scale-95 transition-all shadow-sm shadow-blue-500/20 shrink-0"
+                                >
+                                    Set Budget
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
 
             {/* Custom Tabs */}

@@ -40,7 +40,7 @@ export function PlanForm() {
         return amount.trim() !== '' || description.trim() !== '';
     }, [amount, description, isEditing, isSaved]);
 
-    useUnsavedChanges(hasUnsavedChanges);
+    const { markAsSaved } = useUnsavedChanges(hasUnsavedChanges);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,13 +59,15 @@ export function PlanForm() {
             date: new Date(date).toISOString(),
         };
 
+        markAsSaved();
+        setIsSaved(true);
+
         if (isEditing) {
             updateEventPlan(planData.id, planData);
         } else {
             addEventPlan(planData);
         }
 
-        setIsSaved(true);
         navigate(`/events/${selectedEventId}`);
     };
 

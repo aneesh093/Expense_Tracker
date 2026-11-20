@@ -77,7 +77,7 @@ export function TransactionForm() {
         );
     }, [amount, note, billImage, isEditing, isSaved, initialValues, type, selectedAccountId, toAccountId, selectedCategory, transactionDate]);
 
-    useUnsavedChanges(hasUnsavedChanges);
+    const { markAsSaved } = useUnsavedChanges(hasUnsavedChanges);
 
     const getVisibleAccounts = useCallback((currentType: TransactionType) => {
         let list = accounts;
@@ -428,6 +428,7 @@ export function TransactionForm() {
 
     const handleDeleteTransaction = () => {
         if (id && confirm('Are you sure you want to delete this transaction?')) {
+            markAsSaved();
             deleteTransaction(id);
             setIsSaved(true);
             navigate(-1);

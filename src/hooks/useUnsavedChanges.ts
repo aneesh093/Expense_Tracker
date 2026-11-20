@@ -13,6 +13,9 @@ export function useUnsavedChanges(
     hasUnsavedChanges: boolean,
     message: string = 'You have unsaved changes. Are you sure you want to leave? Your entered data will be lost.'
 ) {
+    // Flag to bypass the blocker synchronously upon intentional submit/save
+    const isBypassedRef = useRef(false);
+
     // Use a ref so the blocker callback always reads the latest value synchronously,
     // avoiding stale closure issues when state updates (e.g. setIsSaved) are batched
     const hasChangesRef = useRef(hasUnsavedChanges);
@@ -20,6 +23,7 @@ export function useUnsavedChanges(
 
     const shouldBlock = useCallback<BlockerFunction>(
         ({ currentLocation, nextLocation }) => {
+            if (isBypassedRef.current) return false;
             if (!hasChangesRef.current) return false;
             return currentLocation.pathname !== nextLocation.pathname;
         },
@@ -32,6 +36,10 @@ export function useUnsavedChanges(
     // Show confirmation dialog when blocker is triggered
     useEffect(() => {
         if (blocker.state === 'blocked') {
+            if (isBypassedRef.current) {
+                blocker.proceed();
+                return;
+            }
             const proceed = window.confirm(message);
             if (proceed) {
                 blocker.proceed();
@@ -46,6 +54,7 @@ export function useUnsavedChanges(
         if (!hasUnsavedChanges) return;
 
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isBypassedRef.current) return;
             e.preventDefault();
             // Modern browsers show their own message, but returnValue is still needed
             e.returnValue = message;
@@ -55,4 +64,11 @@ export function useUnsavedChanges(
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges, message]);
+
+    const markAsSaved = useCallback(() => {
+        isBypassedRef.current = true;
+        hasChangesRef.current = false;
+    }, []);
+
+    return { markAsSaved, bypass: markAsSaved };
 }

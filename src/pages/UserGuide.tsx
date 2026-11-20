@@ -14,7 +14,7 @@ export function UserGuide() {
                     <li><strong>Net Worth:</strong> Your total financial health. Swipe or check settings to include/exclude specific assets (like Land or Insurance).</li>
                     <li><strong>Privacy Mode:</strong> Tap the eye icon to hide/show balances. This setting persists across the app.</li>
                     <li><strong>Quick Stats:</strong> View monthly Income, Expense, and Today's Spend at a glance.</li>
-                    <li><strong>Recent Activity:</strong> Showing your latest 5 transactions.</li>
+                    <li><strong>Recent Activity:</strong> Showing your latest 10 transactions.</li>
                 </ul>
             )
         },
