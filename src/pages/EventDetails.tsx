@@ -198,38 +198,39 @@ export function EventDetails() {
 
             {/* Event Info Card */}
             <div
-                className="relative overflow-hidden rounded-3xl p-6 text-white shadow-lg"
+                className="relative overflow-hidden rounded-3xl p-5 text-white shadow-lg space-y-3.5"
                 style={{ background: `linear-gradient(135deg, ${event.color} 0%, ${event.color}dd 100%)` }}
             >
                 {/* Subtle decorative glow */}
                 <div className="absolute -top-10 -right-10 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
 
-                <div className="relative flex justify-between items-start gap-3">
-                    <div className="flex items-center space-x-3.5 min-w-0">
-                        <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-2xl shadow-inner shrink-0">
-                            {event.icon}
-                        </div>
-                        <div className="min-w-0">
-                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">{event.name}</h1>
-                            <div className="inline-flex items-center text-white/90 text-xs font-medium mt-1 bg-black/10 px-2.5 py-0.5 rounded-full backdrop-blur-sm">
-                                <Calendar size={12} className="mr-1.5 shrink-0" />
-                                <span className="truncate">
-                                    {format(parseISO(event.startDate), 'MMM dd, yyyy')}
-                                    {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
-                                </span>
-                            </div>
+                {/* Event Header: Full width on mobile so dates never get truncated */}
+                <div className="relative flex items-center space-x-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                        {event.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">{event.name}</h1>
+                        <div className="inline-flex items-center text-white/95 text-xs font-medium mt-1 bg-black/15 px-2.5 py-0.5 rounded-full backdrop-blur-sm">
+                            <Calendar size={12} className="mr-1.5 shrink-0" />
+                            <span>
+                                {format(parseISO(event.startDate), 'MMM dd, yyyy')}
+                                {event.endDate && ` - ${format(parseISO(event.endDate), 'MMM dd, yyyy')}`}
+                            </span>
                         </div>
                     </div>
+                </div>
 
-                    {/* Top Metric Pill */}
-                    <div className="bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-sm text-right shrink-0 border border-white/40 min-w-[105px]">
+                {/* Hero Metric Banner: Full width, spacious & mobile-optimized */}
+                <div className="relative bg-white/95 backdrop-blur-md px-4 py-3 rounded-2xl shadow-sm border border-white/40 flex items-center justify-between text-gray-900">
+                    <div className="min-w-0 pr-2">
                         <p className="text-[10px] text-gray-500 uppercase font-extrabold tracking-wider">
                             {hasPlannedBudget
-                                ? 'Remaining'
+                                ? 'Remaining Budget'
                                 : (stats.totalIncome > 0 ? 'Net Balance' : 'Total Spent')}
                         </p>
                         <p className={cn(
-                            "text-lg sm:text-xl font-bold font-mono tracking-tight",
+                            "text-xl sm:text-2xl font-extrabold font-mono tracking-tight mt-0.5 truncate",
                             hasPlannedBudget
                                 ? (stats.remainingBudget >= 0 ? "text-emerald-600" : "text-rose-600")
                                 : (stats.totalIncome > 0
@@ -242,23 +243,24 @@ export function EventDetails() {
                                     ? formatCurrency(stats.netAmount)
                                     : formatCurrency(stats.totalExpense))}
                         </p>
-                        {hasPlannedBudget && (
-                            <span className={cn(
-                                "text-[10px] font-bold px-1.5 py-0.5 rounded-md inline-block mt-0.5",
-                                stats.remainingBudget >= 0
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-rose-50 text-rose-700"
-                            )}>
-                                {stats.remainingBudget >= 0
-                                    ? `${Math.max(0, 100 - Math.round((stats.totalExpense / stats.totalPlanned) * 100))}% left`
-                                    : 'Over budget'}
-                            </span>
-                        )}
                     </div>
+
+                    {hasPlannedBudget && (
+                        <span className={cn(
+                            "text-xs font-bold px-3 py-1 rounded-full shrink-0",
+                            stats.remainingBudget >= 0
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
+                        )}>
+                            {stats.remainingBudget >= 0
+                                ? `${Math.max(0, 100 - Math.round((stats.totalExpense / stats.totalPlanned) * 100))}% left`
+                                : 'Over budget'}
+                        </span>
+                    )}
                 </div>
 
                 {event.description && (
-                    <p className="relative text-white/90 text-sm mt-3.5 pt-3 border-t border-white/15 leading-relaxed">{event.description}</p>
+                    <p className="relative text-white/90 text-sm pt-1 leading-relaxed">{event.description}</p>
                 )}
             </div>
 
@@ -299,94 +301,93 @@ export function EventDetails() {
                             </div>
 
                             <div className="flex justify-between items-center text-[11px] text-gray-500 mt-1.5 px-0.5">
-                                <span>Spent: <strong className="text-gray-900 font-mono">{formatCurrency(stats.totalExpense)}</strong></span>
+                                <span>
+                                    {stats.remainingBudget >= 0 ? (
+                                        <>Remaining: <strong className="text-emerald-600 font-mono">{formatCurrency(stats.remainingBudget)}</strong></>
+                                    ) : (
+                                        <>Deficit: <strong className="text-rose-600 font-mono">{formatCurrency(Math.abs(stats.remainingBudget))}</strong></>
+                                    )}
+                                </span>
                                 <span>Budget: <strong className="text-gray-900 font-mono">{formatCurrency(stats.totalPlanned)}</strong></span>
                             </div>
                         </div>
 
-                        {/* Breakdown Tiles */}
-                        <div className={cn(
-                            "grid gap-2.5 pt-3 border-t border-gray-100",
-                            stats.totalIncome > 0 ? "grid-cols-3" : "grid-cols-2"
-                        )}>
-                            <div className="bg-rose-50/50 p-3 rounded-2xl border border-rose-100/60 flex flex-col items-center text-center">
-                                <div className="flex items-center space-x-1 text-rose-600 mb-1">
-                                    <TrendingDown size={13} />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">Spent</span>
+                        {/* Breakdown 2-Column Responsive Grid (No horizontal cramping on mobile) */}
+                        <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-gray-100">
+                            <div className="bg-rose-50/60 p-3 rounded-2xl border border-rose-100/70 flex flex-col justify-between">
+                                <div className="flex items-center space-x-1.5 text-rose-600 mb-1">
+                                    <TrendingDown size={14} className="shrink-0" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Actual Spent</span>
                                 </div>
-                                <span className="text-sm sm:text-base font-bold font-mono text-rose-700">
+                                <span className="text-sm sm:text-base font-extrabold font-mono text-rose-700 truncate">
                                     {formatCurrency(stats.totalExpense)}
                                 </span>
                             </div>
 
-                            <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/60 flex flex-col items-center text-center">
-                                <div className="flex items-center space-x-1 text-blue-600 mb-1">
-                                    <Target size={13} />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">Budget</span>
+                            <div className="bg-blue-50/60 p-3 rounded-2xl border border-blue-100/70 flex flex-col justify-between">
+                                <div className="flex items-center space-x-1.5 text-blue-600 mb-1">
+                                    <Target size={14} className="shrink-0" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Planned Budget</span>
                                 </div>
-                                <span className="text-sm sm:text-base font-bold font-mono text-blue-700">
+                                <span className="text-sm sm:text-base font-extrabold font-mono text-blue-700 truncate">
                                     {formatCurrency(stats.totalPlanned)}
                                 </span>
                             </div>
 
                             {stats.totalIncome > 0 && (
-                                <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/60 flex flex-col items-center text-center">
-                                    <div className="flex items-center space-x-1 text-emerald-600 mb-1">
-                                        <TrendingUp size={13} />
-                                        <span className="text-[10px] font-bold uppercase tracking-wider">Inflow</span>
+                                <>
+                                    <div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100/70 flex flex-col justify-between">
+                                        <div className="flex items-center space-x-1.5 text-emerald-600 mb-1">
+                                            <TrendingUp size={14} className="shrink-0" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">Total Inflow</span>
+                                        </div>
+                                        <span className="text-sm sm:text-base font-extrabold font-mono text-emerald-700 truncate">
+                                            {formatCurrency(stats.totalIncome)}
+                                        </span>
                                     </div>
-                                    <span className="text-sm sm:text-base font-bold font-mono text-emerald-700">
-                                        {formatCurrency(stats.totalIncome)}
-                                    </span>
-                                </div>
+
+                                    <div className="bg-gray-50/80 p-3 rounded-2xl border border-gray-200/80 flex flex-col justify-between">
+                                        <div className="flex items-center space-x-1.5 text-gray-600 mb-1">
+                                            <Wallet size={14} className="shrink-0 text-gray-500" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">Pool Cash</span>
+                                        </div>
+                                        <span className={cn(
+                                            "text-sm sm:text-base font-extrabold font-mono truncate",
+                                            stats.netAmount >= 0 ? "text-emerald-700" : "text-rose-700"
+                                        )}>
+                                            {stats.netAmount >= 0 ? '+' : ''}{formatCurrency(stats.netAmount)}
+                                        </span>
+                                    </div>
+                                </>
                             )}
                         </div>
-
-                        {/* Dedicated Pool Cash Balance Row if inflows exist */}
-                        {stats.totalIncome > 0 && (
-                            <div className="flex items-center justify-between px-3.5 py-2.5 bg-gray-50 rounded-2xl border border-gray-100 text-xs">
-                                <div className="flex items-center space-x-2 text-gray-600">
-                                    <Wallet size={14} className="text-gray-500" />
-                                    <span className="font-medium">Pool Cash Balance</span>
-                                </div>
-                                <div className={cn(
-                                    "font-bold font-mono",
-                                    stats.netAmount >= 0 ? "text-emerald-600" : "text-rose-600"
-                                )}>
-                                    {stats.netAmount >= 0 ? '+' : ''}{formatCurrency(stats.netAmount)}
-                                </div>
-                            </div>
-                        )}
                     </>
                 ) : (
                     <>
                         {/* Unplanned Trip State */}
-                        <div className={cn(
-                            "grid gap-2.5",
-                            stats.totalIncome > 0 ? "grid-cols-2" : "grid-cols-2"
-                        )}>
-                            <div className="bg-rose-50/50 p-3.5 rounded-2xl border border-rose-100/60 flex flex-col items-center text-center">
-                                <div className="flex items-center space-x-1 text-rose-600 mb-1">
-                                    <TrendingDown size={14} />
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <div className="bg-rose-50/60 p-3.5 rounded-2xl border border-rose-100/70 flex flex-col justify-between">
+                                <div className="flex items-center space-x-1.5 text-rose-600 mb-1">
+                                    <TrendingDown size={14} className="shrink-0" />
                                     <span className="text-[10px] font-bold uppercase tracking-wider">Actual Spent</span>
                                 </div>
-                                <span className="text-base sm:text-lg font-bold font-mono text-rose-700">
+                                <span className="text-base sm:text-lg font-bold font-mono text-rose-700 truncate">
                                     {formatCurrency(stats.totalExpense)}
                                 </span>
                             </div>
 
                             {stats.totalIncome > 0 ? (
-                                <div className="bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-100/60 flex flex-col items-center text-center">
-                                    <div className="flex items-center space-x-1 text-emerald-600 mb-1">
-                                        <TrendingUp size={14} />
+                                <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-100/70 flex flex-col justify-between">
+                                    <div className="flex items-center space-x-1.5 text-emerald-600 mb-1">
+                                        <TrendingUp size={14} className="shrink-0" />
                                         <span className="text-[10px] font-bold uppercase tracking-wider">Total Inflow</span>
                                     </div>
-                                    <span className="text-base sm:text-lg font-bold font-mono text-emerald-700">
+                                    <span className="text-base sm:text-lg font-bold font-mono text-emerald-700 truncate">
                                         {formatCurrency(stats.totalIncome)}
                                     </span>
                                 </div>
                             ) : (
-                                <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 flex flex-col items-center text-center">
+                                <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 flex flex-col justify-between">
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Activity</span>
                                     <span className="text-base sm:text-lg font-bold text-gray-800">
                                         {eventTransactions.length + eventLogsList.length} items
@@ -398,7 +399,7 @@ export function EventDetails() {
                         {stats.totalIncome > 0 && (
                             <div className="flex items-center justify-between px-3.5 py-2.5 bg-gray-50 rounded-2xl border border-gray-100 text-xs">
                                 <div className="flex items-center space-x-2 text-gray-600">
-                                    <Wallet size={14} className="text-gray-500" />
+                                    <Wallet size={14} className="text-gray-500 shrink-0" />
                                     <span className="font-medium">Net Pool Balance</span>
                                 </div>
                                 <div className={cn(
