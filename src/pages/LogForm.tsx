@@ -29,7 +29,7 @@ export function LogForm() {
         return amount !== '0' || description.trim() !== '';
     }, [amount, description, isEditing, isSaved]);
 
-    useUnsavedChanges(hasUnsavedChanges);
+    const { markAsSaved } = useUnsavedChanges(hasUnsavedChanges);
 
     useEffect(() => {
         const eventIdParam = searchParams.get('eventId');
@@ -71,6 +71,7 @@ export function LogForm() {
         };
 
         // Set isSaved BEFORE mutation so the unsaved changes blocker won't fire during navigate
+        markAsSaved();
         setIsSaved(true);
 
         if (isEditing && id) {
@@ -88,6 +89,7 @@ export function LogForm() {
 
     const handleDelete = () => {
         if (id && confirm('Are you sure you want to delete this log?')) {
+            markAsSaved();
             deleteEventLog(id);
             setIsSaved(true);
             navigate(-1);

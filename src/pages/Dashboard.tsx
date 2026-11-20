@@ -5,7 +5,6 @@ import {
     format,
     startOfMonth,
     endOfMonth,
-    isWithinInterval,
     isSameDay,
     startOfWeek,
     addDays,
@@ -23,12 +22,7 @@ import {
     BookOpen,
     ChevronLeft,
     ChevronRight,
-    Paperclip,
-    ArrowUp,
-    ArrowDown,
-    TrendingUp,
-    CreditCard,
-    Landmark
+    Paperclip
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -40,8 +34,7 @@ export function Dashboard() {
         events,
         isBalanceHidden,
         toggleBalanceHidden,
-        isAccountTypeHidden,
-        getCreditCardStats
+        isAccountTypeHidden
     } = useFinanceStore();
 
     const [spendViewMode, setSpendViewMode] = useState<'week' | 'month'>('week');
@@ -205,87 +198,6 @@ export function Dashboard() {
         };
     }, [transactions, accounts, dashboardMonthDate]);
 
-    // Period Transactions for Financial Overview
-    const periodStart = useMemo(() => startOfMonth(dashboardMonthDate), [dashboardMonthDate]);
-    const periodEnd = useMemo(() => endOfMonth(dashboardMonthDate), [dashboardMonthDate]);
-
-    const periodTransactions = useMemo(() => {
-        const reportAccountIds = new Set(
-            accounts
-                .filter(a => a.includeInReports !== false && a.includeInNetWorth !== false)
-                .map(a => a.id)
-        );
-
-        return transactions.filter(t => {
-            const account = accounts.find(a => a.id === t.accountId);
-            if (account && account.includeInNetWorth === false) return false;
-            if (t.toAccountId) {
-                const toAccount = accounts.find(a => a.id === t.toAccountId);
-                if (toAccount && toAccount.includeInNetWorth === false) return false;
-            }
-
-            if (t.eventId) {
-                const event = events.find(e => e.id === t.eventId);
-                if (event?.includeInReports === false) return false;
-            }
-
-            const isIncluded = t.excludeFromBalance ||
-                reportAccountIds.size === 0 ||
-                reportAccountIds.has(t.accountId) ||
-                (t.toAccountId && reportAccountIds.has(t.toAccountId));
-
-            if (!isIncluded) return false;
-
-            return isWithinInterval(new Date(t.date), { start: periodStart, end: periodEnd });
-        });
-    }, [transactions, accounts, events, periodStart, periodEnd]);
-
-    const isInvestment = (t: any) => {
-        if (t.type !== 'transfer' || !t.toAccountId) return false;
-        const toAccount = accounts.find(a => a.id === t.toAccountId);
-        return toAccount?.type === 'stock' || toAccount?.type === 'mutual-fund';
-    };
-
-    // Financial Overview Totals
-    const { totalPeriodIncome, totalPeriodExpense, totalInvestment, totalCreditCardPayment, totalLoanRepayment } = useMemo(() => {
-        return periodTransactions.reduce((acc, t) => {
-            if (t.type === 'income') acc.totalPeriodIncome += t.amount;
-            else if (t.type === 'expense') {
-                if (!t.excludeFromBalance) acc.totalPeriodExpense += t.amount;
-            }
-            else if (isInvestment(t)) acc.totalInvestment += t.amount;
-            else if (t.type === 'transfer') {
-                if (t.toAccountId) {
-                    const toAccount = accounts.find(a => a.id === t.toAccountId);
-                    if (toAccount?.type === 'credit') {
-                        acc.totalCreditCardPayment += t.amount;
-                    } else if (toAccount?.type === 'loan') {
-                        acc.totalLoanRepayment += t.amount;
-                    }
-                }
-            }
-            return acc;
-        }, { totalPeriodIncome: 0, totalPeriodExpense: 0, totalInvestment: 0, totalCreditCardPayment: 0, totalLoanRepayment: 0 });
-    }, [periodTransactions, accounts]);
-
-    // Credit Card Spends
-    const creditCardAsOfDate = useMemo(() => {
-        const today = new Date();
-        return (dashboardMonthDate.getMonth() === today.getMonth() && dashboardMonthDate.getFullYear() === today.getFullYear()) ? today : periodEnd;
-    }, [dashboardMonthDate, periodEnd]);
-
-    const creditCardStats = useMemo(() => {
-        return accounts
-            .filter(a => a.type === 'credit' && a.includeInReports !== false && a.includeInNetWorth !== false)
-            .reduce((acc, card) => {
-                const stats = getCreditCardStats(card.id, creditCardAsOfDate);
-                return {
-                    billed: acc.billed + stats.billed,
-                    unbilled: acc.unbilled + stats.unbilled
-                };
-            }, { billed: 0, unbilled: 0 });
-    }, [accounts, getCreditCardStats, creditCardAsOfDate]);
-
     // Recent Transactions
     const filteredTransactions = useMemo(() => {
         const targetAccountIds = new Set(
@@ -318,7 +230,7 @@ export function Dashboard() {
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [transactions, accounts]);
 
-    const recentTransactions = filteredTransactions.slice(0, 5);
+    const recentTransactions = filteredTransactions.slice(0, 10);
 
     const lastUpdated = useMemo(() => {
         if (transactions.length === 0) return null;
@@ -600,104 +512,7 @@ export function Dashboard() {
                 </div>
             </section>
 
-            {/* Financial Overview */}
-            <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
-                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Financial Overview</h3>
-                    <div className="flex items-center space-x-1.5">
-                        <span className="text-xs text-gray-500 font-bold">{format(dashboardMonthDate, 'MMMM yyyy')}</span>
-                        <button
-                            onClick={() => setMonthOffset(prev => prev - 1)}
-                            className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-                            title="Previous Month"
-                        >
-                            <ChevronLeft size={16} />
-                        </button>
-                        <button
-                            onClick={() => setMonthOffset(prev => Math.min(0, prev + 1))}
-                            disabled={monthOffset === 0}
-                            className={cn(
-                                "p-1 rounded-md transition-colors",
-                                monthOffset === 0 ? "text-gray-200 cursor-not-allowed" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                            )}
-                            title="Next Month"
-                        >
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
-                </div>
-                <div className="divide-y divide-gray-50">
-                    <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-green-50 text-green-600 rounded-xl">
-                                <ArrowUp size={18} />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-600">Total Income</span>
-                        </div>
-                        <span className="text-base font-bold text-green-600">{formatCurrency(totalPeriodIncome)}</span>
-                    </div>
-                    <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-red-50 text-red-600 rounded-xl">
-                                <ArrowDown size={18} />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-600">Total Expenses</span>
-                        </div>
-                        <span className="text-base font-bold text-red-600">{formatCurrency(totalPeriodExpense)}</span>
-                    </div>
-                    <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
-                                <TrendingUp size={18} />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-600">Total Invested</span>
-                        </div>
-                        <span className="text-base font-bold text-purple-600">{formatCurrency(totalInvestment)}</span>
-                    </div>
-                    {totalCreditCardPayment > 0 && (
-                        <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                                    <CreditCard size={18} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-600">Credit Card Payments</span>
-                            </div>
-                            <span className="text-base font-bold text-indigo-600">{formatCurrency(totalCreditCardPayment)}</span>
-                        </div>
-                    )}
-                    {totalLoanRepayment > 0 && (
-                        <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
-                                    <Landmark size={18} />
-                                </div>
-                                <span className="text-sm font-semibold text-gray-600">Loan Repayments</span>
-                            </div>
-                            <span className="text-base font-bold text-teal-600">{formatCurrency(totalLoanRepayment)}</span>
-                        </div>
-                    )}
-                </div>
-            </section>
-
-            {/* Credit Card Spends Summary */}
-            <section className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
-                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Credit Card Spends</h3>
-                    <CreditCard size={16} className="text-gray-400" />
-                </div>
-                <div className="grid grid-cols-2 divide-x divide-gray-50">
-                    <div className="px-5 py-6 flex flex-col items-center">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Billed</span>
-                        <span className="text-lg font-bold text-purple-600">{formatCurrency(creditCardStats.billed)}</span>
-                    </div>
-                    <div className="px-5 py-6 flex flex-col items-center">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Unbilled</span>
-                        <span className="text-lg font-bold text-blue-600">{formatCurrency(creditCardStats.unbilled)}</span>
-                    </div>
-                </div>
-            </section>
-
-            {/* Recent Activity (At bottom) */}
+            {/* Recent Activity */}
             <section>
                 <div className="flex justify-between items-end mb-4">
                     <div>

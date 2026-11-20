@@ -78,13 +78,36 @@ export function SortableEventItem({ event, navigate, formatCurrency }: SortableE
                 {/* Amount and Menu */}
                 <div className="flex items-center space-x-2 shrink-0">
                     <div className="flex flex-col items-end">
-                        <div className={cn("text-sm font-bold", event.netAmount >= 0 ? "text-green-600" : "text-red-600")}>
-                            {formatCurrency(event.netAmount)}
-                        </div>
-                        {event.totalPlanned > 0 && (
-                            <div className="text-[10px] text-gray-400 font-medium">
-                                Plan: {formatCurrency(event.totalPlanned)}
-                            </div>
+                        {(event.showPlans !== false && event.totalPlanned > 0) ? (
+                            <>
+                                <div className={cn(
+                                    "text-sm font-bold",
+                                    (event.totalPlanned - event.totalExpense) >= 0 ? "text-green-600" : "text-red-600"
+                                )}>
+                                    {formatCurrency(event.totalPlanned - event.totalExpense)}
+                                </div>
+                                <div className="text-[10px] text-gray-400 font-medium">
+                                    Remaining • Plan: {formatCurrency(event.totalPlanned)}
+                                </div>
+                            </>
+                        ) : event.totalIncome > 0 ? (
+                            <>
+                                <div className={cn("text-sm font-bold", event.netAmount >= 0 ? "text-green-600" : "text-red-600")}>
+                                    {formatCurrency(event.netAmount)}
+                                </div>
+                                <div className="text-[10px] text-gray-400 font-medium">
+                                    Net Balance
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="text-sm font-bold text-gray-900">
+                                    {formatCurrency(event.totalExpense)}
+                                </div>
+                                <div className="text-[10px] text-gray-400 font-medium">
+                                    Total Spent
+                                </div>
+                            </>
                         )}
                     </div>
 

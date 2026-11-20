@@ -595,8 +595,7 @@ export function Reports() {
             </header>
 
             <div className="flex-1 p-4 space-y-6 pb-24">
-                {/* Financial Overview — hidden from UI, data used in PDF export only */}
-                {false && (
+                {/* Summary List */}
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-50">
                         <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Financial Overview</h3>
@@ -675,10 +674,8 @@ export function Reports() {
                         )}
                     </div>
                 </div>
-                )}
 
-                {/* Credit Card Spends — hidden from UI, data used in PDF export only */}
-                {false && (
+                {/* Credit Card Spends Summary */}
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
                         <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Credit Card Spends</h3>
@@ -695,7 +692,6 @@ export function Reports() {
                         </div>
                     </div>
                 </div>
-                )}
 
 
                 {/* Main Chart Section */}
